@@ -26,8 +26,8 @@ class BaseHeader(ctypes.LittleEndianStructure):
         ('checksum_crc16', ctypes.c_uint16),
         ('system_id', ctypes.c_uint8),
     )
-    def __init__(self):
-        self.system_id = IMPISH_SYSTEM_ID
+    def __init__(self, sys_id=None):
+        self.system_id = sys_id or IMPISH_SYSTEM_ID
         self.sync = 0xEB90
 
 
@@ -39,6 +39,9 @@ class CommandHeader(ctypes.LittleEndianStructure):
         ('counter', ctypes.c_uint8),
         ('size', ctypes.c_uint8)
     )
+
+    def __init__(self):
+        self.base_header = BaseHeader()
 
 
 class GondolaTime(ctypes.LittleEndianStructure):
@@ -69,12 +72,12 @@ class TelemetryHeader(ctypes.LittleEndianStructure):
         ('telem_type', ctypes.c_uint8),
 
         ('size', ctypes.c_uint16),
-        ('counter', ctypes.c_uint8),
+        ('counter', ctypes.c_uint16),
         ('_gondola_time', GondolaTime),
     )
 
     def __init__(self):
-        self.sync = 0xEB90
+        self.base_header = BaseHeader()
 
     @property
     def gondola_time(self):
@@ -110,6 +113,8 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure):
     )
 
     def __init__(self):
+        self.base_header = BaseHeader()
+
         # Telemetry type is fixed
         self.telem_type = 1
         # Size is fixed (type + data)
@@ -130,7 +135,7 @@ class CrcError(ValueError):
 
 def apply_crc16(packet_bytes: bytearray) -> None:
     '''Generate the CRC16 checksum for a given GRIPS packet'''
-    head = BaseHeader.from_buffer_copy(packet_bytes)
+    head = BaseHeader.from_buffer(packet_bytes)
 
     # Zero out the CRC before computing
     head.checksum_crc16 = 0
@@ -145,7 +150,7 @@ def verify_crc16(packet_bytes: bytearray) -> None:
     stored_crc = int(head.checksum_crc16)
     head.checksum_crc16 = 0
 
-    computed_crc = int(compute_modbus_crc16(packet_bytes)) 
+    computed_crc = compute_modbus_crc16(packet_bytes).value
 
     # Restore original CRC back to packet bytes
     head.checksum_crc16 = stored_crc
