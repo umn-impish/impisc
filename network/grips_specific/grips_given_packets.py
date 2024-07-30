@@ -31,6 +31,20 @@ class BaseHeader(ctypes.LittleEndianStructure):
         self.sync = 0xEB90
 
 
+class HasGondolaTime:
+    def __init__(self):
+        assert hasattr(self, '_gondola_time')
+
+    @property
+    def gondola_time(self):
+        pass
+
+    @gondola_time.setter
+    def gondola_time(self, new: int):
+        self._gondola_time._gondola_ls32 = (new & 0xffffffff)
+        self._gondola_time._gondola_ms16 = (new & (0xffff << 32))
+
+
 class CommandHeader(ctypes.LittleEndianStructure):
     _pack_ = GRIPS_PACKING
     _fields_ = (
@@ -62,7 +76,7 @@ class GondolaTime(ctypes.LittleEndianStructure):
         )
 
 
-class TelemetryHeader(ctypes.LittleEndianStructure):
+class TelemetryHeader(ctypes.LittleEndianStructure, HasGondolaTime):
     _pack_ = GRIPS_PACKING
     _fields_ = (
         ('base_header', BaseHeader),
@@ -79,13 +93,9 @@ class TelemetryHeader(ctypes.LittleEndianStructure):
     def __init__(self):
         self.base_header = BaseHeader()
 
-    @property
-    def gondola_time(self):
-        return self._gondola_time.compute() 
-
 
 ErrorData = ctypes.c_uint8 * 7
-class CommandAcknowledgement(ctypes.LittleEndianStructure):
+class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
 
     # Taken from command def. document
     NO_ERROR = 0
@@ -123,10 +133,6 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure):
         # Default to no error
         self.error_type = 0
         self.error_data = ErrorData(*([0] * 7))
-
-    @property
-    def gondola_time(self):
-        return self._gondola_time.compute() 
 
 
 class CrcError(ValueError):
