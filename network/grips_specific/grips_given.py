@@ -11,6 +11,7 @@ GRIPS network documentation available on IMPISH shared GDrive in Resources folde
 '''
 
 import ctypes
+import socket
 
 GRIPS_PACKING = 1
 
@@ -37,12 +38,12 @@ class HasGondolaTime:
 
     @property
     def gondola_time(self):
-        pass
+        return self._gondola_time.compute()
 
     @gondola_time.setter
     def gondola_time(self, new: int):
         self._gondola_time._gondola_ls32 = (new & 0xffffffff)
-        self._gondola_time._gondola_ms16 = (new & (0xffff << 32))
+        self._gondola_time._gondola_ms16 = ((new >> 32) & 0xffff)
 
 
 class CommandHeader(ctypes.LittleEndianStructure):
@@ -178,3 +179,43 @@ def compute_modbus_crc16(msg: bytearray | bytes) -> ctypes.c_uint16:
                 crc >>= 1
     return ctypes.c_uint16(crc)
 
+
+def generate_telem_packet(payload_size: int, telem_type: int) -> type:
+    '''
+    function which defines a generic telemetry packet
+    kind of like a C++ template, but more flexible 
+    '''
+
+    class Packet(ctypes.LittleEndianStructure):
+        PayloadArray = (ctypes.c_uint8 * payload_size)
+        _pack_ = 1
+        _fields_ = (
+            ('header', TelemetryHeader),
+            ('payload', PayloadArray),
+        )
+
+        def __init__(self):
+            self.header = TelemetryHeader()
+            self.header.size = payload_size
+            self.header.telem_type = telem_type
+
+    return Packet
+
+
+def send_grips_packet(pkt: ctypes.LittleEndianStructure, address: tuple[str, int]):
+    '''
+    Send a properly-formatted GRIPS packet.
+
+    Generically, the packet is a ctypes.LittleEndianStructure,
+    but in practice it should be a specific packet,
+    otherwise things will not go over too well.
+    '''
+
+    # Put in the CRC and verify it worked
+    ba = bytearray(pkt)
+    apply_crc16(ba)
+    verify_crc16(ba)
+
+    # Send data off via a random socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.sendto(ba, address)
