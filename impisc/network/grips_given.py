@@ -9,14 +9,12 @@ via the fields in the telemetry command.
 
 GRIPS network documentation available on IMPISH shared GDrive in Resources folder.
 '''
-
 import ctypes
-import socket
 
 GRIPS_PACKING = 1
+GRIPS_SYNC = 0xeb90
 
-# Copy the SMASH system ID
-IMPISH_SYSTEM_ID = 0xC0
+IMPISH_SYSTEM_ID = 0xED
 
 
 class BaseHeader(ctypes.LittleEndianStructure):
@@ -29,7 +27,7 @@ class BaseHeader(ctypes.LittleEndianStructure):
     )
     def __init__(self, sys_id=None):
         self.system_id = sys_id or IMPISH_SYSTEM_ID
-        self.sync = 0xEB90
+        self.sync = GRIPS_SYNC
 
 
 class HasGondolaTime:
@@ -95,9 +93,15 @@ class TelemetryHeader(ctypes.LittleEndianStructure, HasGondolaTime):
         self.base_header = BaseHeader()
 
 
+class AcknowledgeError(Exception):
+    def __init__(self, error_type, error_data, *args, **kwargs):
+        self.type = error_type
+        self.data = error_data
+        super().__init__(*args, **kwargs)
+
+
 ErrorData = ctypes.c_uint8 * 7
 class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
-
     # Taken from command def. document
     NO_ERROR = 0
     PARTIAL_HEADER = 1
@@ -135,9 +139,20 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
         self.error_type = 0
         self.error_data = ErrorData(*([0] * 7))
 
+    @classmethod
+    def from_err(cls, ack_err: AcknowledgeError):
+        obj = cls()
+        obj.error_type = ack_err.type
+        obj.error_data = ack_err.data
+        return obj
+
 
 class CrcError(ValueError):
-    pass
+    def __init__(self, recvd, comp, *args, **kwargs):
+        # Store received and computed CRC
+        self.received = ctypes.c_uint16(recvd)
+        self.computed = ctypes.c_uint16(comp)
+        super().__init__(*args, **kwargs)
 
 
 def apply_crc16(packet_bytes: bytearray) -> None:
@@ -157,13 +172,13 @@ def verify_crc16(packet_bytes: bytearray) -> None:
     stored_crc = int(head.checksum_crc16)
     head.checksum_crc16 = 0
 
-    computed_crc = compute_modbus_crc16(packet_bytes).value
+    computed_crc = compute_modbus_crc16(packet_bytes)
 
     # Restore original CRC back to packet bytes
     head.checksum_crc16 = stored_crc
 
     if stored_crc != computed_crc:
-        raise CrcError("CRC for packet invalid")
+        raise CrcError(stored_crc, computed_crc, "CRC for packet invalid")
 
 
 def compute_modbus_crc16(msg: bytearray | bytes) -> ctypes.c_uint16:
@@ -178,44 +193,3 @@ def compute_modbus_crc16(msg: bytearray | bytes) -> ctypes.c_uint16:
             else:
                 crc >>= 1
     return ctypes.c_uint16(crc)
-
-
-def generate_telem_packet(payload_size: int, telem_type: int) -> type:
-    '''
-    function which defines a generic telemetry packet
-    kind of like a C++ template, but more flexible 
-    '''
-
-    class Packet(ctypes.LittleEndianStructure):
-        PayloadArray = (ctypes.c_uint8 * payload_size)
-        _pack_ = 1
-        _fields_ = (
-            ('header', TelemetryHeader),
-            ('payload', PayloadArray),
-        )
-
-        def __init__(self):
-            self.header = TelemetryHeader()
-            self.header.size = payload_size
-            self.header.telem_type = telem_type
-
-    return Packet
-
-
-def send_grips_packet(pkt: ctypes.LittleEndianStructure, address: tuple[str, int]):
-    '''
-    Send a properly-formatted GRIPS packet.
-
-    Generically, the packet is a ctypes.LittleEndianStructure,
-    but in practice it should be a specific packet,
-    otherwise things will not go over too well.
-    '''
-
-    # Put in the CRC and verify it worked
-    ba = bytearray(pkt)
-    apply_crc16(ba)
-    verify_crc16(ba)
-
-    # Send data off via a random socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.sendto(ba, address)
