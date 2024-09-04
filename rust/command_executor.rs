@@ -109,10 +109,17 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
         let max_idx = std::cmp::min(res_bytes.len(), i+STEP);
 
         let mut send_bytes = res_bytes[i..max_idx].to_vec();
+        if send_bytes.len() != STEP {
+            let padding: usize = STEP - send_bytes.len();
+            send_bytes.append(&mut vec![0u8; padding]);
+        }
         send_bytes.push(packet_ordering);
 
         sock.send(&send_bytes).expect("failed to send UDP response");
     }
+
+    // Send a final message saying that data isn't flowing any more
+    sock.send("finished".as_bytes()).expect("failed to send end-of-message");
 }
 
 fn receive_command(sock: &UdpSocket) -> Option<(Vec<u8>, SocketAddr)> {
