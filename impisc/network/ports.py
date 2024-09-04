@@ -16,11 +16,15 @@ It is expected that the listener process will only look at
     port - (port % 1000)
 to identify the origin of the data.
 '''
+import os
+
+GRIPS_EXPOSED = 12345
+
 COMMAND_EXECUTOR = 35000
 
 # XXX update to environment variable which is set
 # by the controller installatoin
-DETECTOR_CONTROLLER = 36000
+DETECTOR_CONTROLLER = os.getenv('DET_SERVICE_PORT') or 36000
 
 COMPUTER_MONITOR = 37000
 GRIPS_LISTENER = 38000
