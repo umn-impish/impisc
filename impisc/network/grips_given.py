@@ -94,9 +94,10 @@ class TelemetryHeader(ctypes.LittleEndianStructure, HasGondolaTime):
 
 
 class AcknowledgeError(Exception):
-    def __init__(self, error_type, error_data, *args, **kwargs):
+    def __init__(self, error_type, error_data, source, *args, **kwargs):
         self.type = error_type
         self.data = error_data
+        self.source = source
         super().__init__(*args, **kwargs)
 
 
@@ -192,4 +193,4 @@ def compute_modbus_crc16(msg: bytearray | bytes) -> ctypes.c_uint16:
                 crc ^= 0xA001
             else:
                 crc >>= 1
-    return ctypes.c_uint16(crc)
+    return crc
