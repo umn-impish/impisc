@@ -12,7 +12,7 @@ distributor process(es) and data downlink process(es).
 import ctypes
 import socket
 
-import grips_given as gg
+from impisc.network import grips_given as gg
 import impisc.network.packets as imppa
 
 # Commands that IMPISH defines
@@ -30,11 +30,12 @@ TELEMETRY_MAP = {
     for (i, c) in enumerate(imppa.all_telemetry_packets)
 }
 
-def send_grips_packet(
-        pkt,
-        address: tuple[str, int],
-        counter: int=0
-    ):
+def send_telemetry_packet(
+    pkt,
+    address: tuple[str, int],
+    given_socket: socket.socket | None=None,
+    counter: int=0
+):
     '''
     Send a properly-formatted GRIPS packet from an
     unwrapped IMPISH packet.
@@ -46,14 +47,35 @@ def send_grips_packet(
 
     # Attach the GRIPS header
     full_packet = bytes(head) + bytes(pkt)
+    send_formatted_packet(full_packet, address, given_socket)
 
+
+def send_command_packet(
+    pkt,
+    address: tuple[str, int],
+    given_socket: socket.socket | None=None,
+    counter: int=0,
+):
+    head = gg.CommandHeader()
+    head.cmd_type = imppa.all_commands.index(type(pkt))
+    head.counter = counter
+    head.size = ctypes.sizeof(pkt)
+    send_formatted_packet(bytes(head) + bytes(pkt), address, given_socket)
+
+
+def send_formatted_packet(
+    full_packet: bytes,
+    address: tuple[str, int],
+    given_socket: socket.socket | None=None
+):
     # Put in the CRC and verify it worked
     ba = bytearray(full_packet)
     gg.apply_crc16(ba)
     gg.verify_crc16(ba)
 
     # Send data off via a random socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # or a provided one
+    s = given_socket or socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.sendto(ba, address)
 
 
@@ -76,21 +98,31 @@ def receive_grips_packet(sock: socket.socket) -> tuple[ctypes.LittleEndianStruct
     # bigger buffer than we will ever need
     BUFSZ = 32768
     data, addr = sock.recvfrom(BUFSZ)
+    return decode_grips_packet(data, addr)
+
+
+def decode_grips_packet(data: bytes, addr: tuple[str, int]) -> tuple[ctypes.LittleEndianStructure, tuple[str, int]]:
+    '''
+    Same as `receive_grips_packet` but expects
+    the data to be presented as bytes already.
+    '''
     data = bytearray(data)
 
     head_sz = ctypes.sizeof(gg.CommandHeader)
     if len(data) < head_sz:
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.PARTIAL_HEADER,
-            data
+            data,
+            addr
         )
 
     decoded = gg.CommandHeader.from_buffer(data)
 
-    if decoded.sync != gg.GRIPS_SYNC:
+    if decoded.base_header.sync != gg.GRIPS_SYNC:
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.INVALID_SYNC,
-            data[:2]
+            data[:2],
+            addr
         )
 
     try:
@@ -98,26 +130,31 @@ def receive_grips_packet(sock: socket.socket) -> tuple[ctypes.LittleEndianStruct
     except gg.CrcError as e:
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.INCORRECT_CRC,
-            bytes(e.received) + bytes(e.computed)
+            bytes(e.received) + bytes(e.computed),
+            addr
         )
 
     if decoded.base_header.system_id != gg.IMPISH_SYSTEM_ID:
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.INCORRECT_SYSTEM_ID,
-            bytes(decoded.system_id)
+            bytes(decoded.system_id),
+            addr
         )
 
     if decoded.cmd_type not in COMMAND_MAP:
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.INVALID_COMMAND_TYPE,
-            bytes(decoded.cmd_type)
+            bytes(decoded.cmd_type),
+            addr
         )
 
-    actual_packet_length = ctypes.c_uint16(len(data) - head_sz)
-    if actual_packet_length != decoded.size:
+    actual_packet_length = ctypes.c_uint8(len(data) - head_sz).value
+    reported_length = decoded.size
+    if actual_packet_length != reported_length:
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.INCORRECT_PACKET_LENGTH,
-            bytes(actual_packet_length) + bytes(decoded.size)
+            bytes(actual_packet_length) + bytes(reported_length),
+            addr
         )
 
     # Now we have verified a lot of details;
@@ -126,7 +163,8 @@ def receive_grips_packet(sock: socket.socket) -> tuple[ctypes.LittleEndianStruct
     if decoded.size != ctypes.sizeof(cmd_type):
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.INVALID_PACKET_LENGTH,
-            bytes(decoded.size)
+            bytes(decoded.size),
+            addr
         )
 
     # Invalid parameters, busy, and other
