@@ -1,7 +1,12 @@
 [package]
 name = "udpcapture"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [dependencies]
+chrono = { version = "0.4.38", features = ["unstable-locales"] }
 clap = { version = "4.5.17", features = ["derive"] }
+
+[profile.release]
+# Size optimization
+opt-level = 3
