@@ -21,3 +21,6 @@ Where the `[ program args ]` are defined by `udpcapture --help`.
 ```bash
 udpcapture -p 12345 -b test -l 600 -s 32768 -f 127.0.0.1:61000 -f 127.0.0.1:62000
 ```
+
+If you want to silence error/debug messages,
+    redirect `stderr` to `/dev/null` with `2>/dev/null`.
