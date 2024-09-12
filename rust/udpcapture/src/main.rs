@@ -7,16 +7,6 @@
  *
  * Useful to have this in Rust or C++ for low-resource systems (e.g. embedded, SBC)
  * Rust is nice, though, because it's safe :-)
- *
- * Known issues:
- *     - If data is sent to the process fast enough that:
- *           a) the "file differentiator" must be incremented
- *           b) the post-process command runs on the file within the same second
- *       Then, you can end up with strange errors occurring.
- *       To prevent this: don't save data so fast.
- *       Or, implement something fancier in your post-process command
- *       if you expect to be saving tons of small files once per second.
- *       That might be silly, regardless.
  * */
 mod args;
 mod writer;
@@ -48,7 +38,6 @@ fn main() {
     loop {
         let data = receive_data(&sock);
         if let Some(saved_file) = writer.maybe_write_data(&data) {
-            println!("we are about to process {saved_file}");
             post_process(&args.post_process_cmd, &saved_file);
         }
         if let Some(fwds) = &args.forward_addrs {
