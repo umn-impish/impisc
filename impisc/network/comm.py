@@ -37,8 +37,8 @@ def send_telemetry_packet(
     counter: int=0
 ):
     '''
-    Send a properly-formatted GRIPS packet from an
-    unwrapped IMPISH packet.
+    Send a telemetry packet wrapped in the GRIPS format
+    from a `native` IMPISH packet.
     '''
     # Build the header from metadata
     head = gg.TelemetryHeader()
@@ -48,19 +48,6 @@ def send_telemetry_packet(
     # Attach the GRIPS header
     full_packet = bytes(head) + bytes(pkt)
     send_formatted_packet(full_packet, address, given_socket)
-
-
-def send_command_packet(
-    pkt,
-    address: tuple[str, int],
-    given_socket: socket.socket | None=None,
-    counter: int=0,
-):
-    head = gg.CommandHeader()
-    head.cmd_type = imppa.all_commands.index(type(pkt))
-    head.counter = counter
-    head.size = ctypes.sizeof(pkt)
-    send_formatted_packet(bytes(head) + bytes(pkt), address, given_socket)
 
 
 def send_formatted_packet(
@@ -83,7 +70,7 @@ def receive_grips_packet(sock: socket.socket) -> tuple[ctypes.LittleEndianStruct
     '''
     Receive a GRIPS packet assuming its command header structure.
 
-    Goes through all of the  steps to verify
+    Goes through all of the  steps to verify that
     the packet is good as per the error codes defined
     in the network specification.
 
@@ -173,3 +160,39 @@ def decode_grips_packet(data: bytes, addr: tuple[str, int]) -> tuple[ctypes.Litt
         cmd_type.from_buffer(data[head_sz:]),
         addr
     )
+
+
+class Commander:
+    '''Use this to send commands to the IMPISH payload on GRIPS.
+    Tracks the "sequence number" as part of the object state,
+    and upon deletion saves it to an aptly-named file for recovery,
+    if need be.
+
+    The sequence number is supposed to be a monotonically-increasing
+    integer up to its maximum (2**8 - 1). This is used on-board
+    to track if commands are coming in properly or if they are
+    arriving out of order.
+
+    The user must deal with out-of-sync sequence numbers.
+    '''
+    def __init__(self):
+        self.sequence_number = 0
+
+    def send_command_packet(
+        self,
+        pkt: ctypes.LittleEndianStructure,
+        address: tuple[str, int],
+        given_socket: socket.socket | None=None,
+    ):
+        '''Send a packet wrapped in the GRIPS command header
+        to the given address, via the given socket.
+        Useful on the ground and for testing.
+        '''
+        head = gg.CommandHeader()
+        head.cmd_type = imppa.all_commands.index(type(pkt))
+        head.counter = self.counter
+        head.size = ctypes.sizeof(pkt)
+
+        self.sequence_number += 1
+        self.sequence_number %= 255
+        send_formatted_packet(bytes(head) + bytes(pkt), address, given_socket)
