@@ -94,10 +94,11 @@ class TelemetryHeader(ctypes.LittleEndianStructure, HasGondolaTime):
 
 
 class AcknowledgeError(Exception):
-    def __init__(self, error_type, error_data, source, *args, **kwargs):
+    def __init__(self, error_type, error_data, source, seq_num, *args, **kwargs):
         self.type = error_type
         self.data = error_data
         self.source = source
+        self.counter = seq_num
         super().__init__(*args, **kwargs)
 
 
@@ -145,6 +146,7 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
         obj = cls()
         obj.error_type = ack_err.type
         obj.error_data = ack_err.data
+        obj.counter = ack_err.counter
         return obj
 
 
