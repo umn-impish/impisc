@@ -16,8 +16,6 @@ from typing import Callable
 from . import grips_given as gg
 from . import packets as imppa
 
-print(imppa.all_commands)
-
 # Commands that IMPISH defines
 # Map from ID to type
 # ID is determined by ordering in all_commands
@@ -175,14 +173,6 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
 class CommandInfo:
     '''Information on a command (header, sender, payload).
     '''
-    @classmethod
-    def from_dict(cls, data_dict):
-        c = cls()
-        c.sender = data_dict['sender']
-        c.payload = data_dict['contents']
-        c.header = data_dict['header']
-        return c
-
     def __init__(self):
         self.sender: tuple[str, int]
         self.payload: ctypes.LittleEndianStructure
@@ -207,11 +197,11 @@ class Commander:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(('0.0.0.0', port))
 
-    def send_recv_command_packet(
+    def send_command(
         self,
         pkt: ctypes.LittleEndianStructure,
         address: tuple[str, int],
-    ) -> gg.CommandAcknowledgement:
+    ) -> None:
         '''Send a packet wrapped in the GRIPS command header
            to the given address, via the given socket.
            Useful on the ground and for testing.
@@ -232,6 +222,7 @@ class Commander:
         self.sequence_number += 1
         self.sequence_number %= 256
 
+    def recv_ack(self) -> gg.CommandAcknowledgement:
         # The command acknoqledgement should arrive synchronously right after
         res_dat = self.socket.recv(2048)
         return gg.CommandAcknowledgement.from_buffer_copy(res_dat)
@@ -254,11 +245,14 @@ class CommandRouter:
     There should only be one instance of the CommandRouter
     active on the spacecraft.
     '''
-    def __init__(self, listen_port: int):
+    def __init__(self, listen_port: int, telemetry_port: int):
         self.cmd_map = dict()
         self.socket = socket.socket(
             socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(('0.0.0.0', listen_port))
+
+        # The port to which telemetry data will get forwarded
+        self.telem_port = telemetry_port
 
     def add_callback(self, command: type, callback: RouterCallback) -> None:
         self.cmd_map[command] = callback
@@ -288,8 +282,12 @@ class CommandRouter:
             )
 
         # Parse a received command into structured data
+        ci = CommandInfo()
         try:
-            ci = CommandInfo.from_dict(receive_command(self.socket))
+            recv_dat = receive_command(self.socket)
+            ci.payload = recv_dat['contents']
+            ci.sender = recv_dat['sender']
+            ci.header = imppa.CmdHeader(self.telem_port)
         except gg.AcknowledgeError as e:
             handle_error(e)
 
@@ -351,7 +349,7 @@ class Telemeter:
         The telemetry sequence number is maintained in the
         range [0, 2^16 - 1].
         '''
-        data, (_, port) = self.sock.recvfrom(65535)
+        data, (_, port) = self.socket.recvfrom(65535)
         type_ = self.port_map[port]
         send_telemetry_packet(
             type_.from_buffer_copy(data),
