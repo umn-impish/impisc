@@ -117,6 +117,23 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
     BUSY = 9
     GENERAL_FAILURE = 10
 
+    # Index the array by the error value
+    # for a human-readable identifier.
+    HUMAN_READABLE_FAILURES = [
+        "NO_ERROR",
+        "PARTIAL_HEADER",
+        "INVALID_SYNC",
+        "INCORRECT_CRC",
+        "INCORRECT_SYSTEM_ID",
+        "INVALID_COMMAND_TYPE",
+        "INCORRECT_PACKET_LENGTH",
+        "INVALID_PACKET_LENGTH",
+        "INVALID_PAYLOAD_VALUE",
+        "BUSY",
+        "GENERAL_FAILURE",
+    ]
+
+    ERROR_BYTES = 7
     _pack_ = GRIPS_PACKING
     _fields_ = (
         ('base_header', BaseHeader),
@@ -139,13 +156,14 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
 
         # Default to no error
         self.error_type = 0
-        self.error_data = ErrorData(*([0] * 7))
+        self.error_data = ErrorData(*([0] * self.ERROR_BYTES))
 
     @classmethod
     def from_err(cls, ack_err: AcknowledgeError):
         obj = cls()
         obj.error_type = ack_err.type
-        obj.error_data = ack_err.data
+        for i in range(min(cls.ERROR_BYTES, len(ack_err.data))):
+            obj.error_data[i] = ack_err.data[i]
         obj.counter = ack_err.counter
         return obj
 
