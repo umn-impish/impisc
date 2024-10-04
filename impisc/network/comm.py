@@ -9,6 +9,7 @@ as the lists `all_commands` and `all_telemetry_packets` grow.
 These functions are meant to be imported in the command
 distributor process(es) and data downlink process(es).
 '''
+# TODO add decoder functionality for telemetry packets
 import ctypes
 import socket
 from typing import Callable
@@ -49,10 +50,10 @@ def send_telemetry_packet(
 
     # Attach the GRIPS header
     full_packet = bytes(head) + bytes(pkt)
-    send_telemetry_bytes(full_packet, address, given_socket)
+    send_grips_bytes(full_packet, address, given_socket)
 
 
-def send_telemetry_bytes(
+def send_grips_bytes(
     full_packet: bytes,
     address: tuple[str, int],
     given_socket: socket.socket | None=None
@@ -170,6 +171,20 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
     }
 
 
+def grips_cmd_header_from_packet(pkt: ctypes.LittleEndianStructure, seq_num: int):
+    '''
+    Construct a command header given a "known" packet type.
+    Just a wrapper around the constructor, but incorporates
+    the information within `impish.network.packets.all_commands` to
+    assign the cmd_type.
+    '''
+    head = gg.CommandHeader()
+    head.cmd_type = imppa.all_commands.index(type(pkt))
+    head.counter = seq_num
+    head.size = ctypes.sizeof(pkt)
+    return head
+
+
 class CommandInfo:
     '''Information on a command (header, sender, payload).
     '''
@@ -207,13 +222,10 @@ class Commander:
            Useful on the ground and for testing.
            Returns the cmd response.
         '''
-        head = gg.CommandHeader()
-        head.cmd_type = imppa.all_commands.index(type(pkt))
-        head.counter = self.sequence_number
-        head.size = ctypes.sizeof(pkt)
+        head = grips_cmd_header_from_packet(pkt, self.sequence_number)
 
         # Might throw; wait to increment seq_num until after call
-        send_telemetry_bytes(
+        send_grips_bytes(
             bytes(head) + bytes(pkt),
             address, self.socket
         )
@@ -273,9 +285,10 @@ class CommandRouter:
             '''
             bad = gg.CommandAcknowledgement.from_err(e)
             sender = e.source 
-            send_telemetry_bytes(
+            send_grips_bytes(
                 bad,
                 sender,
+                given_socket=self.socket
             )
             raise UserWarning(
                 "Packet error occurred during parsing/verification"
