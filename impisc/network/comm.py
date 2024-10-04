@@ -189,9 +189,10 @@ class CommandInfo:
     '''Information on a command (header, sender, payload).
     '''
     def __init__(self):
-        self.sender: tuple[str, int]
-        self.payload: ctypes.LittleEndianStructure
-        self.header: imppa.CmdHeader
+        self.sender: tuple[str, int] = ('', 0)
+        self.seq_num: int = 0
+        self.payload: ctypes.LittleEndianStructure = None
+        self.header: imppa.CmdHeader = None
 
 
 class Commander:
@@ -300,6 +301,7 @@ class CommandRouter:
             recv_dat = receive_command(self.socket)
             ci.payload = recv_dat['contents']
             ci.sender = recv_dat['sender']
+            ci.seq_num = recv_dat['header'].counter
             ci.header = imppa.CmdHeader(self.telem_port)
         except gg.AcknowledgeError as e:
             handle_error(e)
