@@ -10,6 +10,9 @@ def test_cmd_telemetry_loop():
     Define a dummy "telemetry loop" to test the functionality
     of command routing, acknowledgement, and telemetering 
     independent of the actual implementation of IMPISH stuff.
+
+    This does not explore any "exceptional" conditions;
+    those are tested separately.
     '''
     local_cmd_port = 12345
     local_data_port = 12346
@@ -82,11 +85,15 @@ def test_exceptional_router():
         - Malformed command (AckError reply to cmd sender)
         - No callback present for cmd (throws ValueError)
         - Callback throws an AckError: reply to cmd sender
+
+    As a side effect, the sequence number synchronization
+    between the Commmander and CommandRouter are tested
+    for the simple cases of (0, 1).
     '''
     # Test the "bad command case"
     router = comm.CommandRouter(
-        (route_port := 12345),
-        (cmd_port := 12346)
+        (route_port := 23451),
+        (cmd_port := 23461)
     )
     good_cback = lambda *_: gg.CommandAcknowledgement()
     router.add_callback(packets.DummyCmd, good_cback)
@@ -136,8 +143,6 @@ def test_exceptional_router():
         router.listen_and_route()
 
     # See what happens when a callback throws an AckError
-    del cdr
-    cdr = comm.Commander(cmd_port)
     def bad_cback(ci: comm.CommandInfo):
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.BUSY,
@@ -156,3 +161,41 @@ def test_exceptional_router():
 
     reply = cdr.recv_ack()
     assert reply.error_type == gg.CommandAcknowledgement.BUSY
+
+
+def test_exceptional_commander():
+    '''Test if the Commander class can properly
+       handle exception conditions, and that its
+       sequence numbering properly ticks up over time.
+
+       We expect a few possibliities:
+         - A command is unrecognized (throws)
+         - ...
+
+       I guess that's the only exceptional condition
+       that needs to get treated explicitly.
+       A malformed command ack packet will definitely
+       throw, but we don't need to do any special checks
+       for that in the class definition itself.
+    '''
+    cdr = comm.Commander(54321)
+    class StupidType(ctypes.LittleEndianStructure):
+        pass
+
+    with pytest.raises(ValueError):
+        cdr.send_command(StupidType(), ('localhost', 54322))
+
+    del cdr
+    cdr = comm.Commander(54321)
+    # Receive the packets individually and just verify the
+    # sequence numbers
+    receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    receiver.bind(('', 0))
+    recv_addr = receiver.getsockname()
+    # Go for several "sequence number rollovers" to make sure
+    # things keep working.
+    for i in range(12345):
+        cdr.send_command(packets.DummyCmd(), recv_addr)
+        cmd_dat = receiver.recv(2048)
+        head = gg.CommandHeader.from_buffer_copy(cmd_dat)
+        assert head.counter == (i % 256)
