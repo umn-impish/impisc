@@ -43,7 +43,16 @@ class Dummy(ctypes.LittleEndianStructure):
         ('data', ctypes.c_ubyte * 256),
     )
 
+
+class UnknownCmd(ctypes.LittleEndianStructure):
+    '''An unknown command type, used for some
+       "ack error" replies before the packet
+       can get totally decoded.'''
+    pass
+
+
 all_commands = [
+    UnknownCmd,
     ArbitraryLinuxCommand,
     DummyCmd,
 ]

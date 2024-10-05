@@ -25,9 +25,8 @@ def test_cmd_telemetry_loop():
 
     cmd = comm.Commander(local_cmd_port)
     # The command router needs to know where to
-    # listen for packets, as well as where to route the
-    # ensuing telemetry data
-    route = comm.CommandRouter(remote_router_port, remote_telem_port)
+    # listen for packets
+    route = comm.CommandRouter(remote_router_port)
 
     def dummy_callback(in_: comm.CommandInfo) -> gg.CommandAcknowledgement:
         # Construct a dummy packet with some data
@@ -38,7 +37,9 @@ def test_cmd_telemetry_loop():
         # Send dummy data over to the Telemeter
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.bind(('0.0.0.0', remote_dummy_port))
-        s.sendto(bytes(tel), ('localhost', in_.header.telemeter_port))
+        # Assume the port is known via either an envar or
+        # some other import
+        s.sendto(bytes(tel), ('localhost', remote_telem_port))
 
         # Say all went well
         return gg.CommandAcknowledgement()
@@ -93,8 +94,8 @@ def test_exceptional_router():
     # Test the "bad command case"
     router = comm.CommandRouter(
         (route_port := 23451),
-        (cmd_port := 23461)
     )
+    cmd_port = 23461
     good_cback = lambda *_: gg.CommandAcknowledgement()
     router.add_callback(packets.DummyCmd, good_cback)
 
@@ -147,8 +148,9 @@ def test_exceptional_router():
         raise gg.AcknowledgeError(
             gg.CommandAcknowledgement.BUSY,
             error_data=[],
-            source=ci.sender,
-            seq_num=ci.seq_num
+            cmd_source_addr=ci.sender,
+            cmd_seq_num=ci.seq_num,
+            cmd_type=type(ci.payload)
         )
 
     router.add_callback(packets.DummyCmd, bad_cback)

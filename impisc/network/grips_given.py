@@ -10,6 +10,7 @@ via the fields in the telemetry command.
 GRIPS network documentation available on IMPISH shared GDrive in Resources folder.
 '''
 import ctypes
+from typing import Iterable
 
 GRIPS_PACKING = 1
 GRIPS_SYNC = 0xeb90
@@ -97,12 +98,21 @@ class TelemetryHeader(ctypes.LittleEndianStructure, HasGondolaTime):
 
 
 class AcknowledgeError(Exception):
-    def __init__(self, error_type, error_data, source, seq_num, *args, **kwargs):
-        self.type = error_type
-        self.data = error_data
-        self.source = source
-        self.counter = seq_num
-        super().__init__(*args, **kwargs)
+    def __init__(
+            self,
+            error_type: int,
+            error_data: Iterable,
+            cmd_source_addr: tuple[str, int],
+            cmd_seq_num: int,
+            cmd_type: type[ctypes.LittleEndianStructure],
+        ):
+        '''Encapsulates data required for an error Ack reply as an exception.'''
+        self.type: int = error_type
+        self.data: bytes = bytes(error_data)
+        self.cmd_source_addr: tuple[str, int] = cmd_source_addr
+        self.counter: int = cmd_seq_num
+        self.cmd_type: type[ctypes.LittleEndianStructure] = cmd_type
+        super().__init__()
 
 
 ErrorData = ctypes.c_uint8 * 7
@@ -161,6 +171,19 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
         self.error_type = 0
         self.error_data = ErrorData(*([0] * self.ERROR_BYTES))
 
+    def pre_send(self, cmd_seq_num: int, cmd_type: int):
+        '''Give data to the Ack packet which is required
+           before sending it off.
+
+           This _could_ be part of the constructor,
+           but the packet is technically initialized after
+           construction. In some cases it might make sense to
+           assign this information post-instantiation anyway.
+           So for now, it's a separate method.
+        '''
+        self.cmd_type = cmd_type
+        self.counter = cmd_seq_num
+
     @classmethod
     def from_err(cls, ack_err: AcknowledgeError):
         obj = cls()
@@ -168,6 +191,7 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
         for i in range(min(cls.ERROR_BYTES, len(ack_err.data))):
             obj.error_data[i] = ack_err.data[i]
         obj.counter = ack_err.counter
+        obj.cmd_type = ack_err.type
         return obj
 
 
