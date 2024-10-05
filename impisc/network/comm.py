@@ -41,7 +41,7 @@ def send_telemetry_packet(
 ):
     '''
     Send a telemetry packet wrapped in the GRIPS format
-    from a `native` IMPISH packet.
+    from a 'native' IMPISH packet.
     '''
     # Build the header from metadata
     head = gg.TelemetryHeader()
@@ -197,12 +197,10 @@ class CommandInfo:
 
 class Commander:
     '''Use this to send commands to the IMPISH payload on GRIPS.
-    Tracks the "sequence number" as part of the object state,
-    and upon deletion saves it to an aptly-named file for recovery,
-    if need be.
+    Tracks the "sequence number" as part of the object state.
 
     The sequence number is supposed to be a monotonically-increasing
-    integer up to its maximum (2**8 - 1). This is used on-board
+    integer up to its maximum (255). This is used on-board
     to track if commands are coming in properly or if they are
     arriving out of order.
 
@@ -223,7 +221,10 @@ class Commander:
            Useful on the ground and for testing.
            Returns the cmd response.
         '''
-        head = grips_cmd_header_from_packet(pkt, self.sequence_number)
+        try:
+            head = grips_cmd_header_from_packet(pkt, self.sequence_number)
+        except KeyError:
+            raise ValueError(f'{type(pkt)} is an unrecognized command')
 
         # Might throw; wait to increment seq_num until after call
         send_grips_bytes(
@@ -236,7 +237,8 @@ class Commander:
         self.sequence_number %= 256
 
     def recv_ack(self) -> gg.CommandAcknowledgement:
-        # The command acknoqledgement should arrive synchronously right after
+        # The command acknoqledgement should arrive synchronously
+        # right after sending the command.
         res_dat = self.socket.recv(2048)
         return gg.CommandAcknowledgement.from_buffer_copy(res_dat)
 
@@ -267,6 +269,10 @@ class CommandRouter:
         # The port to which telemetry data will get forwarded
         self.telem_port = telemetry_port
 
+        # Keep track of the command sequence number as part
+        # of the object state
+        self.expected_cmd_seq_num = None
+
     def add_callback(self, command: type, callback: RouterCallback) -> None:
         self.cmd_map[command] = callback
 
@@ -279,21 +285,6 @@ class CommandRouter:
            The issue is properly reported back to the sender;
            no need to do that on your own <3
         '''
-        def handle_error(e: gg.AcknowledgeError):
-            '''If we get an error from some portion of the
-               command process, parse it to an Ack packet
-               and send it off.
-            '''
-            bad = gg.CommandAcknowledgement.from_err(e)
-            sender = e.source 
-            send_grips_bytes(
-                bad,
-                sender,
-                given_socket=self.socket
-            )
-            raise UserWarning(
-                "Packet error occurred during parsing/verification"
-            )
 
         # Parse a received command into structured data
         ci = CommandInfo()
@@ -304,7 +295,15 @@ class CommandRouter:
             ci.seq_num = recv_dat['header'].counter
             ci.header = imppa.CmdHeader(self.telem_port)
         except gg.AcknowledgeError as e:
-            handle_error(e)
+            # We had a problem verifying the cmd packet
+            # structure
+            self._handle_error(e)
+
+        try:
+            self._track_seq_num(ci)
+        except gg.AcknowledgeError as e:
+            # The sequence number was out of order
+            self._handle_error(e)
 
         # Fetch the appropriate callback for the given command
         try:
@@ -318,11 +317,50 @@ class CommandRouter:
         try:
             ack = cback(ci)
         except gg.AcknowledgeError as e:
-            handle_error(e)
+            # There was an error during
+            # command execution
+            self._handle_error(e)
 
-        # Send off a "good" ack packet
+        # If we clear all the try/except blocks:
+        #     send off a "good" ack packet
         self.socket.sendto(bytes(ack), ci.sender)
 
+    def _track_seq_num(self, ci: CommandInfo) -> None:
+        '''Keep track of the command packet sequence number
+           relative to what we expect.
+           If it fails, throw an AckError.
+        '''
+        # Set upon receipt of first command
+        if self.expected_cmd_seq_num is None:
+            self.expected_cmd_seq_num = ci.seq_num
+
+        if self.expected_cmd_seq_num != ci.seq_num:
+            raise gg.AcknowledgeError(
+                gg.CommandAcknowledgement.GENERAL_FAILURE,
+                error_data=list(b'badsqn') + [self.expected_cmd_seq_num],
+                source=ci.sender,
+                seq_num=ci.seq_num
+            )
+
+        # Increment the number in expectation of the next command
+        self.expected_cmd_seq_num += 1
+        self.expected_cmd_seq_num %= 256
+
+    def _handle_error(self, e: gg.AcknowledgeError) -> None:
+        '''If we get an error from some portion of the
+            command process, parse it to an Ack packet
+            and send it off.
+        '''
+        bad = gg.CommandAcknowledgement.from_err(e)
+        sender = e.source
+        send_grips_bytes(
+            bad,
+            sender,
+            given_socket=self.socket
+        )
+        raise UserWarning(
+            "Packet error occurred during parsing/verification"
+        )
 
 class Telemeter:
     '''
@@ -349,9 +387,9 @@ class Telemeter:
         # another way to do this, but this achieves the
         # same result and makes the ad-hoc intention clearer--
         # you have to update things after object initialization.
-        self.port_map: dict[str, ctypes.LittleEndianStructure] = dict()
+        self.port_map: dict[int, type[ctypes.LittleEndianStructure]] = dict()
 
-    def telemeter(self):
+    def telemeter(self) -> None:
         '''
         Wait on the object's UDP socket until some data comes in;
         it is assumed that the data is a telemetry packet from
@@ -362,7 +400,7 @@ class Telemeter:
         sent to the stored destination address.
 
         The telemetry sequence number is maintained in the
-        range [0, 2^16 - 1].
+        interval [0, 2^16).
         '''
         data, (_, port) = self.socket.recvfrom(65535)
         type_ = self.port_map[port]
