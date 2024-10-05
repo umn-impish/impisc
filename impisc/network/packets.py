@@ -13,18 +13,6 @@ import ctypes
 from umndet.common import impress_exact_structs as ies
 
 
-@dataclass
-class CmdHeader(ctypes.LittleEndianStructure):
-    '''
-    Header data that we attach to every command packet.
-    Command replies are sent directly back to the 
-    commander, but auxiliary data we may want to
-    forward elsewhere, e.g. a udp_capture or straight
-    back to the ground via a separate process.
-    '''
-    telemeter_port: int
-
-
 CommandCharArray = ctypes.c_ubyte * 255
 class ArbitraryLinuxCommand(ctypes.LittleEndianStructure):
     _pack_ = 1

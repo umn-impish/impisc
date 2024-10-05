@@ -192,7 +192,7 @@ class CommandInfo:
         self.sender: tuple[str, int] = ('', 0)
         self.seq_num: int = 0
         self.payload: ctypes.LittleEndianStructure = None
-        self.header: imppa.CmdHeader = None
+        self.telemetry_port: int = 0
 
 
 class Commander:
@@ -293,7 +293,7 @@ class CommandRouter:
             ci.payload = recv_dat['contents']
             ci.sender = recv_dat['sender']
             ci.seq_num = recv_dat['header'].counter
-            ci.header = imppa.CmdHeader(self.telem_port)
+            ci.telemetry_port = self.telemetry_port
         except gg.AcknowledgeError as e:
             # We had a problem verifying the cmd packet
             # structure
