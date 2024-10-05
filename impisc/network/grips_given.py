@@ -32,7 +32,10 @@ class BaseHeader(ctypes.LittleEndianStructure):
 
 class HasGondolaTime:
     def __init__(self):
-        assert hasattr(self, '_gondola_time')
+        assert (
+            hasattr(self, '_gondola_time') and
+            isinstance(self._gondola_time, GondolaTime)
+        )
 
     @property
     def gondola_time(self):
