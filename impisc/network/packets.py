@@ -8,7 +8,6 @@ such as the science data packets.
 
 Doesn't really matter as long as we enumerate them all here!
 '''
-from dataclasses import dataclass
 import ctypes
 from umndet.common import impress_exact_structs as ies
 
