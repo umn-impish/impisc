@@ -16,6 +16,13 @@ cargo run --release -- [ program args ]
 ```
 Where the `[ program args ]` are defined by `udpcapture --help`.
 
+## How to install, once you are happy
+To install per-user:
+```bash
+cargo install --path .
+```
+To install system-wide: IDK google it
+
 ## Examples
 ### UDP capture to a file and forward to two addresses
 ```bash
