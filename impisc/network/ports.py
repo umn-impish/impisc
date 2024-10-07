@@ -18,6 +18,9 @@ to identify the origin of the data.
 '''
 import os
 
+# Default to localhost for testing
+GRIPS_IP = os.getenv('GRIPS_IP_ADDR') or '127.0.0.1'
+
 GRIPS_EXPOSED = 12345
 
 COMMAND_EXECUTOR = 35000
@@ -26,5 +29,11 @@ COMMAND_EXECUTOR = 35000
 # by the controller installatoin
 DETECTOR_CONTROLLER = os.getenv('DET_SERVICE_PORT') or 36000
 
+TELEMETER = 40000
+
 COMPUTER_MONITOR = 37000
-GRIPS_LISTENER = 38000
+COMMAND_ROUTER = 38000
+# Telemetered replies from the command router are
+# expected to come from these ports
+# They start at the COMMAND_ROUTER value and go up
+ARBITRARY_LINUX_COMMAND_TELEM = 38001

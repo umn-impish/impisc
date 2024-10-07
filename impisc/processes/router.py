@@ -13,43 +13,50 @@ The behavior is defined by the respective process
 and the corresponding function in this file.
 '''
 import socket
+import sys
 from impisc.network import ports
 from impisc.network import comm
 from impisc.network import grips_given as gg
 from impisc.network import packets
 
-def route_data(sock: socket.socket):
+
+def log_packet_error(e: UserWarning):
+    # For now just . . . print it
+    print('packet error:', e, file=sys.stderr)
+
+
+def route_data():
     '''
     Receive data from GRIPS as well as other processes,
     and route it to the appropriate place.
     '''
-    try:
-        cmd, sender = comm.receive_grips_packet(sock)
-        print(cmd)
-    except gg.AcknowledgeError as e:
-        # ruh roh!
-        bad = gg.CommandAcknowledgement.from_err(e)
-        sender = e.source 
-        comm.send_formatted_packet(
-            bad,
-            sender,
-        )
-        return
+    router = comm.CommandRouter(ports.COMMAND_ROUTER)
 
-    # Map each command to its process with a bunch of 'if' statements
-    if type(cmd) == packets.ArbitraryLinuxCommand:
-        sock.sendto(
-            cmd.command, ('localhost', ports.COMMAND_EXECUTOR)
-        )
-        arb_command_handler(sock, sender)
+    # Add callbacks here as they become relevant
+    router.add_callback(packets.ArbitraryLinuxCommand, arb_command_handler)
+
+    while True:
+        try:
+            router.listen_and_route()
+        except UserWarning as e:
+            log_packet_error(e)
 
 
 def arb_command_handler(
-        sock: socket.socket,
-        sender: tuple[str, int],
-):
-    replies = []
+    ci: comm.CommandInfo
+) -> gg.CommandAcknowledgement:
+    # Send the command over to the 
+    # appropriate process from the desired port
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('0.0.0.0', ports.ARBITRARY_LINUX_COMMAND_TELEM))
+
+    # Assume correct type already assigned
+    sock.sendto(ci.payload.cmd)
+
+    # Await the telemetry replies
+    replies: list[packets.ArbitraryLinuxCommandResponse] = []
     orig_timeout = sock.gettimeout()
+    # Give the Linux command an execution time limit (s)
     sock.settimeout(60)
     while True:
         try: dat = sock.recv(2048)
@@ -60,32 +67,41 @@ def arb_command_handler(
 
         replies.append(
             packets.ArbitraryLinuxCommandResponse
-                    .from_buffer_copy(dat)
+                   .from_buffer_copy(dat)
         )
     sock.settimeout(orig_timeout)
 
     # sort the packets out to be in correct order
     replies.sort(key=lambda r: r.seq_num)
-    ack_pkt = gg.CommandAcknowledgement()
+    # Send packets out to the Telemeter process
+    for r in replies:
+        # Drop the packet-local seq num
+        sock.sendto(bytes(r.response), ('localhost', ports.TELEMETER))
+
+    # After forwarding telemetry,
+    # return an appropriate ack to the cmd sender
+    # (either OK or an error)
     bad = (len(replies) == 0) or (
         bytes(replies[0].response).startswith(b'error')
     )
     if bad:
-        ack_pkt.error_type = gg.CommandAcknowledgement.GENERAL_FAILURE
-    comm.send_formatted_packet(bytes(ack_pkt), sender)
-    for r in replies:
-        comm.send_telemetry_packet(r, sender, r.seq_num)
+        raise gg.AcknowledgeError(
+            gg.CommandAcknowledgement.GENERAL_FAILURE,
+            'cmderr',
+            ci.sender,
+            ci.seq_num,
+            cmd_type=type(ci.payload)
+        )
 
-
-def main():
-    listen = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    listen.bind(('', ports.GRIPS_LISTENER))
-    listen.settimeout(None)
-
-    while True:
-        route_data(listen)
+    # Everything went ok
+    ack = gg.CommandAcknowledgement()
+    ack.pre_send(
+        ci.seq_num,
+        packets.all_commands.index(type(ci.payload))
+    )
+    return ack
 
 
 if __name__ == '__main__':
-    main()
+    route_data()
 
