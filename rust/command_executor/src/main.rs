@@ -9,10 +9,6 @@
     stdout and stderr are captured and sent back separately.
     packets are broken into 1024B chunks, and the 1025th byte
     indicates the packet "sequence number".
-
-    To compile (at least until we put stuff into a crate):
-        rustc command_executor.rs && strip command_executor
-        # Strip removes symbols (file size from 13MB to 500KB lol)
 */
 
 use std::ffi::{OsString, OsStr};

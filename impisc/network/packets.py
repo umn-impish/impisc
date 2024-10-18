@@ -30,11 +30,34 @@ class ArbitraryLinuxCommandResponse(ctypes.LittleEndianStructure):
         ('seq_num', ctypes.c_ubyte)
     )
 
+
+class DummyCmd(ctypes.LittleEndianStructure):
+    pass
+
+
+class Dummy(ctypes.LittleEndianStructure):
+    '''Test struct'''
+    _pack_ = 1
+    _fields_ = (
+        ('data', ctypes.c_ubyte * 256),
+    )
+
+
+class UnknownCmd(ctypes.LittleEndianStructure):
+    '''An unknown command type, used for some
+       "ack error" replies before the packet
+       can get totally decoded.'''
+    pass
+
+
 all_commands = [
+    UnknownCmd,
     ArbitraryLinuxCommand,
+    DummyCmd,
 ]
 
 all_telemetry_packets = [
     ArbitraryLinuxCommandResponse,
+    Dummy,
     ies.DetectorHealth,
 ]
