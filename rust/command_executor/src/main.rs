@@ -61,12 +61,14 @@ impl OutputWrapper {
 }
 
 fn main() {
-    // Special address 0000 is like INADDR_ANY
-    let sock = UdpSocket::bind(format!("0.0.0.0:{PORT}"))
-                         .expect("Couldn't bind socket!");
-    sock.set_read_timeout(None).expect("Couldn't set socket timeout");
-
     loop {
+        // Special address 0000 is like INADDR_ANY.
+        // The socket needs to get re-created each time
+        // so that we can stay bound to 0.0.0.0
+        let sock = UdpSocket::bind(format!("0.0.0.0:{PORT}"))
+                            .expect("Couldn't bind socket!");
+        sock.set_read_timeout(None).expect("Couldn't set socket timeout");
+
         let Some((cmd, sender)) = receive_command(&sock)
         else {
             eprintln!("Failed to parse command from UDP packet.");
