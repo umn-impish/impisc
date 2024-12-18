@@ -1,7 +1,7 @@
 import datetime
 import time
 
-from i2cdevices.device import DS3231
+from devices.ds3231 import DS3231
 
 
 def main():

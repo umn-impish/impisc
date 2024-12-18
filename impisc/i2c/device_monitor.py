@@ -2,11 +2,11 @@ import datetime
 import os
 import time
 
-from i2cdevices import device, manager
+from devices import ds3231, manager
 
 
 REGISTER = {
-    'DS3231': device.DS3231(1, 0x68)
+    'DS3231': ds3231.DS3231(1, 0x68)
 }
 
 

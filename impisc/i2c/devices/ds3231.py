@@ -1,82 +1,6 @@
-import os
-import smbus
 import time
 
-from dataclasses import dataclass
-
-
-@dataclass
-class GenericDevice:
-    bus_number: int
-    address: int
-    kernel_driver: str | None = None
-
-
-    @property
-    def bus(self) -> smbus.SMBus:
-        """
-        The I2C bus needs to be reopened every time since it
-        doesn't autoupdate.
-        """
-        
-        return smbus.SMBus(self.bus_number)
-
-    
-    @property
-    def responsive(self) -> bool:
-        """
-        Tries to read data from register 0x00;
-        returns boolean indicating success.
-        """
-
-        try:
-            self.read_data(0)
-            return True
-        except Exception as e:
-            print(f'Could not ping I2C device at address {hex(self.address)}:\n{e}')
-            return False
-
-
-    def read_data(self, register: int) -> int:
-        """
-        Reads data from the provided register.
-        """
-        
-        return self.bus.read_byte_data(self.address, register)
-
-
-    def write_data(self, register: int, data: int) -> int:
-        """
-        Writes data from the provided register.
-        """
-        
-        return self.bus.write_byte_data(self.address, register, data)
-
-
-    def give_to_kernel(self, quiet: bool = True):
-        """
-        Gives device module to the Linux Kernel.
-        TODO: add while loop?
-        """
-
-        if self.kernel_driver is not None:
-            if not quiet: print(f'Adding {self.kernel_driver} to kernel.')
-            os.system(f'sudo modprobe {self.kernel_driver}')
-        else:
-            if not quiet: print(f'No kernel driver associated with I2C device at address {self.address}')
-
-    
-    def release_from_kernel(self, quiet: bool = True):
-        """
-        Releases device module from the Linux Kernel.
-        TODO: add while loop?
-        """
-        
-        if self.kernel_driver is not None:
-            if not quiet: print(f'Releasing {self.kernel_driver} from kernel.')
-            os.system(f'sudo modprobe -r {self.kernel_driver}')
-        else:
-            if not quiet: print(f'No kernel driver associated with I2C device at address {self.address}')
+from device import GenericDevice
 
 
 class DS3231(GenericDevice):
@@ -108,18 +32,14 @@ class DS3231(GenericDevice):
 
     @property
     def control_register(self) -> int:
-        """
-        The current state of the control register.
-        """
+        '''The current state of the control register.'''
 
         # return self.bus.read_byte_data(self.address, 0x0E)
         return self.read_data(0x0E)
 
 
     def enable_pps(self) -> None:
-        """
-        Enables the PPS.
-        """
+        '''Enables the PPS.'''
 
         mask = 227 # 11100011
         self.write_data(0x0E, self.control_register & mask)
@@ -127,9 +47,7 @@ class DS3231(GenericDevice):
 
 
     def disable_pps(self) -> None:
-        """
-        Disables the PPS.
-        """
+        '''Disables the PPS.'''
 
         mask = 28 # 00011100
         self.write_data(0x0E, self.control_register | mask)
@@ -137,9 +55,7 @@ class DS3231(GenericDevice):
 
 
     def toggle_pps(self) -> bool:
-        """
-        Returns the **new** state of the PPS.
-        """
+        '''Returns the **new** state of the PPS.'''
 
         if self.pps_enabled:
             self.disable_pps()
@@ -150,9 +66,7 @@ class DS3231(GenericDevice):
 
 
     def read_temperature(self) -> float:
-        """
-        Temperature in degrees celsius.
-        """
+        '''Temperature in degrees celsius.'''
         
         self._force_convert()
         byte_tmsb = self.read_data(0x11)
@@ -164,12 +78,11 @@ class DS3231(GenericDevice):
 
 
     def _force_convert(self) -> bool:
-        """
-        Force a conversion and wait until it completes.
+        '''Force a conversion and wait until it completes.
         This forces an update to the registers storing the temperature.
 
         Why does this return True?
-        """
+        '''
 
         # Wait for an in-progress conversion to complete.
         while self.busy:
@@ -187,10 +100,6 @@ class DS3231(GenericDevice):
         return True
 
 
-def _test_GenericDevice():
-    device = GenericDevice(1, 0x03)
-
-
 def _test_DS3231():
     
     device = DS3231(1, 0x68)
@@ -201,5 +110,4 @@ def _test_DS3231():
 
 
 if __name__ == '__main__':
-    _test_GenericDevice()
     _test_DS3231()
