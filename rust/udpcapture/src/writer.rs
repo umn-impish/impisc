@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use std::fs::File;
-use std::io::{Write, Seek};
+use std::io::{Write, BufWriter};
 use std::path::Path;
 
 pub struct FileWriter {
@@ -10,10 +10,11 @@ pub struct FileWriter {
     base_filename: Option<String>,
     open_time: Option<DateTime<Utc> >,
     lifetime: u16,
-    file: Option<File>,
+    file: Option<BufWriter<File> >,
     max_file_size: Option<u64>,
     filename: String,
-    file_inc: u32
+    file_inc: u32,
+    data_written: usize
 }
 
 impl FileWriter {
@@ -25,7 +26,8 @@ impl FileWriter {
             file: None,
             max_file_size: max_size,
             filename: String::new(),
-            file_inc: 0
+            file_inc: 0,
+            data_written: 0
         }
     }
 
@@ -53,18 +55,24 @@ impl FileWriter {
             self.open_time = Some(Utc::now());
             self.filename = self.make_file_name();
             self.file = Some(
-                File::create(&self.filename)
-                     .expect("Need to be able to write to given base file location"));
+                BufWriter::new(
+                    File::create(&self.filename)
+                        .expect("Need to be able to write to given base file location")
+            ));
         }
 
         if let Some(dafile) = &mut self.file {
             dafile.write_all(data)
                   .expect("Data should be writable to a binary file");
+            // Manually track how much data we write because calling `stream_position` on
+            // a buffered writer causes the buffer to be flushed.
+            self.data_written += data.len();
         }
 
         if self.file_full() || self.expired() {
             // Take the File and drop it (immediate close)
             drop(self.file.take());
+            self.data_written = 0;
             // Clear the open_time so
             // self.expired() behaves correctly
             self.open_time = None;
@@ -122,15 +130,6 @@ impl FileWriter {
     }
 
     fn file_full(&mut self) -> bool {
-        /* Check if the current file position is outside
-         * the bounds of what it should be.
-         * */
-        if let Some(f) = &mut self.file {
-            f.stream_position().unwrap()
-                >= self.max_file_size.unwrap_or(u64::MAX)
-        } else {
-            // File not open; not full
-            false
-        }
+        self.data_written >= (self.max_file_size.unwrap_or(u64::MAX) as usize)
     }
 }
