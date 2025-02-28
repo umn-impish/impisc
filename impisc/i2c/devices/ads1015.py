@@ -5,7 +5,7 @@ converter by Texas Instruments.
 
 import time
 
-from device import GenericDevice, Register
+from .device import GenericDevice, Register
 
 
 class ADS1015(GenericDevice):

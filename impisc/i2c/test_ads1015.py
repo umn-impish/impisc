@@ -1,6 +1,6 @@
 import time
 
-from ads1015 import ADS1015
+from devices.ads1015 import ADS1015
 
 
 def main():

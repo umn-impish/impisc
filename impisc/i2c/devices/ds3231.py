@@ -1,6 +1,6 @@
 import time
 
-from device import GenericDevice
+from .device import GenericDevice
 
 
 class DS3231(GenericDevice):

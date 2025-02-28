@@ -2,7 +2,8 @@ import os
 
 from prettytable import PrettyTable
 
-from .device import GenericDevice, DS3231
+from .device import GenericDevice
+from .ds3231 import DS3231
 
 
 class DeviceManager:
