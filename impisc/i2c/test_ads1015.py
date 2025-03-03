@@ -10,7 +10,7 @@ def main():
         device.set_gain(4.096)
         voltage = device.read_voltage(0)
         print('voltage:', voltage)
-        time.sleep(0.5)
+        time.sleep(0.1)
 
 
 if __name__ == '__main__':
