@@ -80,16 +80,3 @@ class DS3231(GenericDevice):
             while self.busy:
                 pass
             self.read_block_data('control')
-
-
-def _test_DS3231():
-
-    device = DS3231(1, 0x68)
-    device.release_from_kernel()
-    print('temperature:', device.read_temperature())
-    device.give_to_kernel()
-    print('temperature:', device.read_temperature())
-
-
-if __name__ == '__main__':
-    _test_DS3231()

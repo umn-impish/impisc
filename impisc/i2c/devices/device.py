@@ -53,7 +53,7 @@ class GenericDevice:
         self.registers = {}
 
     def add_register(self, reg: Register):
-
+        '''Add a register to the device.'''
         if reg.name in self.registers:
             raise ValueError()
 
@@ -70,8 +70,6 @@ class GenericDevice:
     def responsive(self) -> bool:
         '''Tries to read data from register 0x00;
         returns boolean indicating success.
-
-        TODO: Update this to use an existing register
         '''
         try:
             test_reg = next(iter(self.registers.values()))
@@ -83,7 +81,9 @@ class GenericDevice:
             return False
 
     def print_register_status(self):
-
+        '''Prints the current value for all
+        registers associated with the device.
+        '''
         print('\n------------')
         for name in self.registers:
             data = self.read_block_data(name)
@@ -92,7 +92,7 @@ class GenericDevice:
         print('------------')
 
     def read_block_data(self, register: str) -> list[int]:
-
+        '''Reads all bytes' worth of register data.'''
         register = self.registers[register]
         num_bytes = register.num_bits // 8
         value = 0
@@ -103,7 +103,7 @@ class GenericDevice:
         return value
 
     def write_block_data(self, register: str, value: int):
-
+        '''Writes all bytes to the register.'''
         register = self.registers[register]
         num_bytes = register.num_bits // 8
         bytes_to_send = list(_int_to_bytes(value, num_bytes))
@@ -111,11 +111,11 @@ class GenericDevice:
             self.address, register.address, bytes_to_send)
 
     def read_data(self, register: int) -> int:
-        '''Reads data from the provided register.'''
+        '''Reads a single byte from the provided register.'''
         return self.bus.read_byte_data(self.address, register)
 
     def write_data(self, register: int, data: int) -> int:
-        '''Writes data from the provided register.'''
+        '''Writes a single byte to the provided register.'''
         return self.bus.write_byte_data(self.address, register, data)
 
     def give_to_kernel(self, quiet: bool = True):
@@ -135,6 +135,7 @@ class GenericDevice:
     def release_from_kernel(self, quiet: bool = True):
         '''Releases device module from the Linux Kernel.
         A delay of 0.5 s is added to give the system enough time to update.
+        This value of 0.5 is emperical...
         '''
         if self.kernel_driver is not None:
             if not quiet:
@@ -145,11 +146,3 @@ class GenericDevice:
             if not quiet:
                 print(
                     f'No kernel driver associated with I2C device at address {self.address}')
-
-
-def _test_GenericDevice():
-    device = GenericDevice(1, 0x03)
-
-
-if __name__ == '__main__':
-    _test_GenericDevice()
