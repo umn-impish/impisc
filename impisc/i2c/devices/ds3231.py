@@ -57,10 +57,12 @@ class DS3231(GenericDevice):
         return self.pps_enabled
 
     def read_temperature(self) -> float:
-        '''Temperature in degrees celsius.'''
+        '''Temperature in degrees celsius.
+        TODO: Add in LSB?
+        '''
         self._force_convert()
         byte_tmsb = self.read_data(0x11)
-        # byte_tlsb = self.read_data(0x12)
+        byte_tlsb = self.read_data(0x12)
         tinteger = (byte_tmsb & 0x7f) + ((byte_tmsb & 0x80) >> 7) * -2**8
         tdecimal = (byte_tmsb >> 7) * 2**(-1) + \
             ((byte_tmsb & 0x40) >> 6) * 2**(-2)

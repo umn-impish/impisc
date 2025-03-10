@@ -2,7 +2,7 @@
 Defines a class for interfacing with a PCT2075 I2C temperature sensor.
 '''
 
-from .device import GenericDevice, Register, _twos_complement
+from .device import GenericDevice, Register, int_to_twos_complement
 
 
 class PCT2075(GenericDevice):
@@ -20,7 +20,7 @@ class PCT2075(GenericDevice):
         '''Read the temperature from the 0x00 register (temp),
         returned in degrees Celsius.
         '''
-        comp = _twos_complement(
+        comp = int_to_twos_complement(
             self.read_block_data('temp'),
             self.registers['temp'].num_bits) >> 5
         return comp / 8

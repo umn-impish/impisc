@@ -46,10 +46,10 @@ class ADS1015(GenericDevice):
     def set_multiplexer(self, which: int | str):
         '''Select which input to read from: which can be 0, 1, 2, or 3.'''
         pin = f'AIN{which}'
-        config_value = self.read_block_data('config')
-        config_value &= ~self.PIN_MASK
-        config_value += self.PIN_MAP[pin]
-        self.write_block_data('config', config_value)
+        config_register = self.read_block_data('config')
+        config_register &= ~self.PIN_MASK
+        config_register += self.PIN_MAP[pin]
+        self.write_block_data('config', config_register)
 
     def set_mode(self, val: int):
         '''0 for continuous conversion,
@@ -66,7 +66,7 @@ class ADS1015(GenericDevice):
 
     def set_gain(self, val: int):
         '''Set the ADC gain.
-        Acceptable values are: 0.256, 0.512, 1.024, 2.048, 4.096, 6.144.
+        Valid values are: 0.256, 0.512, 1.024, 2.048, 4.096, 6.144.
         '''
         config_register = self.read_block_data('config')
         config_register &= ~self.GAIN_MASK
@@ -88,7 +88,7 @@ class ADS1015(GenericDevice):
             continue
 
     def read_voltage(self, pin_number: int):
-        '''Reads the voltage from the provided pin (0, 1, 2, or 3).
+        '''Returns the voltage from the provided pin (0, 1, 2, or 3).
         Raises a ValueError if pin_number is not contained in [0, 3].
 
         TODO: See if forcing the conversion is necessary.
@@ -103,7 +103,6 @@ class ADS1015(GenericDevice):
         # if update_register:
         #     self.start_conversion()
         #     self.wait_for_conversion()
-        value = self.read_block_data('conv')
-        volts = value * self.gain / 32767
+        value = self.read_block_data('conv') >> 3
 
-        return volts
+        return value * self.gain / 4096

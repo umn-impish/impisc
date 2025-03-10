@@ -10,13 +10,23 @@ import time
 from dataclasses import dataclass
 
 
-def _twos_complement(value: int, bits: int) -> int:
+def int_to_twos_complement(value: int, bits: int) -> int:
     '''Compute the 2's complement of int value.
     From: https://stackoverflow.com/a/9147327
     '''
     if (value & (1 << (bits - 1))) != 0:  # if sign bit is set e.g., 8bit: 128-255
         value = value - (1 << bits)       # compute negative value
     return value                          # return positive value as is
+
+
+def twos_complement_to_int(binary_string: str) -> int:
+    '''Converts a two's complement binary string to an integer.'''
+    if binary_string[0] == '0':
+        return int(binary_string, 2)
+    else:
+        inverted_string = ''.join(
+            ['1' if bit == '0' else '0' for bit in binary_string])
+        return - (int(inverted_string, 2) + 1)
 
 
 def _int_to_bytes(value: int, length: int, endianness: str = 'big') -> bytearray:
@@ -56,13 +66,13 @@ class GenericDevice:
         '''Add a register to the device.'''
         if reg.name in self.registers:
             raise ValueError()
-
         self.registers[reg.name] = reg
 
     @property
     def bus(self) -> smbus2.SMBus:
         '''The I2C bus needs to be reopened every time since it
         doesn't autoupdate.
+        I can't remember why this was needed.........
         '''
         return smbus2.SMBus(self.bus_number)
 
@@ -94,18 +104,17 @@ class GenericDevice:
     def read_block_data(self, register: str) -> list[int]:
         '''Reads all bytes' worth of register data.'''
         register = self.registers[register]
-        num_bytes = register.num_bits // 8
+        num_bytes = int(register.num_bits // 8)
         value = 0
         for x in self.bus.read_i2c_block_data(self.address, register.address, num_bytes):
-            value <<= 8
-            value |= x
+            value = (value << 8) | x
 
         return value
 
     def write_block_data(self, register: str, value: int):
         '''Writes all bytes to the register.'''
         register = self.registers[register]
-        num_bytes = register.num_bits // 8
+        num_bytes = int(register.num_bits // 8)
         bytes_to_send = list(_int_to_bytes(value, num_bytes))
         self.bus.write_i2c_block_data(
             self.address, register.address, bytes_to_send)
@@ -114,9 +123,9 @@ class GenericDevice:
         '''Reads a single byte from the provided register.'''
         return self.bus.read_byte_data(self.address, register)
 
-    def write_data(self, register: int, data: int) -> int:
+    def write_data(self, register: int, data: int):
         '''Writes a single byte to the provided register.'''
-        return self.bus.write_byte_data(self.address, register, data)
+        self.bus.write_byte_data(self.address, register, data)
 
     def give_to_kernel(self, quiet: bool = True):
         '''Gives device module to the Linux Kernel.
