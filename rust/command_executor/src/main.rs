@@ -48,13 +48,15 @@ impl OutputWrapper {
         );
 
         let sc_str = OsString::from(self.status_code.to_string());
+        // Use newlines to delineate chunks of data
         response.push(sc_str);
         response.push("\n");
 
-        response.push("stdout\n");
+        response.push("arb-cmd-stdout\n");
         response.push(&self.stdout);
+        response.push("\n");
 
-        response.push("stderr\n");
+        response.push("arb-cmd-stderr\n");
         response.push(&self.stderr);
         return response.into_encoded_bytes();
     }
