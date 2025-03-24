@@ -285,7 +285,7 @@ class CommandRouter:
     There should only be one instance of the CommandRouter
     active on the spacecraft.
     '''
-    def __init__(self, listen_port: int):
+    def __init__(self, listen_port: int, reply_to: None):
         self.cmd_map = dict()
         self.socket = socket.socket(
             socket.AF_INET, socket.SOCK_DGRAM)
@@ -294,6 +294,10 @@ class CommandRouter:
         # Keep track of the command sequence number as part
         # of the object state
         self.expected_cmd_seq_num = None
+
+        # If we want to "hard-code" where
+        # we need to send the replies back to
+        self.reply_to = reply_to
 
     def add_callback(self, command: type, callback: RouterCallback) -> None:
         self.cmd_map[command] = callback
@@ -344,7 +348,7 @@ class CommandRouter:
 
         # If we clear all the try/except blocks:
         #     send off a "good" ack packet
-        self.socket.sendto(bytes(ack), ci.sender)
+        self.socket.sendto(bytes(ack), (self.reply_to or ci.sender))
 
     def _track_seq_num(self, ci: CommandInfo) -> None:
         '''Keep track of the command packet sequence number

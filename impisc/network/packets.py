@@ -9,6 +9,7 @@ such as the science data packets.
 Doesn't really matter as long as we enumerate them all here!
 '''
 import ctypes
+import grips_given as gg
 from umndet.common import impress_exact_structs as ies
 
 
@@ -57,7 +58,8 @@ all_commands = [
 ]
 
 all_telemetry_packets = [
+    Dummy, # numbering starts at 1, so skip this
+    gg.CommandAcknowledgement,
     ArbitraryLinuxCommandResponse,
-    Dummy,
     ies.DetectorHealth,
 ]
