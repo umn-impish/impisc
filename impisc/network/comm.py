@@ -1,4 +1,4 @@
-'''
+"""
 Module for properly sending and receiving GRIPS
 packets (telemetry and commands).
 
@@ -8,7 +8,8 @@ as the lists `all_commands` and `all_telemetry_packets` grow.
 
 These functions are meant to be imported in the command
 distributor process(es) and data downlink process(es).
-'''
+"""
+
 # TODO add decoder functionality for telemetry packets
 import ctypes
 import socket
@@ -21,29 +22,23 @@ from . import packets as imppa
 # Commands that IMPISH defines
 # Map from ID to type
 # ID is determined by ordering in all_commands
-COMMAND_MAP = {
-    i: c
-    for (i, c) in enumerate(imppa.all_commands)
-}
+COMMAND_MAP = {i: c for (i, c) in enumerate(imppa.all_commands)}
 # Telemetry we define
 # Map from type to ID
 # ID is determined by ordering in all_telemetry_packets
-TELEMETRY_MAP = {
-    c: i
-    for (i, c) in enumerate(imppa.all_telemetry_packets)
-}
+TELEMETRY_MAP = {c: i for (i, c) in enumerate(imppa.all_telemetry_packets)}
 
 
 def send_telemetry_packet(
     pkt,
     address: tuple[str, int],
     counter: int,
-    given_socket: socket.socket | None=None,
+    given_socket: socket.socket | None = None,
 ):
-    '''
+    """
     Send a telemetry packet wrapped in the GRIPS format
     from a 'native' IMPISH packet.
-    '''
+    """
     # Build the header from metadata
     head = gg.TelemetryHeader()
     head.telem_type = TELEMETRY_MAP[type(pkt)]
@@ -57,7 +52,7 @@ def send_telemetry_packet(
 def send_grips_telem_bytes(
     full_packet: bytes,
     address: tuple[str, int],
-    given_socket: socket.socket | None=None
+    given_socket: socket.socket | None = None,
 ):
     # Put current system time into "GondolaTime"
     # before sending out the data
@@ -69,9 +64,7 @@ def send_grips_telem_bytes(
 
 
 def send_grips_bytes(
-    pkt: bytes,
-    address: tuple[str, int],
-    given_socket: socket.socket | None
+    pkt: bytes, address: tuple[str, int], given_socket: socket.socket | None
 ):
     # Put in the CRC and verify it worked
     ba = bytearray(pkt)
@@ -84,10 +77,12 @@ def send_grips_bytes(
     s.sendto(ba, address)
 
 
-def receive_command(sock: socket.socket) -> tuple[ctypes.LittleEndianStructure, tuple[str, int]]:
-    '''
+def receive_command(
+    sock: socket.socket,
+) -> tuple[ctypes.LittleEndianStructure, tuple[str, int]]:
+    """
     Receive a GRIPS packet assuming its command header structure.
-    '''
+    """
     # bigger buffer than we will ever need
     BUFSZ = 32768
     data, addr = sock.recvfrom(BUFSZ)
@@ -95,7 +90,7 @@ def receive_command(sock: socket.socket) -> tuple[ctypes.LittleEndianStructure, 
 
 
 def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
-    '''
+    """
     Goes through all of the  steps to verify that
     the packet is good as per the error codes defined
     in the GRIPS network specification.
@@ -108,17 +103,13 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
         - packet header
         - decoded packet contents
         - sender address
-    '''
+    """
     data = bytearray(data)
 
     head_sz = ctypes.sizeof(gg.CommandHeader)
     if len(data) < head_sz:
         raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.PARTIAL_HEADER,
-            data,
-            addr,
-            255,
-            imppa.UnknownCmd
+            gg.CommandAcknowledgement.PARTIAL_HEADER, data, addr, 255, imppa.UnknownCmd
         )
 
     decoded = gg.CommandHeader.from_buffer(data)
@@ -129,7 +120,7 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
             data[:2],
             addr,
             decoded.counter,
-            imppa.UnknownCmd
+            imppa.UnknownCmd,
         )
 
     try:
@@ -140,7 +131,7 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
             error_data=bytes(e.received) + bytes(e.computed),
             cmd_source_addr=addr,
             cmd_seq_num=decoded.counter,
-            cmd_type=imppa.UnknownCmd
+            cmd_type=imppa.UnknownCmd,
         )
 
     if decoded.base_header.system_id != gg.IMPISH_SYSTEM_ID:
@@ -149,7 +140,7 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
             bytes(decoded.system_id),
             addr,
             decoded.counter,
-            imppa.UnknownCmd
+            imppa.UnknownCmd,
         )
 
     if decoded.cmd_type not in COMMAND_MAP:
@@ -158,7 +149,7 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
             bytes(decoded.cmd_type),
             addr,
             decoded.counter,
-            imppa.UnknownCmd
+            imppa.UnknownCmd,
         )
 
     # Now we have verified a lot of details;
@@ -173,7 +164,7 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
             bytes(actual_packet_length) + bytes(reported_length),
             addr,
             decoded.counter,
-            cmd_type
+            cmd_type,
         )
 
     if decoded.size != ctypes.sizeof(cmd_type):
@@ -182,25 +173,25 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
             bytes(decoded.size),
             addr,
             decoded.counter,
-            cmd_type
+            cmd_type,
         )
 
     # Invalid parameters, busy, and other
     # errors must be handled separately.
     return {
-        'header': decoded,
-        'contents': cmd_type.from_buffer(data, head_sz),
-        'sender': addr
+        "header": decoded,
+        "contents": cmd_type.from_buffer(data, head_sz),
+        "sender": addr,
     }
 
 
 def grips_cmd_header_from_packet(pkt: ctypes.LittleEndianStructure, seq_num: int):
-    '''
+    """
     Construct a command header given a "known" packet type.
     Just a wrapper around the constructor, but incorporates
     the information within `impish.network.packets.all_commands` to
     assign the cmd_type.
-    '''
+    """
     head = gg.CommandHeader()
     head.cmd_type = imppa.all_commands.index(type(pkt))
     head.counter = seq_num
@@ -209,19 +200,20 @@ def grips_cmd_header_from_packet(pkt: ctypes.LittleEndianStructure, seq_num: int
 
 
 class CommandInfo:
-    '''Information on a command:
-        - sender addr
-        - cmd seq. num
-        - command payload
-    '''
+    """Information on a command:
+    - sender addr
+    - cmd seq. num
+    - command payload
+    """
+
     def __init__(self):
-        self.sender: tuple[str, int] = ('', 0)
+        self.sender: tuple[str, int] = ("", 0)
         self.seq_num: int = 0
         self.payload: ctypes.LittleEndianStructure = None
 
 
 class Commander:
-    '''Use this to send commands to the IMPISH payload on GRIPS.
+    """Use this to send commands to the IMPISH payload on GRIPS.
     Tracks the "sequence number" as part of the object state.
 
     The sequence number is supposed to be a monotonically-increasing
@@ -230,33 +222,31 @@ class Commander:
     arriving out of order.
 
     The user must deal with out-of-sync sequence numbers.
-    '''
+    """
+
     def __init__(self, port: int):
         self.sequence_number = 0
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('0.0.0.0', port))
+        self.socket.bind(("0.0.0.0", port))
 
     def send_command(
         self,
         pkt: ctypes.LittleEndianStructure,
         address: tuple[str, int],
     ) -> None:
-        '''Send a packet wrapped in the GRIPS command header
-           to the given address, via the given socket.
-           Useful on the ground and for testing.
-           Returns the cmd response.
-        '''
+        """Send a packet wrapped in the GRIPS command header
+        to the given address, via the given socket.
+        Useful on the ground and for testing.
+        Returns the cmd response.
+        """
         try:
             head = grips_cmd_header_from_packet(pkt, self.sequence_number)
         except KeyError:
-            raise ValueError(f'{type(pkt)} is an unrecognized command')
+            raise ValueError(f"{type(pkt)} is an unrecognized command")
 
         # Might throw; wait to increment seq_num until after call
-        send_grips_bytes(
-            bytes(head) + bytes(pkt),
-            address, self.socket
-        )
-        # Sequence number can only be in [0, 255] 
+        send_grips_bytes(bytes(head) + bytes(pkt), address, self.socket)
+        # Sequence number can only be in [0, 255]
         # because it's a u8
         self.sequence_number += 1
         self.sequence_number %= 256
@@ -271,8 +261,9 @@ class Commander:
 # May raise an AcknowledgeError if something goes wrong.
 RouterCallback = Callable[[CommandInfo], gg.CommandAcknowledgement]
 
+
 class CommandRouter:
-    '''
+    """
     Listens for incoming command packets.
     They get decoded by helper functions (defined above),
     and then mapped to callbacks which the user provides.
@@ -284,12 +275,12 @@ class CommandRouter:
 
     There should only be one instance of the CommandRouter
     active on the spacecraft.
-    '''
+    """
+
     def __init__(self, listen_port: int, reply_to: None):
         self.cmd_map = dict()
-        self.socket = socket.socket(
-            socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('0.0.0.0', listen_port))
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(("0.0.0.0", listen_port))
 
         # Keep track of the command sequence number as part
         # of the object state
@@ -303,22 +294,22 @@ class CommandRouter:
         self.cmd_map[command] = callback
 
     def listen_and_route(self) -> None:
-        '''Wait for a command on the bound socket and
-           pass the data to the proper callback.
+        """Wait for a command on the bound socket and
+        pass the data to the proper callback.
 
-           Throws an error if the callback isn't present,
-           or if there is an issue during command execution.
-           The issue is properly reported back to the sender;
-           no need to do that on your own <3
-        '''
+        Throws an error if the callback isn't present,
+        or if there is an issue during command execution.
+        The issue is properly reported back to the sender;
+        no need to do that on your own <3
+        """
 
         # Parse a received command into structured data
         ci = CommandInfo()
         try:
             recvd_cmd = receive_command(self.socket)
-            ci.payload = recvd_cmd['contents']
-            ci.sender = recvd_cmd['sender']
-            ci.seq_num = recvd_cmd['header'].counter
+            ci.payload = recvd_cmd["contents"]
+            ci.sender = recvd_cmd["sender"]
+            ci.seq_num = recvd_cmd["header"].counter
         except gg.AcknowledgeError as e:
             # We had a problem verifying the cmd packet
             # structure
@@ -335,7 +326,7 @@ class CommandRouter:
             cback = self.cmd_map[type(ci.payload)]
         except KeyError as e:
             raise ValueError(
-                f'The type {type(ci.payload)} is not present in the registered callbacks.'
+                f"The type {type(ci.payload)} is not present in the registered callbacks."
             ) from e
 
         # Get the ack from the callback and send it back to the command
@@ -351,10 +342,10 @@ class CommandRouter:
         self.socket.sendto(bytes(ack), (self.reply_to or ci.sender))
 
     def _track_seq_num(self, ci: CommandInfo) -> None:
-        '''Keep track of the command packet sequence number
-           relative to what we expect.
-           If it fails, throw an AckError.
-        '''
+        """Keep track of the command packet sequence number
+        relative to what we expect.
+        If it fails, throw an AckError.
+        """
         # Set upon receipt of first command
         if self.expected_cmd_seq_num is None:
             self.expected_cmd_seq_num = ci.seq_num
@@ -362,10 +353,10 @@ class CommandRouter:
         if self.expected_cmd_seq_num != ci.seq_num:
             raise gg.AcknowledgeError(
                 error_type=gg.CommandAcknowledgement.GENERAL_FAILURE,
-                error_data=list(b'badsqn') + [self.expected_cmd_seq_num],
+                error_data=list(b"badsqn") + [self.expected_cmd_seq_num],
                 cmd_source_addr=ci.sender,
                 cmd_seq_num=ci.seq_num,
-                cmd_type=type(ci.payload)
+                cmd_type=type(ci.payload),
             )
 
         # Increment the number in expectation of the next command
@@ -373,23 +364,18 @@ class CommandRouter:
         self.expected_cmd_seq_num %= 256
 
     def _handle_error(self, e: gg.AcknowledgeError) -> None:
-        '''If we get an error from some portion of the
-            command process, parse it to an Ack packet
-            and send it off.
-        '''
+        """If we get an error from some portion of the
+        command process, parse it to an Ack packet
+        and send it off.
+        """
         bad = gg.CommandAcknowledgement.from_err(e)
         sender = e.cmd_source_addr
-        send_grips_telem_bytes(
-            bad,
-            sender,
-            given_socket=self.socket
-        )
-        raise UserWarning(
-            "Packet error occurred during parsing/verification"
-        )
+        send_grips_telem_bytes(bad, sender, given_socket=self.socket)
+        raise UserWarning("Packet error occurred during parsing/verification")
+
 
 class Telemeter:
-    '''
+    """
     Handles telemetry packets as they come in from foreign
     sources over a UDP socket.
 
@@ -399,13 +385,13 @@ class Telemeter:
     There should only be one instance of a Telemeter running
     on the payload so that the sequence number is properly
     ... well, sequenced.
-    '''
+    """
+
     def __init__(self, dest_addr: tuple[str, int], listen_port: int):
         self.destination = dest_addr
         self.sequence_number: int = 0
-        self.socket = socket.socket(
-            socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('0.0.0.0', listen_port))
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(("0.0.0.0", listen_port))
 
         # The port map provides a way for mapping replies from
         # various processes to different types.
@@ -416,7 +402,7 @@ class Telemeter:
         self.port_map: dict[int, type[ctypes.LittleEndianStructure]] = dict()
 
     def telemeter(self) -> None:
-        '''
+        """
         Wait on the object's UDP socket until some data comes in;
         it is assumed that the data is a telemetry packet from
         a recognized source.
@@ -427,14 +413,14 @@ class Telemeter:
 
         The telemetry sequence number is maintained in the
         interval [0, 2^16).
-        '''
+        """
         data, (_, port) = self.socket.recvfrom(65535)
         type_ = self.port_map[port]
         send_telemetry_packet(
             type_.from_buffer_copy(data),
             self.destination,
             self.sequence_number,
-            self.socket
+            self.socket,
         )
 
         self.sequence_number += 1

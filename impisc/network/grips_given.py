@@ -1,4 +1,4 @@
-'''
+"""
 Packet (header) definitions to send/receive from GRIPS.
 
 There are headers for commands and telemetry that we have to follow.
@@ -8,24 +8,27 @@ Science and housekeeping packets need to be indicated
 via the fields in the telemetry command.
 
 GRIPS network documentation available on IMPISH shared GDrive in Resources folder.
-'''
+"""
+
 import ctypes
 from typing import Iterable
 
 GRIPS_PACKING = 1
-GRIPS_SYNC = 0xeb90
+GRIPS_SYNC = 0xEB90
 
 IMPISH_SYSTEM_ID = 0xED
 
 
 class BaseHeader(ctypes.LittleEndianStructure):
-    '''Header info shared between GRIPS packet headers.'''
+    """Header info shared between GRIPS packet headers."""
+
     _pack_ = GRIPS_PACKING
     _fields_ = (
-        ('sync', ctypes.c_uint16),
-        ('checksum_crc16', ctypes.c_uint16),
-        ('system_id', ctypes.c_uint8),
+        ("sync", ctypes.c_uint16),
+        ("checksum_crc16", ctypes.c_uint16),
+        ("system_id", ctypes.c_uint8),
     )
+
     def __init__(self, sys_id=None):
         self.system_id = sys_id or IMPISH_SYSTEM_ID
         self.sync = GRIPS_SYNC
@@ -33,9 +36,8 @@ class BaseHeader(ctypes.LittleEndianStructure):
 
 class HasGondolaTime:
     def __init__(self):
-        assert (
-            hasattr(self, '_gondola_time') and
-            isinstance(self._gondola_time, GondolaTime)
+        assert hasattr(self, "_gondola_time") and isinstance(
+            self._gondola_time, GondolaTime
         )
 
     @property
@@ -44,17 +46,17 @@ class HasGondolaTime:
 
     @gondola_time.setter
     def gondola_time(self, new: int):
-        self._gondola_time._gondola_ls32 = (new & 0xffffffff)
-        self._gondola_time._gondola_ms16 = ((new >> 32) & 0xffff)
+        self._gondola_time._gondola_ls32 = new & 0xFFFFFFFF
+        self._gondola_time._gondola_ms16 = (new >> 32) & 0xFFFF
 
 
 class CommandHeader(ctypes.LittleEndianStructure):
     _pack_ = GRIPS_PACKING
     _fields_ = (
-        ('base_header', BaseHeader),
-        ('cmd_type', ctypes.c_uint8),
-        ('counter', ctypes.c_uint8),
-        ('size', ctypes.c_uint8)
+        ("base_header", BaseHeader),
+        ("cmd_type", ctypes.c_uint8),
+        ("counter", ctypes.c_uint8),
+        ("size", ctypes.c_uint8),
     )
 
     def __init__(self):
@@ -66,31 +68,26 @@ class GondolaTime(ctypes.LittleEndianStructure):
     _fields_ = (
         # Gondola time is stored in 48B,
         # little endian
-        ('_gondola_ls32', ctypes.c_uint32),
-        ('_gondola_ms16', ctypes.c_uint16)
+        ("_gondola_ls32", ctypes.c_uint32),
+        ("_gondola_ms16", ctypes.c_uint16),
     )
 
     def compute(self):
-        '''Gondola time is 48 bytes so build it up
-        from defined fields.'''
-        return (
-             int(self._gondola_ls32) | 
-            (int(self._gondola_ms16) << 32)
-        )
+        """Gondola time is 48 bytes so build it up
+        from defined fields."""
+        return int(self._gondola_ls32) | (int(self._gondola_ms16) << 32)
 
 
 class TelemetryHeader(ctypes.LittleEndianStructure, HasGondolaTime):
     _pack_ = GRIPS_PACKING
     _fields_ = (
-        ('base_header', BaseHeader),
-
+        ("base_header", BaseHeader),
         # 0x02 to 0x0F = housekeeping
         # 0x10 to 0xFF = science
-        ('telem_type', ctypes.c_uint8),
-
-        ('size', ctypes.c_uint16),
-        ('counter', ctypes.c_uint16),
-        ('_gondola_time', GondolaTime),
+        ("telem_type", ctypes.c_uint8),
+        ("size", ctypes.c_uint16),
+        ("counter", ctypes.c_uint16),
+        ("_gondola_time", GondolaTime),
     )
 
     def __init__(self):
@@ -99,14 +96,14 @@ class TelemetryHeader(ctypes.LittleEndianStructure, HasGondolaTime):
 
 class AcknowledgeError(Exception):
     def __init__(
-            self,
-            error_type: int,
-            error_data: Iterable,
-            cmd_source_addr: tuple[str, int],
-            cmd_seq_num: int,
-            cmd_type: type[ctypes.LittleEndianStructure],
-        ):
-        '''Encapsulates data required for an error Ack reply as an exception.'''
+        self,
+        error_type: int,
+        error_data: Iterable,
+        cmd_source_addr: tuple[str, int],
+        cmd_seq_num: int,
+        cmd_type: type[ctypes.LittleEndianStructure],
+    ):
+        """Encapsulates data required for an error Ack reply as an exception."""
         self.type: int = error_type
         self.data: bytes = bytes(error_data)
         self.cmd_source_addr: tuple[str, int] = cmd_source_addr
@@ -116,6 +113,8 @@ class AcknowledgeError(Exception):
 
 
 ErrorData = ctypes.c_uint8 * 7
+
+
 class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
     # Taken from command def. document
     NO_ERROR = 0
@@ -149,14 +148,14 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
     ERROR_BYTES = 7
     _pack_ = GRIPS_PACKING
     _fields_ = (
-        ('base_header', BaseHeader),
-        ('telem_type', ctypes.c_uint8),
-        ('size', ctypes.c_uint16),
-        ('counter', ctypes.c_uint8),
-        ('cmd_type', ctypes.c_uint8),
-        ('_gondola_time', GondolaTime),
-        ('error_type', ctypes.c_uint8),
-        ('error_data', ErrorData),
+        ("base_header", BaseHeader),
+        ("telem_type", ctypes.c_uint8),
+        ("size", ctypes.c_uint16),
+        ("counter", ctypes.c_uint8),
+        ("cmd_type", ctypes.c_uint8),
+        ("_gondola_time", GondolaTime),
+        ("error_type", ctypes.c_uint8),
+        ("error_data", ErrorData),
     )
 
     def __init__(self):
@@ -172,15 +171,15 @@ class CommandAcknowledgement(ctypes.LittleEndianStructure, HasGondolaTime):
         self.error_data = ErrorData(*([0] * self.ERROR_BYTES))
 
     def pre_send(self, cmd_seq_num: int, cmd_type: int):
-        '''Give data to the Ack packet which is required
-           before sending it off.
+        """Give data to the Ack packet which is required
+        before sending it off.
 
-           This _could_ be part of the constructor,
-           but the packet is technically initialized after
-           construction. In some cases it might make sense to
-           assign this information post-instantiation anyway.
-           So for now, it's a separate method.
-        '''
+        This _could_ be part of the constructor,
+        but the packet is technically initialized after
+        construction. In some cases it might make sense to
+        assign this information post-instantiation anyway.
+        So for now, it's a separate method.
+        """
         self.cmd_type = cmd_type
         self.counter = cmd_seq_num
 
@@ -204,7 +203,7 @@ class CrcError(ValueError):
 
 
 def apply_crc16(packet_bytes: bytearray) -> None:
-    '''Generate the CRC16 checksum for a given GRIPS packet'''
+    """Generate the CRC16 checksum for a given GRIPS packet"""
     head = BaseHeader.from_buffer(packet_bytes)
 
     # Zero out the CRC before computing
@@ -230,7 +229,7 @@ def verify_crc16(packet_bytes: bytearray) -> None:
 
 
 def compute_modbus_crc16(msg: bytearray | bytes) -> ctypes.c_uint16:
-    '''https://stackoverflow.com/a/75328573/4333515'''
+    """https://stackoverflow.com/a/75328573/4333515"""
     crc = 0xFFFF
     for n in range(len(msg)):
         crc ^= msg[n]

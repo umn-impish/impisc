@@ -1,4 +1,4 @@
-'''
+"""
 Here are definitions of IMPISH packets which we
 will receive from the balloon and send down to
 the ground.
@@ -7,28 +7,31 @@ Some definitions may be located in different libraries,
 such as the science data packets.
 
 Doesn't really matter as long as we enumerate them all here!
-'''
+"""
+
 import ctypes
-import grips_given as gg
+from . import grips_given as gg
 from umndet.common import impress_exact_structs as ies
 
 
 CommandCharArray = ctypes.c_ubyte * 255
+
+
 class ArbitraryLinuxCommand(ctypes.LittleEndianStructure):
     _pack_ = 1
-    _fields_ = (
-        ('command', CommandCharArray),
-    )
+    _fields_ = (("command", CommandCharArray),)
 
 
 ResponseCharArray = ctypes.c_ubyte * 128
+
+
 class ArbitraryLinuxCommandResponse(ctypes.LittleEndianStructure):
     _pack_ = 1
     _fields_ = (
         # Split the command response up into
         # 1 KiB chunks which will get re-aligned by GSE
-        ('response', ResponseCharArray),
-        ('seq_num', ctypes.c_ubyte)
+        ("response", ResponseCharArray),
+        ("seq_num", ctypes.c_ubyte),
     )
 
 
@@ -37,17 +40,17 @@ class DummyCmd(ctypes.LittleEndianStructure):
 
 
 class Dummy(ctypes.LittleEndianStructure):
-    '''Test struct'''
+    """Test struct"""
+
     _pack_ = 1
-    _fields_ = (
-        ('data', ctypes.c_ubyte * 256),
-    )
+    _fields_ = (("data", ctypes.c_ubyte * 256),)
 
 
 class UnknownCmd(ctypes.LittleEndianStructure):
-    '''An unknown command type, used for some
-       "ack error" replies before the packet
-       can get totally decoded.'''
+    """An unknown command type, used for some
+    "ack error" replies before the packet
+    can get totally decoded."""
+
     pass
 
 
@@ -58,7 +61,7 @@ all_commands = [
 ]
 
 all_telemetry_packets = [
-    Dummy, # numbering starts at 1, so skip this
+    Dummy,  # numbering starts at 1, so skip this
     gg.CommandAcknowledgement,
     ArbitraryLinuxCommandResponse,
     ies.DetectorHealth,
