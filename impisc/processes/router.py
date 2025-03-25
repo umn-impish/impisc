@@ -62,7 +62,7 @@ def arb_command_handler(
         try: dat = sock.recv(2048)
         except socket.timeout: break
 
-        if dat == b'finished':
+        if dat == b'arb-cmd-finished':
             break
 
         replies.append(

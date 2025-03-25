@@ -21,7 +21,7 @@ class ArbitraryLinuxCommand(ctypes.LittleEndianStructure):
     )
 
 
-ResponseCharArray = ctypes.c_ubyte * 1024
+ResponseCharArray = ctypes.c_ubyte * 128
 class ArbitraryLinuxCommandResponse(ctypes.LittleEndianStructure):
     _pack_ = 1
     _fields_ = (
