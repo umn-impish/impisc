@@ -1,5 +1,4 @@
 from . import comm
-from . import grips_given as gg
 from . import packets
 import ctypes
 import pytest
@@ -29,7 +28,7 @@ def test_cmd_telemetry_loop():
     # listen for packets
     route = comm.CommandRouter(remote_router_port)
 
-    def dummy_callback(in_: comm.CommandInfo) -> gg.CommandAcknowledgement:
+    def dummy_callback(in_: comm.CommandInfo) -> packets.CommandAcknowledgement:
         # Construct a dummy packet with some data
         tel = packets.Dummy()
         data_size = len(tel.data)
@@ -43,7 +42,7 @@ def test_cmd_telemetry_loop():
         s.sendto(bytes(tel), ("localhost", remote_telem_port))
 
         # Say all went well
-        return gg.CommandAcknowledgement()
+        return packets.CommandAcknowledgement()
 
     # Set up the Telemeter to wrap and send data to our receive socket
     telemeter = comm.Telemeter(("localhost", local_data_port), remote_telem_port)
@@ -66,7 +65,7 @@ def test_cmd_telemetry_loop():
 
     # receive the GRIPS-wrapped data
     recvd = data_sock.recv(1024)
-    head = gg.TelemetryHeader.from_buffer_copy(recvd)
+    head = packets.TelemetryHeader.from_buffer_copy(recvd)
     data = packets.Dummy.from_buffer_copy(recvd, ctypes.sizeof(head))
 
     # Verify that the data is the same as we sent.
@@ -98,7 +97,7 @@ def test_exceptional_router():
         (route_port := 23451),
     )
     cmd_port = 23461
-    good_cback = lambda *_: gg.CommandAcknowledgement()
+    good_cback = lambda *_: packets.CommandAcknowledgement()
     router.add_callback(packets.DummyCmd, good_cback)
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -107,7 +106,7 @@ def test_exceptional_router():
     # Construct and send a malformed command
     # which has an uninitialized header (CRC is wrong, CMD ID is wrong)
     bad_dummy = packets.DummyCmd()
-    empty_head = gg.CommandHeader()
+    empty_head = packets.CommandHeader()
     total = bytes(empty_head) + bytes(bad_dummy)
     s.sendto(total, route_addr := ("localhost", route_port))
 
@@ -119,8 +118,8 @@ def test_exceptional_router():
         router.listen_and_route()
 
     # Receive the ack packet; verify it; shouldn't throw
-    ackd = gg.CommandAcknowledgement.from_buffer_copy(s.recv(1024))
-    gg.verify_crc16(bytearray(ackd))
+    ackd = packets.CommandAcknowledgement.from_buffer_copy(s.recv(1024))
+    packets.verify_crc16(bytearray(ackd))
 
     assert ackd.HUMAN_READABLE_FAILURES[ackd.error_type] == "INCORRECT_CRC"
 
@@ -142,8 +141,8 @@ def test_exceptional_router():
 
     # See what happens when a callback throws an AckError
     def bad_cback(ci: comm.CommandInfo):
-        raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.BUSY,
+        raise packets.AcknowledgeError(
+            packets.CommandAcknowledgement.BUSY,
             error_data=[],
             cmd_source_addr=ci.sender,
             cmd_seq_num=ci.seq_num,
@@ -159,7 +158,7 @@ def test_exceptional_router():
         router.listen_and_route()
 
     reply = cdr.recv_ack()
-    assert reply.error_type == gg.CommandAcknowledgement.BUSY
+    assert reply.error_type == packets.CommandAcknowledgement.BUSY
 
 
 def test_exceptional_commander():
@@ -197,5 +196,5 @@ def test_exceptional_commander():
     for i in range(12345):
         cdr.send_command(packets.DummyCmd(), recv_addr)
         cmd_dat = receiver.recv(2048)
-        head = gg.CommandHeader.from_buffer_copy(cmd_dat)
+        head = packets.CommandHeader.from_buffer_copy(cmd_dat)
         assert head.counter == (i % 256)

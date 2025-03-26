@@ -8,7 +8,6 @@ from dataclasses import dataclass
 import socket
 import queue
 
-from impisc.network.grips_given import TelemetryHeader, CommandAcknowledgement
 from impisc.network import packets
 
 
@@ -38,11 +37,11 @@ class PacketDiscriminator:
 
     def route(self):
         packet, _ = self.stream.recvfrom(int(2**16))
-        head = TelemetryHeader.from_buffer_copy(packet)
-        type_ = packets.all_telemetry_packets.index(head.telem_type)
+        head = packets.TelemetryHeader.from_buffer_copy(packet)
+        type_ = packets.all_telemetry_packets[head.telem_type]
 
         # Forward acks to their own spot(s)
-        if type_ == CommandAcknowledgement:
+        if type_ == packets.CommandAcknowledgement:
             endpoints = self.command_endpoints
         else:
             endpoints = self.telemetry_endpoints
@@ -54,12 +53,27 @@ class PacketDiscriminator:
 class DecodedCommandAck:
     """Decode a command "ack" packet into something a little prettier"""
 
-    def __init__(self, packet: CommandAcknowledgement):
+    def __init__(self, packet: packets.CommandAcknowledgement):
         self.good = packet.error_type == packet.NO_ERROR
         self.issue = packet.HUMAN_READABLE_FAILURES[packet.error_type]
         self.command_number = packet.counter
         self.data = packet.error_data
         self.type = packets.all_commands[packet.cmd_type]
+
+    def __repr__(self):
+        bookend = "-" * 30
+        return "\n".join(
+            [
+                bookend,
+                f"Execution {'succeeded' if self.good else 'failed'}",
+                f"Issue (if present): {self.issue}",
+                f"Command sequence number: {self.command_number}",
+                f"Error data: {list(self.data)}",
+                f"Error data (raw): {bytes(self.data)}",
+                f"Command type: {self.type.__qualname__}",
+                bookend,
+            ]
+        )
 
 
 class CommandAckQueue:
@@ -78,7 +92,10 @@ class CommandAckQueue:
         self.queue = queue.Queue(maxsize=history_length)
 
     def accept_new(self):
-        packet = CommandAcknowledgement.from_buffer_copy(self.stream.recv(32768))
+        """Await data to arrive on the stream and push command acknowledgements onto the queue."""
+        packet = packets.CommandAcknowledgement.from_buffer_copy(
+            self.stream.recv(32768)
+        )
         self.queue.put(DecodedCommandAck(packet))
 
 
@@ -88,10 +105,17 @@ class LinuxCommandResponse:
     stdout: str
     stderr: str
 
+    def __repr__(self):
+        bookend = "-" * 30
+        exit_msg = f"Exit code: {self.exit_code}"
+        stdout_msg = f"stdout:\n{self.stdout}"
+        stderr_msg = f"stderr:\n{self.stderr}"
+        return "\n".join([bookend, exit_msg, stdout_msg, stderr_msg, bookend])
+
 
 @dataclass
 class PacketPair:
-    header: TelemetryHeader
+    header: packets.TelemetryHeader
     payload: LittleEndianStructure
 
 
@@ -108,17 +132,11 @@ class LinuxCommandResponseParser:
         - stdout
         - stderr
     and pushed onto a queue. The queue may be read elsewhere.
-
-    If data arrives out of order or only partially,
-    stray packet bytes are pushed onto a "miscellaneous" queue
-    which can be accessed separately.
     """
 
     def __init__(self, listen_socket: socket.socket, assumed_done_timeout: float):
         # The ready queue contains complete responses
         self.ready_queue: queue.Queue[LinuxCommandResponse] = queue.Queue()
-        # The miscellaneous queue contains either stray data or out-of-order responses
-        self.miscellaneous: queue.Queue[bytes] = queue.Queue()
 
         self.socket = listen_socket
         self.timeout = assumed_done_timeout
@@ -136,11 +154,15 @@ class LinuxCommandResponseParser:
             # we're done getting data,
             # so restore the infinite timeout
             self.socket.settimeout(None)
-        current_data = sort_telemetry_packets(current_data)
 
-        response, misc = self._parse_response(current_data)
-        if misc:
-            self.miscellaneous.put(misc)
+        # Sequence numbers sent by the cmd executor
+        # are independent and per-session compared to the spacecraft
+        # packets
+        unadultured_seq_nums = [d.payload.seq_num for d in current_data]
+        current_data = sort_telemetry_packets(
+            current_data, ordering=unadultured_seq_nums
+        )
+        response = self._parse_response(current_data)
 
         self.ready_queue.put(response)
 
@@ -148,7 +170,7 @@ class LinuxCommandResponseParser:
         # the receive chunk size is 128B, so 256B should fit the response
         # easily
         dat = self.socket.recv(256)
-        head = TelemetryHeader.from_buffer_copy(dat)
+        head = packets.TelemetryHeader.from_buffer_copy(dat)
         packet = packets.ArbitraryLinuxCommandResponse.from_buffer_copy(
             dat, sizeof(head)
         )
@@ -163,18 +185,14 @@ class LinuxCommandResponseParser:
         If the stray data is present, it is returned along with the parsed portion.
         """
         data = copy.deepcopy(data)
-        # Separate out any miscellaneous data
-        data, misc = self._extract_misc(data)
 
         # Assemble the packets into the "string" response that we want,
         # and then parse it out
         reply = str()
         for d in data:
             pkt: packets.ArbitraryLinuxCommandResponse = d.payload
-            resp: bytes = pkt.response
+            resp = bytes(pkt.response)
             reply += resp.decode("utf-8")
-        # The reply may contain extraneous terminating null characters,
-        # but for display that's fine
 
         # Now, split the data up by newlines and chunk it up
         split = reply.split("\n")
@@ -192,7 +210,7 @@ class LinuxCommandResponseParser:
                     case "arb-cmd-stderr":
                         location = "stderr"
                     case _:
-                        cmd_data[location] += chunk
+                        cmd_data[location] += chunk + "\n"
             except KeyError as e:
                 raise ValueError("Command reply is malformed") from e
 
@@ -201,30 +219,19 @@ class LinuxCommandResponseParser:
             stdout=cmd_data["stdout"],
             stderr=cmd_data["stderr"],
         )
-        return (ret, misc)
-
-    def _extract_misc(self, data: list[PacketPair]) -> tuple[list[PacketPair], bytes]:
-        misc = b""
-        i = 0
-        while i < len(data):
-            cur_resp: packets.ArbitraryLinuxCommandResponse = data[i].payload
-            start_of_message = cur_resp.response.startswith(
-                b"ack-ok"
-            ) or cur_resp.response.startswith(b"error")
-            if not start_of_message:
-                misc += bytes(data.pop(i).payload)
-            i += 1
-        return (data, misc)
+        return ret  # (ret, misc)
 
 
-def sort_telemetry_packets(packets: list[PacketPair]) -> list[PacketPair]:
+def sort_telemetry_packets(
+    packets: list[PacketPair], ordering: list[int] = None
+) -> list[PacketPair]:
     """Sort telemetry packets according to the "counter" supplied by the GRIPS headers,
     taking into account that there may be (at most) one wrap-around in packet number."""
     packets = copy.deepcopy(packets)
 
     # assume that we won't have more than 512 packets in a clump
     threshold = int(2**16 - 1 - 512)
-    ordering = [h.counter for (h, _) in packets]
+    ordering = ordering or [h.header.counter for h in packets]
 
     # first, check if there is a wrap around
     wrapped = list()
@@ -235,7 +242,7 @@ def sort_telemetry_packets(packets: list[PacketPair]) -> list[PacketPair]:
 
     # the wrapped packet counters need to get sorted separately
     separate = [packets.pop(i) for i in wrapped]
-    packets.sort(key=lambda t: t[0].counter)
-    separate.sort(key=lambda t: t[0].counter)
+    packets.sort(key=lambda t: t.header.counter)
+    separate.sort(key=lambda t: t.header.counter)
 
     return packets + separate

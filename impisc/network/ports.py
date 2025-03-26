@@ -22,6 +22,7 @@ import os
 # Default to localhost for testing
 GRIPS_IP = os.getenv("GRIPS_IP_ADDR") or "127.0.0.1"
 
+ACK_HANDLER = 54321
 GRIPS_EXPOSED = 12345
 
 COMMAND_EXECUTOR = 35000

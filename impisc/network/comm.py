@@ -16,17 +16,16 @@ import socket
 import time
 from typing import Callable
 
-from . import grips_given as gg
-from . import packets as imppa
+from . import packets
 
 # Commands that IMPISH defines
 # Map from ID to type
 # ID is determined by ordering in all_commands
-COMMAND_MAP = {i: c for (i, c) in enumerate(imppa.all_commands)}
+COMMAND_MAP = {i: c for (i, c) in enumerate(packets.all_commands)}
 # Telemetry we define
 # Map from type to ID
 # ID is determined by ordering in all_telemetry_packets
-TELEMETRY_MAP = {c: i for (i, c) in enumerate(imppa.all_telemetry_packets)}
+TELEMETRY_MAP = {c: i for (i, c) in enumerate(packets.all_telemetry_packets)}
 
 
 def send_telemetry_packet(
@@ -40,7 +39,7 @@ def send_telemetry_packet(
     from a 'native' IMPISH packet.
     """
     # Build the header from metadata
-    head = gg.TelemetryHeader()
+    head = packets.TelemetryHeader()
     head.telem_type = TELEMETRY_MAP[type(pkt)]
     head.counter = counter
 
@@ -57,7 +56,7 @@ def send_grips_telem_bytes(
     # Put current system time into "GondolaTime"
     # before sending out the data
     ba = bytearray(full_packet)
-    th = gg.TelemetryHeader.from_buffer(ba)
+    th = packets.TelemetryHeader.from_buffer(ba)
     th.gondola_time = int(time.time())
 
     send_grips_bytes(bytes(ba), address, given_socket)
@@ -68,8 +67,8 @@ def send_grips_bytes(
 ):
     # Put in the CRC and verify it worked
     ba = bytearray(pkt)
-    gg.apply_crc16(ba)
-    gg.verify_crc16(ba)
+    packets.apply_crc16(ba)
+    packets.verify_crc16(ba)
 
     # Send data off via a random socket
     # or a provided one
@@ -106,50 +105,54 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
     """
     data = bytearray(data)
 
-    head_sz = ctypes.sizeof(gg.CommandHeader)
+    head_sz = ctypes.sizeof(packets.CommandHeader)
     if len(data) < head_sz:
-        raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.PARTIAL_HEADER, data, addr, 255, imppa.UnknownCmd
+        raise packets.AcknowledgeError(
+            packets.CommandAcknowledgement.PARTIAL_HEADER,
+            data,
+            addr,
+            255,
+            packets.UnknownCmd,
         )
 
-    decoded = gg.CommandHeader.from_buffer(data)
+    decoded = packets.CommandHeader.from_buffer(data)
 
-    if decoded.base_header.sync != gg.GRIPS_SYNC:
-        raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.INVALID_SYNC,
+    if decoded.base_header.sync != packets.GRIPS_SYNC:
+        raise packets.AcknowledgeError(
+            packets.CommandAcknowledgement.INVALID_SYNC,
             data[:2],
             addr,
             decoded.counter,
-            imppa.UnknownCmd,
+            packets.UnknownCmd,
         )
 
     try:
-        gg.verify_crc16(data)
-    except gg.CrcError as e:
-        raise gg.AcknowledgeError(
-            error_type=gg.CommandAcknowledgement.INCORRECT_CRC,
+        packets.verify_crc16(data)
+    except packets.CrcError as e:
+        raise packets.AcknowledgeError(
+            error_type=packets.CommandAcknowledgement.INCORRECT_CRC,
             error_data=bytes(e.received) + bytes(e.computed),
             cmd_source_addr=addr,
             cmd_seq_num=decoded.counter,
-            cmd_type=imppa.UnknownCmd,
+            cmd_type=packets.UnknownCmd,
         )
 
-    if decoded.base_header.system_id != gg.IMPISH_SYSTEM_ID:
-        raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.INCORRECT_SYSTEM_ID,
+    if decoded.base_header.system_id != packets.IMPISH_SYSTEM_ID:
+        raise packets.AcknowledgeError(
+            packets.CommandAcknowledgement.INCORRECT_SYSTEM_ID,
             bytes(decoded.system_id),
             addr,
             decoded.counter,
-            imppa.UnknownCmd,
+            packets.UnknownCmd,
         )
 
     if decoded.cmd_type not in COMMAND_MAP:
-        raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.INVALID_COMMAND_TYPE,
+        raise packets.AcknowledgeError(
+            packets.CommandAcknowledgement.INVALID_COMMAND_TYPE,
             bytes(decoded.cmd_type),
             addr,
             decoded.counter,
-            imppa.UnknownCmd,
+            packets.UnknownCmd,
         )
 
     # Now we have verified a lot of details;
@@ -159,8 +162,8 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
     actual_packet_length = ctypes.c_uint8(len(data) - head_sz).value
     reported_length = decoded.size
     if actual_packet_length != reported_length:
-        raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.INCORRECT_PACKET_LENGTH,
+        raise packets.AcknowledgeError(
+            packets.CommandAcknowledgement.INCORRECT_PACKET_LENGTH,
             bytes(actual_packet_length) + bytes(reported_length),
             addr,
             decoded.counter,
@@ -168,8 +171,8 @@ def decode_command(data: bytes, addr: tuple[str, int]) -> dict:
         )
 
     if decoded.size != ctypes.sizeof(cmd_type):
-        raise gg.AcknowledgeError(
-            gg.CommandAcknowledgement.INVALID_PACKET_LENGTH,
+        raise packets.AcknowledgeError(
+            packets.CommandAcknowledgement.INVALID_PACKET_LENGTH,
             bytes(decoded.size),
             addr,
             decoded.counter,
@@ -192,8 +195,8 @@ def grips_cmd_header_from_packet(pkt: ctypes.LittleEndianStructure, seq_num: int
     the information within `impish.network.packets.all_commands` to
     assign the cmd_type.
     """
-    head = gg.CommandHeader()
-    head.cmd_type = imppa.all_commands.index(type(pkt))
+    head = packets.CommandHeader()
+    head.cmd_type = packets.all_commands.index(type(pkt))
     head.counter = seq_num
     head.size = ctypes.sizeof(pkt)
     return head
@@ -251,15 +254,15 @@ class Commander:
         self.sequence_number += 1
         self.sequence_number %= 256
 
-    def recv_ack(self) -> gg.CommandAcknowledgement:
+    def recv_ack(self) -> packets.CommandAcknowledgement:
         # The command acknoqledgement should arrive synchronously
         # right after sending the command.
         res_dat = self.socket.recv(2048)
-        return gg.CommandAcknowledgement.from_buffer_copy(res_dat)
+        return packets.CommandAcknowledgement.from_buffer_copy(res_dat)
 
 
 # May raise an AcknowledgeError if something goes wrong.
-RouterCallback = Callable[[CommandInfo], gg.CommandAcknowledgement]
+RouterCallback = Callable[[CommandInfo], packets.CommandAcknowledgement]
 
 
 class CommandRouter:
@@ -277,7 +280,7 @@ class CommandRouter:
     active on the spacecraft.
     """
 
-    def __init__(self, listen_port: int, reply_to: None):
+    def __init__(self, listen_port: int, reply_to: tuple[str, int]):
         self.cmd_map = dict()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(("0.0.0.0", listen_port))
@@ -310,14 +313,14 @@ class CommandRouter:
             ci.payload = recvd_cmd["contents"]
             ci.sender = recvd_cmd["sender"]
             ci.seq_num = recvd_cmd["header"].counter
-        except gg.AcknowledgeError as e:
+        except packets.AcknowledgeError as e:
             # We had a problem verifying the cmd packet
             # structure
             self._handle_error(e)
 
         try:
             self._track_seq_num(ci)
-        except gg.AcknowledgeError as e:
+        except packets.AcknowledgeError as e:
             # The sequence number was out of order
             self._handle_error(e)
 
@@ -332,14 +335,14 @@ class CommandRouter:
         # Get the ack from the callback and send it back to the command
         try:
             ack = cback(ci)
-        except gg.AcknowledgeError as e:
+        except packets.AcknowledgeError as e:
             # There was an error during
             # command execution
             self._handle_error(e)
 
         # If we clear all the try/except blocks:
         #     send off a "good" ack packet
-        self.socket.sendto(bytes(ack), (self.reply_to or ci.sender))
+        send_grips_bytes(ack, self.reply_to, self.socket)
 
     def _track_seq_num(self, ci: CommandInfo) -> None:
         """Keep track of the command packet sequence number
@@ -350,9 +353,12 @@ class CommandRouter:
         if self.expected_cmd_seq_num is None:
             self.expected_cmd_seq_num = ci.seq_num
 
-        if self.expected_cmd_seq_num != ci.seq_num:
-            raise gg.AcknowledgeError(
-                error_type=gg.CommandAcknowledgement.GENERAL_FAILURE,
+        missed_command = self.expected_cmd_seq_num > ci.seq_num
+        if missed_command:
+            # Pick up where we left off
+            self.expected_cmd_seq_num = ci.seq_num
+            raise packets.AcknowledgeError(
+                error_type=packets.CommandAcknowledgement.GENERAL_FAILURE,
                 error_data=list(b"badsqn") + [self.expected_cmd_seq_num],
                 cmd_source_addr=ci.sender,
                 cmd_seq_num=ci.seq_num,
@@ -363,15 +369,15 @@ class CommandRouter:
         self.expected_cmd_seq_num += 1
         self.expected_cmd_seq_num %= 256
 
-    def _handle_error(self, e: gg.AcknowledgeError) -> None:
+    def _handle_error(self, e: packets.AcknowledgeError) -> None:
         """If we get an error from some portion of the
         command process, parse it to an Ack packet
         and send it off.
         """
-        bad = gg.CommandAcknowledgement.from_err(e)
-        sender = e.cmd_source_addr
-        send_grips_telem_bytes(bad, sender, given_socket=self.socket)
-        raise UserWarning("Packet error occurred during parsing/verification")
+        bad = packets.CommandAcknowledgement.from_err(e)
+        # Header is already here, so send the bytes straight away
+        send_grips_bytes(bad, self.reply_to, self.socket)
+        raise UserWarning("Packet error occurred during parsing/verification") from e
 
 
 class Telemeter:
