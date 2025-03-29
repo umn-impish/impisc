@@ -103,8 +103,6 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
 
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
-    let string_res = String::from_utf8(res_bytes.clone()).expect("Our bytes should be valid utf8");
-    println!("{string_res}");
     const STEP: usize = 128;
     for i in (0..res_bytes.len()).step_by(STEP) {
         let max_idx = std::cmp::min(res_bytes.len(), i+STEP);
