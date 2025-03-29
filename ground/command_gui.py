@@ -144,7 +144,7 @@ def init_threads_queues():
 
     # Set up machinery for receiving telemetry back
     cmd_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    cmd_sock.bind(("", ground_ports.COMMAND_INTERFACE))
+    cmd_sock.bind(("", ground_ports.COMMAND_TELEMETRY))
     listen_timeout = 1
     telem_queue = support.LinuxCommandResponseParser(
         listen_socket=cmd_sock, assumed_done_timeout=listen_timeout
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     ack_queue, telem_queue = init_threads_queues()
 
     app = wid.QApplication([])
-    cmd = comm.Commander(12346)
+    cmd = comm.Commander(ground_ports.COMMANDER)
     window = CommanderWindow(commander=cmd)
     with open("commander.qss", "r") as f:
         style = f.read()

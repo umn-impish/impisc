@@ -19,7 +19,7 @@ def sort_telemetry():
     s.bind(("", ground_ports.TELEMETRY_SORTER))
 
     telemetry_map = {
-        packets.ArbitraryLinuxCommandResponse: ground_ports.COMMAND_INTERFACE,
+        packets.ArbitraryLinuxCommandResponse: ground_ports.COMMAND_TELEMETRY,
         ies.DetectorHealth: ground_ports.DETECTOR_HEALTH_DUMP,
     }
 

@@ -13,7 +13,7 @@ def fake_grips():
     destination = (ground_ports.TELEM_SORTER_IP, ground_ports.MAIN_DATA_PIPE)
 
     while True:
-        data = s.recvfrom(32768)
+        data = s.recv(32768)
         s.sendto(data, destination)
 
 
