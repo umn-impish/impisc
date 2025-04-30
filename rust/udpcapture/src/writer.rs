@@ -71,6 +71,10 @@ impl FileWriter {
 
         if self.file_full() || self.expired() {
             // Take the File and drop it (immediate close)
+            if let Some(f) = &mut self.file {
+                // Unwrap the retval so we panic on error
+                f.flush().unwrap();
+            }
             drop(self.file.take());
             self.data_written = 0;
             // Clear the open_time so
