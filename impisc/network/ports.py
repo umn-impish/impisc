@@ -1,4 +1,4 @@
-'''
+"""
 Here are base ports defined for various programs
 which will run on IMPISH.
 
@@ -15,19 +15,21 @@ It may send and receive data on other ports if need be.
 It is expected that the listener process will only look at
     port - (port % 1000)
 to identify the origin of the data.
-'''
+"""
+
 import os
 
 # Default to localhost for testing
-GRIPS_IP = os.getenv('GRIPS_IP_ADDR') or '127.0.0.1'
+GRIPS_IP = os.getenv("GRIPS_IP_ADDR") or "127.0.0.1"
 
+ACK_HANDLER = 54321
 GRIPS_EXPOSED = 12345
 
 COMMAND_EXECUTOR = 35000
 
 # XXX update to environment variable which is set
 # by the controller installatoin
-DETECTOR_CONTROLLER = os.getenv('DET_SERVICE_PORT') or 36000
+DETECTOR_CONTROLLER = os.getenv("DET_SERVICE_PORT") or 36000
 
 TELEMETER = 40000
 

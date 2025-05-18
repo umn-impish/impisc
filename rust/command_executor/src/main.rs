@@ -48,13 +48,15 @@ impl OutputWrapper {
         );
 
         let sc_str = OsString::from(self.status_code.to_string());
+        // Use newlines to delineate chunks of data
         response.push(sc_str);
         response.push("\n");
 
-        response.push("stdout\n");
+        response.push("arb-cmd-stdout\n");
         response.push(&self.stdout);
+        response.push("\n");
 
-        response.push("stderr\n");
+        response.push("arb-cmd-stderr\n");
         response.push(&self.stderr);
         return response.into_encoded_bytes();
     }
@@ -101,9 +103,8 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
 
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
-    const STEP: usize = 1024;
+    const STEP: usize = 128;
     for i in (0..res_bytes.len()).step_by(STEP) {
-        let packet_ordering = (i / STEP) as u8;
         let max_idx = std::cmp::min(res_bytes.len(), i+STEP);
 
         let mut send_bytes = res_bytes[i..max_idx].to_vec();
@@ -111,13 +112,16 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
             let padding: usize = STEP - send_bytes.len();
             send_bytes.append(&mut vec![0u8; padding]);
         }
-        send_bytes.push(packet_ordering);
+
+        let packet_ordering = (i / STEP) as u16;
+        send_bytes.push((packet_ordering & 0xff) as u8);
+        send_bytes.push(((packet_ordering >> 8) & 0xff) as u8);
 
         sock.send(&send_bytes).expect("failed to send UDP response");
     }
 
     // Send a final message saying that data isn't flowing any more
-    sock.send("finished".as_bytes()).expect("failed to send end-of-message");
+    sock.send("arb-cmd-finished".as_bytes()).expect("failed to send end-of-message");
 }
 
 fn receive_command(sock: &UdpSocket) -> Option<(Vec<u8>, SocketAddr)> {
