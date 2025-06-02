@@ -8,6 +8,14 @@ packages = ['impisc']
 [project]
 version = "0"
 name = "impisc"
-dependencies = [ ]
+dependencies = [
+ "rpi-gpio>=0.7.1",
+ "spidev>=3.8",
+]
 
 [project.scripts]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+]
