@@ -61,6 +61,7 @@ class GenericDevice:
 
     def __post_init__(self):
         self.registers = {}
+        self._bus = smbus2.SMBus(self.bus_number)
 
     def add_register(self, reg: Register):
         '''Add a register to the device.'''
@@ -73,8 +74,11 @@ class GenericDevice:
         '''The I2C bus needs to be reopened every time since it
         doesn't autoupdate.
         I can't remember why this was needed.........
+        We close and reopen it so we leave unused, open files.
         '''
-        return smbus2.SMBus(self.bus_number)
+        self._bus.close()
+        self._bus = smbus2.SMBus(self.bus_number)
+        return self._bus
 
     @property
     def responsive(self) -> bool:
