@@ -4,10 +4,11 @@ along with some useful bit/byte manipulation functions.
 '''
 
 import os
-import smbus2
 import time
 
 from dataclasses import dataclass
+
+import smbus2
 
 
 def int_to_twos_complement(value: int, bits: int) -> int:
@@ -72,12 +73,12 @@ class GenericDevice:
     @property
     def bus(self) -> smbus2.SMBus:
         '''The I2C bus needs to be reopened every time since it
-        doesn't autoupdate.
-        I can't remember why this was needed.........
-        We close and reopen it so we leave unused, open files.
+        doesn't autoupdate. We close and reopen it so we leave
+        unused, open files.
         '''
         self._bus.close()
         self._bus = smbus2.SMBus(self.bus_number)
+
         return self._bus
 
     @property
@@ -89,7 +90,7 @@ class GenericDevice:
             test_reg = next(iter(self.registers.values()))
             self.read_data(test_reg.address)
             return True
-        except Exception as e:
+        except Exception as e:  # TODO: specify which Exception
             print(
                 f'Could not ping I2C device at address {hex(self.address)}:\n{e}')
             return False
@@ -98,12 +99,12 @@ class GenericDevice:
         '''Prints the current value for all
         registers associated with the device.
         '''
-        print('\n------------')
+        print('\n------------------------')
         for name in self.registers:
             data = self.read_block_data(name)
             print(f'{name.rjust(10)}:', f'{data:16b}'.zfill(
                 16), f'{data}'.rjust(8))
-        print('------------')
+        print('------------------------')
 
     def read_block_data(self, register: str) -> list[int]:
         '''Reads all bytes' worth of register data.'''
@@ -142,8 +143,8 @@ class GenericDevice:
             time.sleep(0.5)
         else:
             if not quiet:
-                print(
-                    f'No kernel driver associated with I2C device at address {self.address}')
+                print('No kernel driver associated with I2C '
+                      f'device at address {self.address}')
 
     def release_from_kernel(self, quiet: bool = True):
         '''Releases device module from the Linux Kernel.
@@ -157,5 +158,5 @@ class GenericDevice:
             time.sleep(0.5)
         else:
             if not quiet:
-                print(
-                    f'No kernel driver associated with I2C device at address {self.address}')
+                print('No kernel driver associated with '
+                      f'I2C device at address {self.address}')
