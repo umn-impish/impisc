@@ -13,6 +13,8 @@ packages = [
 [project]
 version = "0"
 name = "impisc"
-dependencies = [ ]
+dependencies = [
+    "smbus2"
+]
 
 [project.scripts]
