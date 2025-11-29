@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = [
     'impisc',
+    'impisc.et_daqbox',
     'impisc.network',
     'impisc.i2c',
     'impisc.i2c.devices',
@@ -15,6 +16,12 @@ version = "0"
 name = "impisc"
 dependencies = [
     "smbus2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest"
 ]
 
 [project.scripts]
