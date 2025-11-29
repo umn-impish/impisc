@@ -97,7 +97,10 @@ def test_exceptional_router():
         (route_port := 23451),
     )
     cmd_port = 23461
-    good_cback = lambda *_: packets.CommandAcknowledgement()
+
+    def good_cback(*_):
+        return packets.CommandAcknowledgement()
+
     router.add_callback(packets.DummyCmd, good_cback)
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
