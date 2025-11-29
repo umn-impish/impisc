@@ -33,7 +33,7 @@ impl FileWriter {
 
     #[must_use]
     pub fn maybe_write_data(&mut self, data: &Vec<u8>) -> Option<String> {
-        /* Writes the given binary data to an unbuffered file,
+        /* Writes the given binary data to a buffered file,
          * should that file exist, and should its lifetime exist.
          *
          * If the file lifetime expires, it is closed.
