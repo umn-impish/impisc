@@ -1,4 +1,5 @@
 from impisc.et_daqbox import daq_box_api as dbapi
+import time
 import tempfile
 import pathlib
 
@@ -21,9 +22,15 @@ def test_waveform_acquisition():
     iface = dbapi.DaqBoxInterface()
     cfg = dbapi.DaqBoxConfig()
     cfg.acquisition_mode = "waveform"
+    cfg.enabled = 0b0001
+    cfg.thresholds[0] = 100
+    cfg.polarities = 0b0000
+    cfg.acquisition_mode = "waveform"
+    cfg.enable_pileup_rejection = False
     iface.send(cfg.to_packet())
 
     # Start taking waveform data
+    iface.send(dbapi.STOP)
     iface.recalibrate_baseline()
     iface.send(dbapi.START)
 
@@ -32,12 +39,16 @@ def test_waveform_acquisition():
 
     waveforms = list()
     while len(waveforms) < 1000:
-        pkt = iface.recv()
+        try:
+            pkt = iface.recv()
+        except BlockingIOError:
+            time.sleep(0.1)
+            continue
         if pkt[:2] == dbapi.WAVEFORM_HEADER:
             waveforms.append(dbapi.parse_waveform_packet(pkt))
 
-    raise NotImplementedError("finish this test")
-    ...
+    # Looks like it worked
+    iface.send(dbapi.STOP)
 
 
 def test_spectrum_acquisition():
@@ -45,9 +56,9 @@ def test_spectrum_acquisition():
     # Configure the DAQ Box to take waveform data
     cfg.acquisition_mode = "spectrum"
     # Only enable channel 1
-    cfg.enabled = 0b1000
+    cfg.enabled = 0b0001
     # Expect positive polarities on every channel
-    cfg.polarities = 0b1111
+    cfg.polarities = 0b0000
 
     iface = dbapi.DaqBoxInterface()
     iface.send(cfg.to_packet())
@@ -59,7 +70,10 @@ def test_spectrum_acquisition():
     iface.flush()
     iface.send(dbapi.START)
     while len(spectra) < total_spectra:
-        spectra.append(dbapi.parse_spectrum_packet(iface.recv()))
+        try:
+            spectra.append(dbapi.parse_spectrum_packet(iface.recv()))
+        except BlockingIOError:
+            time.sleep(1 / 32)
 
-    raise NotImplementedError("finish this test")
-    ...
+    # Looks like it worked
+    iface.send(dbapi.STOP)

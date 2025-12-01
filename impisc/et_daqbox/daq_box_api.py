@@ -17,7 +17,7 @@ END_BASELINE_CALIBRATION = bytearray(BLANK_COMMAND)
 END_BASELINE_CALIBRATION[3] = 0x08
 
 # Discriminate between waveform vs. spectrum packets
-WAVEFORM_HEADER = [0xAA, 0x55]
+WAVEFORM_HEADER = bytes([0xaa, 0x55])
 
 
 class DaqBoxConfig:
@@ -48,9 +48,9 @@ class DaqBoxConfig:
     def __init__(self):
         # in 0.5 mV units
         self.thresholds = [50, 50, 50, 50]
-        # Channels 0 to 3
+        # Channels (3, 2, 1, 0)
         self.enabled = 0b0000
-        # Polarities for 0 to 3. 1 = positive, 0 = negative
+        # Polarities for (3, 2, 1, 0). 1 = positive, 0 = negative
         self.polarities = 0b1111
         # Integer (?) still unsure what it does
         self.zoom_division = 0
@@ -70,23 +70,16 @@ class DaqBoxConfig:
 
     def to_packet(self) -> bytes:
         """Convert the configuration object into the proper 32B packet"""
-
         def pack_12bit_be(values):
             v0, v1, v2, v3 = values
             x = (v0 << 36) | (v1 << 24) | (v2 << 12) | v3
             return x.to_bytes(6, "big")
 
         packet = bytearray(BLANK_COMMAND)
-        if self.acquisition_mode == "spectrum":
-            packet[23] = 0
-        elif self.acquisition_mode == "waveform":
-            packet[23] = 1
-        else:
-            raise ValueError(f"Invalid acquisition mode '{self.acquisition_mode}'")
-
-        packet[15] = self.zoom_division & 0xFF
+        packet[15] = (self.zoom_division & 0xff)
         packet[16] = self.enable_pileup_rejection
         packet[17:22] = pack_12bit_be(reversed(self.thresholds))
+        packet[23] = (1 if self.acquisition_mode == "waveform" else 0)
         packet[26] = self.enabled
         packet[27] = self.polarities
         packet[28:30] = struct.pack("!H", self.integration_window)
@@ -95,7 +88,7 @@ class DaqBoxConfig:
 
 
 class DaqBoxInterface:
-    RECV_PACKET_SIZE = 8192
+    RECV_PACKET_SIZE = 9000
 
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -111,8 +104,11 @@ class DaqBoxInterface:
         DAQ_BOX_ADDR = ("192.168.0.2", 8080)
         self.sock.sendto(cmd, DAQ_BOX_ADDR)
         # Box expects a delay after each command sent to it
-        sleep(0.1)
-        return self.recv()
+        sleep(0.2)
+        try:
+            return self.recv()
+        except BlockingIOError:
+            return b'no response'
 
     def recv(self) -> bytes:
         return self.sock.recv(DaqBoxInterface.RECV_PACKET_SIZE)
