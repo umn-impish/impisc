@@ -75,7 +75,10 @@ def test_isl22317():
 
 
 def test_pct2075():
-    device = PCT2075(0, 0x4f)
+    device = PCT2075(1, 0x49)
     for _ in range(10):
         print(f'temperature: {device.read_temperature()} *C')
         time.sleep(0.5)
+
+
+test_pct2075()
