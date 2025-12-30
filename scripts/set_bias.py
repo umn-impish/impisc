@@ -1,10 +1,17 @@
+"""
+Used for creating an executable script that allows one to set the bias
+voltage from the command line.
+"""
+
 import argparse
 
 from impisc.i2c.devices.isl22317 import ISL22317
 
 
 def voltage_to_wiper(voltage: float):
-    """Set the wiper to the value closest to the specified voltage."""
+    """Set the wiper to the value closest to the specified voltage.
+    Currently uses a qusrtic fit, but we can change this later.
+    """
     coeffs = [0.0001539627508034794, -0.02828659130768363, 2.0543637222313063, -73.51029051431925, 1106.1317000722063]
     wiper = round(sum(coef * (voltage ** (len(coeffs) - i - 1)) for i, coef in enumerate(coeffs)))
     if wiper not in range(0, 128):
