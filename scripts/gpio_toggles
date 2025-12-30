@@ -1,0 +1,24 @@
+#!/bin/bash
+
+declare -A toggle_map
+toggle_map["1"]="4"
+toggle_map["2"]="5"
+toggle_map["3"]="6"
+toggle_map["4"]="7"
+toggle_map["bias"]="12"
+toggle_map["heater"]="13"
+
+# TODO update once toggle board modified
+toggle_map["daqbox"]="7"
+
+function gpio_lookup() {
+    case $1 in
+        "1"|"2"|"3"|"4"|"bias"|"heater"|"daqbox")
+            echo "${toggle_map[$1]}"
+            ;;
+        *)
+            echo "unknown toggle '$1'" >&2
+            exit 1
+            ;;
+    esac
+}
