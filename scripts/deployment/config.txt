@@ -1,0 +1,44 @@
+[all]
+
+# We don't need Bluetooth
+dtoverlay=disable-bt
+
+# GPIO pins we use for toggles
+gpio=4=op,dl
+gpio=5=op,dl
+gpio=6=op,dl
+gpio=7=op,dl
+gpio=12=op,dl
+gpio=13=op,dl
+
+# GPIO pin for PPS sense (no pull)
+gpio=16=ip,np
+
+# Interfaces we need enabled
+dtparam=i2c_arm=on
+dtparam=spi=on
+enable_uart=1
+pcie=on
+
+# Add the real-time clock device tree overlay
+dtoverlay=i2c-rtc,ds3231
+
+# 4-bit SDIO bus for data card
+dtoverlay=sdio,bus_width=4
+
+# I2C bus 0 for bias sensing
+dtoverlay=i2c0,pins_0_1
+disable_poe_fan=1
+
+# ??
+force_eeprom_read=0
+
+# Automatically load initramfs files, if found
+auto_initramfs=1
+
+# Don't have the firmware create an initial video= setting in cmdline.txt.
+# Use the kernel's default instead.
+disable_fw_kms_setup=1
+
+# Run in 64-bit mode
+arm_64bit=1
