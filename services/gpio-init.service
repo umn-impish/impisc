@@ -1,0 +1,16 @@
+[Unit]
+Description=Turn off toggle power GPIOs at boot
+After=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/impish/impisc/scripts/initialize_gpios
+WorkingDirectory=/home/impish/impisc/scripts
+StandardOutput=inherit
+StandardError=inherit
+Restart=no
+User=impish
+
+[Install]
+WantedBy=multi-user.target
+
