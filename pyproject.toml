@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = [
+    'scripts',
     'impisc',
     'impisc.et_daqbox',
-    'impisc.network',
     'impisc.i2c',
     'impisc.i2c.devices',
 ]
@@ -25,3 +25,4 @@ dev = [
 ]
 
 [project.scripts]
+set-bias = "scripts:set_bias.main"

@@ -81,3 +81,6 @@ def test_pct2075():
     for _ in range(10):
         print(f"temperature: {device.read_temperature()} *C")
         time.sleep(0.5)
+
+
+test_pct2075()
