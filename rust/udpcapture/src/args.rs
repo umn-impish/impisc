@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::option::Option;
 
 /*
- * Here we define the command line args used by udpcapture.
+ * Command line args for udpcapture.
  * Optional args are (logically) annotated, and helpful
  * messages are printed as part of the usage.
  * */
@@ -23,7 +23,7 @@ use std::option::Option;
     long_about=None
 )]
 pub struct ProgramArgs {
-    #[arg(short='p', long, help="UDP port to listen on, in host representation")]
+    #[arg(short='p', long, help="UDP port to listen on, in native endian representation")]
     pub port: u16,
 
     #[arg(short='s', long,

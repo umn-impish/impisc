@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 <toggle option> <state>" 
+    exit 1
+fi
+
+source gpio_toggles
+gpio_pin=$(gpio_lookup "$1") || exit 1
+
+state="$2"
+if [[ $state = "on" ]]
+then
+    operation="dh"
+else
+    operation="dl"
+fi
+
+sudo pinctrl $gpio_pin op pd $operation

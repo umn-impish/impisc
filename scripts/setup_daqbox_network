@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Configure the specified network device to work properly
+# with the E&T DAQBOX, custom to IMPISH.
+
+if [ "$#" -lt 1 ]; then
+    echo "Usage: $0 <ethernet dev name>" 
+    exit 1
+fi
+dev="$1"
+
+# If the device is in the neighbor list, delete it
+sudo ip neigh del 192.168.0.2 dev "$dev"
+
+# Point to the DAQ Box address
+sudo ip neigh add 192.168.0.2 lladdr 00:01:35:01:fe:c0 dev "$dev" nud permanent
+
+# Make the MTU huge for "jumbo" UDP packets
+sudo ip link set "$dev" mtu 9100
+

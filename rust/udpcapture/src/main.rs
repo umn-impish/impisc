@@ -58,7 +58,7 @@ fn receive_data(sock: &UdpSocket) -> Vec<u8> {
                 0
             }
             else {
-                panic!("ruh roh: {e:?}")
+                panic!("unexpected error when receiving: {e:?}")
             }
         }
     };
