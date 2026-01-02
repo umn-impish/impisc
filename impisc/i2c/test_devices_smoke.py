@@ -19,22 +19,23 @@ def test_ads1015():
 
 
 def test_ads112c04():
-    device = ADS112C04(1, 0x40)
+    device = ADS112C04(0, 0x40)
     device.set_data_rate(20)
-    device.enable_turbo_mode()
-    device.set_gain(2)
+    # device.enable_turbo_mode()
+    # device.set_gain(2)
     for _ in range(3):
         print(f"current mux setting: {device.mux}")
         # print('temperature sensing:', device.temperature_sensing)
         # print('data rate:', device.data_rate)
-        reading = device.read_voltage("2", force_conversion=True)
-        reading * (1e6 + 9e3) / 9e3
+        reading = device.read_voltage("01", force_conversion=True)
+        voltage = reading * 155 / 5
         print(f"reading: {reading} V")
-        # print(f'voltage: {voltage:0.4f}')
+        print(f'voltage: {voltage:0.2f}')
         # device.print_register_status()
         temperature = device.read_temperature(force_conversion=False)
-        print(f"temperature: {temperature} *C")
+        print(f"temperature: {temperature:0.2f} *C")
         device.power_down()
+        print()
         time.sleep(1)
 
 
@@ -83,4 +84,5 @@ def test_pct2075():
         time.sleep(0.5)
 
 
-test_pct2075()
+#test_pct2075()
+test_ads112c04()
