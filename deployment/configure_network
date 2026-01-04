@@ -5,6 +5,10 @@ sudo systemctl disable NetworkManager
 sudo systemctl enable systemd-networkd
 sudo systemctl start systemd-networkd
 
+# Use the "predictable" net names instead of eth0, eth1, etc.
+# Requires a reboot
+sudo raspi-config nonint do_net_names 0
+
 fn="01-impish.yaml"
 sudo cp $fn /etc/netplan/
 cd /etc/netplan
