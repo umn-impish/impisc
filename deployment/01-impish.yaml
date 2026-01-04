@@ -1,0 +1,23 @@
+# IMPISH netplan
+# NB: run the deployment script to disable NetworkManager and delete
+# its auto-generated config files.
+
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        # Gondola ethernet
+        eth0:
+            dhcp4: yes
+            dhcp6: yes
+            routes:
+                - to: default
+                  via: 10.42.0.1
+            nameservers:
+                addresses: [1.1.1.1, 8.8.8.8]
+        # Daqbox
+        eth1:
+            dhcp4: no
+            dhcp6: no
+            addresses:
+                - 192.168.0.3/24

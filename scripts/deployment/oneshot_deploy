@@ -1,6 +1,0 @@
-#!/bin/bash
-
-./configure_sd1
-./configure_configtxt
-./configure_daqbox_network
-./remove_bloat

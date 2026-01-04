@@ -1,8 +1,0 @@
-#!/bin/bash
-
-scripts=$(cat script_names.txt)
-for s in $scripts; do
-    # Assumes the deployment directory is one level deeper
-    # than the "scripts" one
-    sudo cp "../$s" "/usr/local/bin/$s"
-done

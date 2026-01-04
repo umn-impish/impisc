@@ -4,8 +4,8 @@ After=basic.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/impish/impisc/scripts/initialize_gpios
-WorkingDirectory=/home/impish/impisc/scripts
+ExecStart=initialize_gpios
+WorkingDirectory=/usr/local/bin
 StandardOutput=inherit
 StandardError=inherit
 Restart=no

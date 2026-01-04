@@ -1,0 +1,6 @@
+#!/bin/bash
+
+scripts=$(cat script_names.txt)
+for s in $scripts; do
+    sudo cp "../scripts/$s" "/usr/local/bin/$s"
+done

@@ -1,6 +1,0 @@
-#!/bin/bash
-
-sudo cp 01-daqbox.yaml /etc/netplan/
-cd /etc/netplan
-sudo chmod 600 01-daqbox.yaml
-sudo netplan apply

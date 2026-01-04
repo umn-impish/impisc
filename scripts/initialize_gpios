@@ -6,5 +6,5 @@
 
 items="1 2 3 4 daqbox bias heater"
 for item in $items; do
-    ./toggle_power $item off
+    toggle_power $item off
 done

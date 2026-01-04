@@ -1,0 +1,8 @@
+#!/bin/bash
+
+scripts="configure_sd1 configure_configtxt configure_network remove_bloat install_scripts"
+for s in $scripts; do
+    echo "executing $s"
+    ./"$s"
+    echo "done $s"
+done
