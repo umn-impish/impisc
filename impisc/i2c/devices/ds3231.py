@@ -17,11 +17,6 @@ class DS3231(GenericDevice):
         )
         self.add_register(Register("control", 0x0E, 8))
         self.add_register(Register("status", 0x0F, 8))
-        time.sleep(1)  # Is this needed?
-        self.release_from_kernel(quiet=False)
-        self.disable_pps()
-        self._pps_enabled = False
-        self.give_to_kernel(quiet=False)
 
     @property
     def busy(self) -> bool:
@@ -74,11 +69,13 @@ class DS3231(GenericDevice):
         This forces an update to the registers storing the temperature.
         """
         while self.busy:
-            pass
+            time.sleep(0.1)
         CONV = 0b00100000  # 32
-        if self.control_register & CONV == 0:
-            self.write_data(0x0E, self.control_register | CONV)
-        while self.control_register & CONV != 0:
+        if not (self.control_register & CONV):
+            self.write_block_data("control", self.control_register | CONV)
+        while (self.control_register & CONV):
             while self.busy:
-                pass
-            self.read_block_data("control")
+                time.sleep(0.1)
+            # Reduce CPU usage by sleeping; the device
+            # takes a while to perform the conversion anyway
+            time.sleep(0.1)
