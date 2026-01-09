@@ -37,6 +37,15 @@ class DS3231(GenericDevice):
     def control_register(self) -> int:
         """The current state of the control register."""
         return self.read_block_data("control")
+    
+    @property
+    def kernel_control(self) -> bool:
+        """Returns whether the DS3231 is currently controlled by the kernel
+        by checking for the presence of the "driver" symlink for the device.
+        """
+        return os.path.exists(
+            f'/sys/bus/i2c/devices/i2c-1/{self.bus_number}-{self.address:04X}/driver'
+        )
 
     def enable_pps(self) -> None:
         """Enables the PPS."""
@@ -93,7 +102,8 @@ class DS3231(GenericDevice):
             if not quiet:
                 print(f"Adding {self.kernel_driver} to kernel.")
             os.system(f"sudo modprobe {self.kernel_driver}")
-            time.sleep(0.5)
+            while not self.kernel_control:
+                time.sleep(0.001)  # Reduced CPU usage compared to pass
         else:
             if not quiet:
                 print(
@@ -110,7 +120,8 @@ class DS3231(GenericDevice):
             if not quiet:
                 print(f"Releasing {self.kernel_driver} from kernel.")
             os.system(f"sudo modprobe -r {self.kernel_driver}")
-            time.sleep(0.5)
+            while self.kernel_control:
+                time.sleep(0.001)  # Reduced CPU usage compared to pass
         else:
             if not quiet:
                 print(
