@@ -1,7 +1,9 @@
 import time
+
 from devices.ads1015 import ADS1015
 from devices.ads112c04 import ADS112C04
 from devices.isl22317 import ISL22317
+from devices.max11617 import MAX11617
 from devices.ds3231 import DS3231
 from devices.pct2075 import PCT2075
 
@@ -49,7 +51,8 @@ def test_ds3231():
     device.release_from_kernel()
     time.sleep(1)
     print("released from kernel")
-    print("temperature:", device.read_temperature())
+    for _ in range(100):
+        print("temperature:", device.read_temperature())
     device.enable_pps()
     print("enabled PPS")
     device.give_to_kernel()
@@ -78,11 +81,25 @@ def test_isl22317():
 
 
 def test_pct2075():
-    device = PCT2075(0, 0x4F)
-    for _ in range(10):
+    device = PCT2075(1, 0x49)
+    for _ in range(5):
         print(f"temperature: {device.read_temperature()} *C")
         time.sleep(0.5)
 
 
-#test_pct2075()
-test_ads112c04()
+def test_max11617():
+    device = MAX11617(1, 0x35)
+    print(f'setup register: {device.setup_register:08b}')
+    print(f'config register: {device.config_register:08b}')
+    device.reference = 'internal'
+    device.scan = 3
+    print(f'setup register: {device.setup_register:08b}')
+    print(f'config register: {device.config_register:08b}')
+    print('voltage reference:',     device.reference)
+    for chan in range(0, 12):
+        print(f'AIN{chan}:', device.read_conversion(chan))
+
+test_pct2075()
+test_max11617()
+# test_ads112c04()
+# test_ds3231()

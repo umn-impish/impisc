@@ -23,6 +23,8 @@ class MAX11617(GenericDevice):
         """Initialization always resets the device to default values."""
         super().__init__(bus_number=bus_number, address=address)
         # Set attributes to device defaults.
+        # We track these as attributes since the register
+        # values cannot be read from the device.
         self._reference = "vdd"
         self.external_clock = False
         self.bipolar = False
@@ -115,9 +117,10 @@ class MAX11617(GenericDevice):
         """Resets the configuration register to its default."""
         self.bus.write_byte(self.address, 0b10000000)
 
-    def read_conversion(self, which: int) -> float:
+    def read_conversion(self, which: int, vref: float | None = None) -> float:
         """Read the voltage from the specified channel.
-        which must be between [0, 11].
+        which must be between [0, 11]. The reference voltage "vref"
+        must be specified if not using the device's internal reference.
         """
         if which not in range(0, 12):
             raise ValueError(f"Selected channel must be within [0, 11], not {which}")
@@ -126,7 +129,13 @@ class MAX11617(GenericDevice):
         self.bus.i2c_rdwr(read)
         msb, lsb = list(read)
         value = ((msb & 0x0F) << 8) + lsb
-        vref = 2.048  # TODO: remove hardcoded value?
-        # print(f'\t\tvalue: {value:016b}')
+        if self.reference == "internal":
+            vref = 2.048
+        elif vref is None:
+            raise ValueError(
+                f"Reference voltage is configured to {self.reference}, "
+                "but vref was not specified. Please specify the "
+                "vref argument."
+            )
 
         return value / (2**12) * vref
