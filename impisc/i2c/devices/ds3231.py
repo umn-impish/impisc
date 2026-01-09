@@ -15,11 +15,9 @@ class DS3231(GenericDevice):
     def __init__(
         self,
         bus_number: int,
-        address: int,
-        kernel_driver: str | None = "rtc_ds1307"
+        address: int
     ):
         super().__init__(bus_number=bus_number, address=address)
-        self.kernel_driver = kernel_driver
         self.add_register(Register("control", 0x0E, 8))
         self.add_register(Register("status", 0x0F, 8))
 
@@ -100,8 +98,8 @@ class DS3231(GenericDevice):
         """
         if self.kernel_driver is not None:
             if not quiet:
-                print(f"Adding {self.kernel_driver} to kernel.")
-            os.system(f"sudo modprobe {self.kernel_driver}")
+                print(f"Adding rtc_ds1307 to kernel.")
+            os.system(f"sudo modprobe rtc_ds1307")
             while not self.kernel_control:
                 time.sleep(0.001)  # Reduced CPU usage compared to pass
         else:
@@ -114,12 +112,12 @@ class DS3231(GenericDevice):
     def release_from_kernel(self, quiet: bool = True):
         """Releases the DS3231 from the Linux Kernel.
         A delay of 0.5 s is added to give the system enough time to update.
-        This value of 0.5 is emperical...
+        This value of 0.5 is empirical...
         """
         if self.kernel_driver is not None:
             if not quiet:
-                print(f"Releasing {self.kernel_driver} from kernel.")
-            os.system(f"sudo modprobe -r {self.kernel_driver}")
+                print(f"Releasing rtc_ds1307 from kernel.")
+            os.system(f"sudo modprobe -r rtc_ds1307")
             while self.kernel_control:
                 time.sleep(0.001)  # Reduced CPU usage compared to pass
         else:
