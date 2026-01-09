@@ -3,9 +3,6 @@ Defines a general class to generally interface with I2C devices
 along with some useful bit/byte manipulation functions.
 """
 
-import os
-import time
-
 from dataclasses import dataclass
 
 import smbus2
@@ -59,7 +56,6 @@ class GenericDevice:
 
     bus_number: int
     address: int
-    kernel_driver: str | None = None
 
     def __post_init__(self):
         self.registers = {}
@@ -131,36 +127,3 @@ class GenericDevice:
     def write_data(self, register: int, data: int):
         """Writes a single byte to the provided register."""
         self.bus.write_byte_data(self.address, register, data)
-
-    def give_to_kernel(self, quiet: bool = True):
-        """Gives device module to the Linux Kernel.
-        A delay of 0.5 s is added to give the system enough time to update.
-        """
-        if self.kernel_driver is not None:
-            if not quiet:
-                print(f"Adding {self.kernel_driver} to kernel.")
-            os.system(f"sudo modprobe {self.kernel_driver}")
-            time.sleep(0.5)
-        else:
-            if not quiet:
-                print(
-                    "No kernel driver associated with I2C "
-                    f"device at address {self.address}"
-                )
-
-    def release_from_kernel(self, quiet: bool = True):
-        """Releases device module from the Linux Kernel.
-        A delay of 0.5 s is added to give the system enough time to update.
-        This value of 0.5 is emperical...
-        """
-        if self.kernel_driver is not None:
-            if not quiet:
-                print(f"Releasing {self.kernel_driver} from kernel.")
-            os.system(f"sudo modprobe -r {self.kernel_driver}")
-            time.sleep(0.5)
-        else:
-            if not quiet:
-                print(
-                    "No kernel driver associated with "
-                    f"I2C device at address {self.address}"
-                )

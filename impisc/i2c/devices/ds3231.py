@@ -3,6 +3,7 @@ Defines a class for interfacing with the DS3231 RTC module
 from Analog Devices. We will be using its PPS function.
 """
 
+import os
 import time
 
 from .device import GenericDevice, Register
@@ -11,10 +12,14 @@ from .device import GenericDevice, Register
 class DS3231(GenericDevice):
     """Interface with a connected DS3231 device."""
 
-    def __init__(self, bus_number: int, address: int):
-        super().__init__(
-            bus_number=bus_number, address=address, kernel_driver="rtc_ds1307"
-        )
+    def __init__(
+        self,
+        bus_number: int,
+        address: int,
+        kernel_driver: str | None = "rtc_ds1307"
+    ):
+        super().__init__(bus_number=bus_number, address=address)
+        self.kernel_driver = kernel_driver
         self.add_register(Register("control", 0x0E, 8))
         self.add_register(Register("status", 0x0F, 8))
 
@@ -79,3 +84,36 @@ class DS3231(GenericDevice):
             # Reduce CPU usage by sleeping; the device
             # takes a while to perform the conversion anyway
             time.sleep(0.1)
+
+    def give_to_kernel(self, quiet: bool = True):
+        """Gives the DS3231 to the Linux Kernel.
+        A delay of 0.5 s is added to give the system enough time to update.
+        """
+        if self.kernel_driver is not None:
+            if not quiet:
+                print(f"Adding {self.kernel_driver} to kernel.")
+            os.system(f"sudo modprobe {self.kernel_driver}")
+            time.sleep(0.5)
+        else:
+            if not quiet:
+                print(
+                    "No kernel driver associated with I2C "
+                    f"device at address {self.address}"
+                )
+
+    def release_from_kernel(self, quiet: bool = True):
+        """Releases the DS3231 from the Linux Kernel.
+        A delay of 0.5 s is added to give the system enough time to update.
+        This value of 0.5 is emperical...
+        """
+        if self.kernel_driver is not None:
+            if not quiet:
+                print(f"Releasing {self.kernel_driver} from kernel.")
+            os.system(f"sudo modprobe -r {self.kernel_driver}")
+            time.sleep(0.5)
+        else:
+            if not quiet:
+                print(
+                    "No kernel driver associated with "
+                    f"I2C device at address {self.address}"
+                )

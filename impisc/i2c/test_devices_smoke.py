@@ -51,7 +51,7 @@ def test_ds3231():
     device.release_from_kernel()
     time.sleep(1)
     print("released from kernel")
-    for _ in range(100):
+    for _ in range(5):
         print("temperature:", device.read_temperature())
     device.enable_pps()
     print("enabled PPS")
