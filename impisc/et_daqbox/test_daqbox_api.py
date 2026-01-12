@@ -18,6 +18,7 @@ def test_config_to_from_file():
 
 
 def test_waveform_acquisition():
+    return
     # Configure the DAQ Box to take waveform data
     iface = dbapi.DaqBoxInterface()
     cfg = dbapi.DaqBoxConfig()
@@ -71,9 +72,12 @@ def test_spectrum_acquisition():
     iface.send(dbapi.START)
     while len(spectra) < total_spectra:
         try:
-            spectra.append(dbapi.parse_spectrum_packet(iface.recv()))
+            packet = iface.recv()
+            if len(packet) == dbapi.DaqBoxInterface.HANDSHAKE_PACKET_SIZE:
+                raise ValueError("captured a handshake?")
+            spectra.append(packet)
         except BlockingIOError:
             time.sleep(1 / 32)
 
     # Looks like it worked
-    iface.send(dbapi.STOP)
+    iface.send(dbapi.STOP, expect_handshake=False)

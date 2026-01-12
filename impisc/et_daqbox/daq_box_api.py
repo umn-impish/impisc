@@ -17,7 +17,7 @@ END_BASELINE_CALIBRATION = bytearray(BLANK_COMMAND)
 END_BASELINE_CALIBRATION[3] = 0x08
 
 # Discriminate between waveform vs. spectrum packets
-WAVEFORM_HEADER = bytes([0xaa, 0x55])
+WAVEFORM_HEADER = bytes([0xAA, 0x55])
 
 
 class DaqBoxConfig:
@@ -70,16 +70,17 @@ class DaqBoxConfig:
 
     def to_packet(self) -> bytes:
         """Convert the configuration object into the proper 32B packet"""
+
         def pack_12bit_be(values):
             v0, v1, v2, v3 = values
             x = (v0 << 36) | (v1 << 24) | (v2 << 12) | v3
             return x.to_bytes(6, "big")
 
         packet = bytearray(BLANK_COMMAND)
-        packet[15] = (self.zoom_division & 0xff)
+        packet[15] = self.zoom_division & 0xFF
         packet[16] = self.enable_pileup_rejection
         packet[17:22] = pack_12bit_be(reversed(self.thresholds))
-        packet[23] = (1 if self.acquisition_mode == "waveform" else 0)
+        packet[23] = 1 if self.acquisition_mode == "waveform" else 0
         packet[26] = self.enabled
         packet[27] = self.polarities
         packet[28:30] = struct.pack("!H", self.integration_window)
@@ -88,36 +89,39 @@ class DaqBoxConfig:
 
 
 class DaqBoxInterface:
-    RECV_PACKET_SIZE = 9000
+    DATA_PACKET_SIZE = 8000
+    HANDSHAKE_PACKET_SIZE = 1024
 
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("192.168.0.3", 8080))
         self.sock.setblocking(False)
         try:
-            self.send(STOP)
+            self.send(STOP, expect_handshake=False)
+            self.flush()
         except BlockingIOError:
-            # Whatever; ignore the lack of response
             pass
 
-    def send(self, cmd: bytes | bytearray) -> bytes:
+    def send(self, cmd: bytes | bytearray, expect_handshake: bool = True) -> bytes:
         DAQ_BOX_ADDR = ("192.168.0.2", 8080)
         self.sock.sendto(cmd, DAQ_BOX_ADDR)
         # Box expects a delay after each command sent to it
         sleep(0.2)
-        try:
-            return self.recv()
-        except BlockingIOError:
-            return b'no response'
+        if expect_handshake:
+            handshake = self.recv()
+            if len(handshake) != DaqBoxInterface.HANDSHAKE_PACKET_SIZE:
+                raise ValueError("DAQBOX handshake not received; sync error?")
+        else:
+            self.flush()
 
     def recv(self) -> bytes:
-        return self.sock.recv(DaqBoxInterface.RECV_PACKET_SIZE)
+        return self.sock.recv(DaqBoxInterface.DATA_PACKET_SIZE)
 
     def flush(self, max_iterations: int | None = None) -> None:
         max_iterations = max_iterations or 10_000
         for _ in range(max_iterations):
             try:
-                self.sock.recv(DaqBoxInterface.RECV_PACKET_SIZE)
+                self.sock.recv(DaqBoxInterface.DATA_PACKET_SIZE)
             except BlockingIOError:
                 # Socket has been flushed
                 break
@@ -154,7 +158,7 @@ def parse_waveform_packet(data: bytes):
 def parse_spectrum_packet(packet: bytes):
     """Parse a spectrum packet into a set of histograms, as defined by the E&T standard"""
     histograms = [list() for _ in range(4)]
-    for i in range(0, 8000, 8):
+    for i in range(0, DaqBoxInterface.DATA_PACKET_SIZE, 8):
         histograms[0].append(packet[i + 0] * 256 + packet[i + 1])
         histograms[1].append(packet[i + 2] * 256 + packet[i + 3])
         histograms[2].append(packet[i + 4] * 256 + packet[i + 5])
