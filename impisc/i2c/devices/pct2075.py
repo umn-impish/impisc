@@ -34,15 +34,24 @@ class PCT2075(GenericDevice):
         """Wakeup the device from shutdown mode."""
         self.write_block_data("conf", self.conf_register & 0b11111110)
 
-    def set_idle_time(self, value: float) -> float:
+    @property
+    def idle_time(self) -> float:
+        """The value in the tidle register (0x04), in seconds.
+        Valid values range from [0.1, 3.1] seconds, at 0.1 s increments.
+        value is rounded to the nearest valid value.
+        """
+        return (self.read_block_data("tidle") & 0b00011111) / 10
+
+    @idle_time.setter
+    def idle_time(self, value: float) -> float:
         """Sets the value in the tidle register (0x04).
         Valid values range from [0.1, 3.1] seconds, at 0.1 s increments.
-        value is rounded to the nearest valid value; the set value is
-        returned.
+        value is rounded to the nearest valid value.
         """
         if (value < 0.1) or (value > 3.1):
             raise ValueError(f"Given idle time must be within [0.1, 3.1]; not {value}")
-        self.write_block_data("tidle", int(round(value, 1) * 10))
+        value = round(value, 1)
+        self.write_block_data("tidle", int(value * 10))
 
     def read_temperature(self) -> float:
         """Read the temperature from the temp register (0x00),

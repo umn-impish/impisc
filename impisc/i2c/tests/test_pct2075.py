@@ -38,20 +38,27 @@ def test_temperature_reading():
     device.read_temperature()
 
 
-def test_set_tidle():
+def test_idle():
     """Test setting the idle time between temperature measurements."""
     device = PCT2075(1, 0x49)
     device.wakeup()
-    device.set_idle_time(0.2)
-    device.set_idle_time(0.16)
-    device.set_idle_time(1.4989561561)
-    device.set_idle_time(3.1)
-    try:
-        device.set_idle_time(0.01)
-    except ValueError:
-        pass
-    try:
-        device.set_idle_time(3.11)
-    except ValueError:
-        pass
-    device.set_idle_time(0.1)
+    device.idle_time = 0.1
+    valid = [0.2, 0.16, 1.4989561561, 3.1]
+    for value in valid:
+        try:
+            device.idle_time = value
+        except ValueError as e:
+            print(f'caught for {value}')
+            print(e)
+    invalid = [0.01, 3.11]
+    for value in invalid:
+        try:
+            device.idle_time = value
+            raise RuntimeError('SHOULD NOT REACH HERE!!!')
+        except ValueError:
+            pass
+    device.idle_time = 0.1
+
+
+if __name__ == '__main__':
+    test_idle()
