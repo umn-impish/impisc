@@ -48,13 +48,9 @@ def test_idle():
     device.idle_time = 0.1
     valid = [0.2, 0.16, 1.4989561561, 3.1]
     for value in valid:
-        try:
-            device.idle_time = value
-            expected = round(value, 1)
-            assert expected == device.idle_time, f'Expected {expected} but got {device.idle_time} instead (rounding error?)'
-        except ValueError as e:
-            print(f'caught for {value}')
-            print(e)
+        device.idle_time = value
+        expected = round(value, 1)
+        assert expected == device.idle_time, f'Expected {expected} but got {device.idle_time} instead (rounding error?)'
     invalid = [0.01, 3.11]
     for value in invalid:
         try:
