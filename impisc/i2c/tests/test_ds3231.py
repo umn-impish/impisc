@@ -37,7 +37,3 @@ def test_pps():
     device.disable_pps()
     device.disable_pps()
     assert not device.pps_enabled
-
-
-if __name__ == "__main__":
-    test_pps()
