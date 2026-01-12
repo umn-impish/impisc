@@ -90,9 +90,7 @@ class DS3231(GenericDevice):
             time.sleep(0.1)
 
     def give_to_kernel(self, quiet: bool = True):
-        """Gives the DS3231 to the Linux Kernel.
-        A delay of 0.5 s is added to give the system enough time to update.
-        """
+        """Gives the DS3231 to the Linux Kernel."""
         if self.kernel_control:
             return
         if not quiet:
@@ -103,10 +101,7 @@ class DS3231(GenericDevice):
             time.sleep(0.001)  # Reduced CPU usage compared to pass
 
     def release_from_kernel(self, quiet: bool = True):
-        """Releases the DS3231 from the Linux Kernel.
-        A delay of 0.5 s is added to give the system enough time to update.
-        This value of 0.5 is empirical...
-        """
+        """Releases the DS3231 from the Linux Kernel."""
         if not self.kernel_control:
             return
         if not quiet:
