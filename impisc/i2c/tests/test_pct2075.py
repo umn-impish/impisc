@@ -48,12 +48,10 @@ def test_set_tidle():
     device.set_idle_time(3.1)
     try:
         device.set_idle_time(0.01)
-    except ValueError as e:
-        print("failed to set to 0.01: good")
-        print(e)
+    except ValueError:
+        pass
     try:
         device.set_idle_time(3.11)
-    except ValueError as e:
-        print("failed to set to 3.11: good")
-        print(e)
+    except ValueError:
+        pass
     device.set_idle_time(0.1)
