@@ -31,14 +31,14 @@ class DS3231(GenericDevice):
     def control_register(self) -> int:
         """The current state of the control register."""
         return self.read_block_data("control")
-    
+
     @property
     def kernel_control(self) -> bool:
         """Returns whether the DS3231 is currently controlled by the kernel
         by checking for the presence of the "driver" symlink for the device.
         """
         return os.path.exists(
-            f'/sys/bus/i2c/devices/i2c-1/{self.bus_number}-{self.address:04x}/driver'
+            f"/sys/bus/i2c/devices/i2c-1/{self.bus_number}-{self.address:04x}/driver"
         )
 
     def enable_pps(self) -> None:
@@ -81,7 +81,7 @@ class DS3231(GenericDevice):
         CONV = 0b00100000  # 32
         if not (self.control_register & CONV):
             self.write_block_data("control", self.control_register | CONV)
-        while (self.control_register & CONV):
+        while self.control_register & CONV:
             while self.busy:
                 time.sleep(0.1)
             # Reduce CPU usage by sleeping; the device
@@ -111,8 +111,6 @@ class DS3231(GenericDevice):
         if not quiet:
             print(f"Releasing rtc_ds1307 from kernel.")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/unbind", "w") as f:
-            print('hi')
-            print(f"{self.bus_number}-{self.address:04x}")
             f.write(f"{self.bus_number}-{self.address:04x}")
         while self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
