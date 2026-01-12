@@ -26,7 +26,7 @@ class DS3231(GenericDevice):
     @property
     def pps_enabled(self) -> bool:
         """Check if the PPS is enabled."""
-        return self._pps_enabled
+        return (self.read_block_data("control") & 0b00011100) == 0
 
     @property
     def control_register(self) -> int:
@@ -49,7 +49,7 @@ class DS3231(GenericDevice):
 
     def disable_pps(self) -> None:
         """Disables the PPS."""
-        self.write_block_data("control", self.control_register | 0b00011100)
+        self.write_block_data("control", self.control_register | 0b00000100)
         self._pps_enabled = False
 
     def toggle_pps(self) -> bool:
@@ -115,3 +115,7 @@ class DS3231(GenericDevice):
             f.write(f"{self.bus_number}-{self.address:04x}")
         while self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
+
+    def __del__(self):
+        """Return device to kernel upon destruction."""
+        self.give_to_kernel()
