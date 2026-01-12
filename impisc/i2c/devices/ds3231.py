@@ -16,6 +16,7 @@ class DS3231(GenericDevice):
         super().__init__(bus_number=bus_number, address=address)
         self.add_register(Register("control", 0x0E, 8))
         self.add_register(Register("status", 0x0F, 8))
+        self.give_to_kernel()
 
     @property
     def busy(self) -> bool:
