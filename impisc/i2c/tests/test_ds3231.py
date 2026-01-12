@@ -1,3 +1,8 @@
+"""
+Tests the kernel control and PPS enabling/disabling/toggling for the 
+DS3231 device class.
+"""
+
 from impisc.i2c.devices.ds3231 import DS3231
 
 
