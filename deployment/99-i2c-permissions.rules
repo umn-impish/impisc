@@ -1,0 +1,2 @@
+# Allows all users in the i2c group use of the rtc-ds1307 bind/unbind files; this file should be placed in /etc/udev/rules.d/
+SUBSYSTEM=="drivers", DEVPATH=="/bus/i2c/drivers/rtc-ds1307", ACTION=="add", RUN+="/bin/sh -c 'chgrp i2c /sys/bus/i2c/drivers/rtc-ds1307/bind /sys/bus/i2c/drivers/rtc-ds1307/unbind && chmod g+w /sys/bus/i2c/drivers/rtc-ds1307/bind /sys/bus/i2c/drivers/rtc-ds1307/unbind'"
