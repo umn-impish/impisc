@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Set all GPIO power toggles to
+# shut off during boot.
+# Happens in the systemd unit after its target.
+
+items="1 2 3 4 daqbox bias heater"
+for item in $items; do
+    toggle_power $item off
+done

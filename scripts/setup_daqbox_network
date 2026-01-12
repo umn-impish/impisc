@@ -17,4 +17,3 @@ sudo ip neigh add 192.168.0.2 lladdr 00:01:35:01:fe:c0 dev "$dev" nud permanent
 
 # Make the MTU huge for "jumbo" UDP packets
 sudo ip link set "$dev" mtu 9100
-

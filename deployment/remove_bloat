@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Delete Pi packages/services we don't need,
+# like video/audio and Bluetooth
+
+# Update packages
+sudo apt update
+sudo apt full-upgrade -y
+
+# Avahi: network device config. Useless
+sudo systemctl stop avahi-daemon
+sudo systemctl disable avahi-daemon
+
+# Bluetooth: we really don't need it
+sudo systemctl stop bluetooth
+sudo systemctl disable bluetooth
+
+# Turn off NetworkManager and delete its old plans.
+# We need more granular control over the network,
+# which we can get via systemd-networkd.
+sudo systemctl stop NetworkManager
+sudo systemctl disable NetworkManager
+sudo rm /lib/netplan/00-network-manager-all.yaml
+sudo rm -rf /etc/NetworkManager
+
+# Delete unused packages and deps
+sudo apt purge -y \
+    avahi-daemon bluez bluez-tools blueman\
+    firmware-atheros firmware-brcm80211 firmware-libertas firmware-mediatek firmware-realtek\
+    network-manager
+sudo apt autoremove -y
+sudo apt autoclean -y

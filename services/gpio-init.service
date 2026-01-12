@@ -1,0 +1,16 @@
+[Unit]
+Description=Turn off toggle power GPIOs at boot
+After=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=initialize_gpios
+WorkingDirectory=/usr/local/bin
+StandardOutput=inherit
+StandardError=inherit
+Restart=no
+User=impish
+
+[Install]
+WantedBy=multi-user.target
+
