@@ -45,12 +45,10 @@ class DS3231(GenericDevice):
     def enable_pps(self) -> None:
         """Enables the PPS."""
         self.write_block_data("control", self.control_register & 0b11100011)
-        self._pps_enabled = True
 
     def disable_pps(self) -> None:
         """Disables the PPS."""
         self.write_block_data("control", self.control_register | 0b00000100)
-        self._pps_enabled = False
 
     def toggle_pps(self) -> bool:
         """Returns the **new** state of the PPS."""
