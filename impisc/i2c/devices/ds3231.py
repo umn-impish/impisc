@@ -96,7 +96,7 @@ class DS3231(GenericDevice):
         if self.kernel_control:
             return
         if not quiet:
-            print(f"Adding rtc_ds1307 to kernel.")
+            print("Adding rtc_ds1307 to kernel.")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/bind", "w") as f:
             f.write(f"{self.bus_number}-{self.address:04x}")
         while not self.kernel_control:
@@ -110,7 +110,7 @@ class DS3231(GenericDevice):
         if not self.kernel_control:
             return
         if not quiet:
-            print(f"Releasing rtc_ds1307 from kernel.")
+            print("Releasing rtc_ds1307 from kernel.")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/unbind", "w") as f:
             f.write(f"{self.bus_number}-{self.address:04x}")
         while self.kernel_control:
