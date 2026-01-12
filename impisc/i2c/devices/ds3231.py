@@ -12,11 +12,7 @@ from .device import GenericDevice, Register
 class DS3231(GenericDevice):
     """Interface with a connected DS3231 device."""
 
-    def __init__(
-        self,
-        bus_number: int,
-        address: int
-    ):
+    def __init__(self, bus_number: int, address: int):
         super().__init__(bus_number=bus_number, address=address)
         self.add_register(Register("control", 0x0E, 8))
         self.add_register(Register("status", 0x0F, 8))
@@ -42,7 +38,7 @@ class DS3231(GenericDevice):
         by checking for the presence of the "driver" symlink for the device.
         """
         return os.path.exists(
-            f'/sys/bus/i2c/devices/i2c-1/{self.bus_number}-{self.address:04X}/driver'
+            f'/sys/bus/i2c/devices/i2c-1/{self.bus_number}-{self.address:04x}/driver'
         )
 
     def enable_pps(self) -> None:
@@ -96,33 +92,27 @@ class DS3231(GenericDevice):
         """Gives the DS3231 to the Linux Kernel.
         A delay of 0.5 s is added to give the system enough time to update.
         """
-        if self.kernel_driver is not None:
-            if not quiet:
-                print(f"Adding rtc_ds1307 to kernel.")
-            os.system(f"sudo modprobe rtc_ds1307")
-            while not self.kernel_control:
-                time.sleep(0.001)  # Reduced CPU usage compared to pass
-        else:
-            if not quiet:
-                print(
-                    "No kernel driver associated with I2C "
-                    f"device at address {self.address}"
-                )
+        if self.kernel_control:
+            return
+        if not quiet:
+            print(f"Adding rtc_ds1307 to kernel.")
+        with open("/sys/bus/i2c/drivers/rtc-ds1307/bind", "w") as f:
+            f.write(f"{self.bus_number}-{self.address:04x}")
+        while not self.kernel_control:
+            time.sleep(0.001)  # Reduced CPU usage compared to pass
 
     def release_from_kernel(self, quiet: bool = True):
         """Releases the DS3231 from the Linux Kernel.
         A delay of 0.5 s is added to give the system enough time to update.
         This value of 0.5 is empirical...
         """
-        if self.kernel_driver is not None:
-            if not quiet:
-                print(f"Releasing rtc_ds1307 from kernel.")
-            os.system(f"sudo modprobe -r rtc_ds1307")
-            while self.kernel_control:
-                time.sleep(0.001)  # Reduced CPU usage compared to pass
-        else:
-            if not quiet:
-                print(
-                    "No kernel driver associated with "
-                    f"I2C device at address {self.address}"
-                )
+        if not self.kernel_control:
+            return
+        if not quiet:
+            print(f"Releasing rtc_ds1307 from kernel.")
+        with open("/sys/bus/i2c/drivers/rtc-ds1307/unbind", "w") as f:
+            print('hi')
+            print(f"{self.bus_number}-{self.address:04x}")
+            f.write(f"{self.bus_number}-{self.address:04x}")
+        while self.kernel_control:
+            time.sleep(0.001)  # Reduced CPU usage compared to pass
