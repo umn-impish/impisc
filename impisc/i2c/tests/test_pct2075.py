@@ -1,5 +1,8 @@
 """
-Basic tests for the PCT2075 temperature sensor.
+Basic tests for the PCT2075 temperature sensor. Tests:
+- Shutdown/wakeup
+- Temperature reading
+- Idle time setting
 """
 
 from impisc.i2c.devices.pct2075 import PCT2075
@@ -47,6 +50,8 @@ def test_idle():
     for value in valid:
         try:
             device.idle_time = value
+            expected = round(value, 1)
+            assert expected == device.idle_time, f'Expected {expected} but got {device.idle_time} instead (rounding error?)'
         except ValueError as e:
             print(f'caught for {value}')
             print(e)
@@ -58,7 +63,3 @@ def test_idle():
         except ValueError:
             pass
     device.idle_time = 0.1
-
-
-if __name__ == '__main__':
-    test_idle()
