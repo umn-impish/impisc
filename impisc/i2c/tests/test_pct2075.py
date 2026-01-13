@@ -32,7 +32,7 @@ def test_shutdown():
 
 def test_temperature_reading():
     """Check that we receive a temperature from the device.
-    Does no validation of the validation itself...
+    Does no validation of the value itself...
     """
     device = PCT2075(1, 0x49)
     device.shutdown()
@@ -46,33 +46,28 @@ def test_idle():
     device = PCT2075(1, 0x49)
     device.wakeup()
     device.idle_time = 0.1
-    valid = [0.2, 0.16, 1.4989561561, 3.1]
-    for value in valid:
+    for value in [0.2, 0.16, 1.4989561561, 3.1, 0.1]:
         device.idle_time = value
         expected = round(value, 1)
         assert expected == device.idle_time, (
             f"Expected {expected} but got {device.idle_time} instead (rounding error?)"
         )
-    invalid = [0.01, 3.11]
-    for value in invalid:
+    for value in [0.01, 3.11]:
         try:
             device.idle_time = value
             raise RuntimeError("SHOULD NOT REACH HERE!!!")
         except ValueError:
             pass
-    device.idle_time = 0.1
 
 
 def test_os_mode():
     """Test changing the OS operation mode."""
     device = PCT2075(1, 0x49)
     device.wakeup()
-    valid = ["comparator", "interrupt"]
-    for mode in valid:
+    for mode in ["interrupt", "comparator"]:
         device.os_mode = mode
         assert device.os_mode == mode
-    invalid = ["garbage", 10]
-    for value in invalid:
+    for value in ["garbage", 10, ""]:
         try:
             device.os_mode = value
             raise RuntimeError("SHOULD NOT REACH HERE!!!")
@@ -84,12 +79,10 @@ def test_os_polarity():
     """Test changing the OS polarity."""
     device = PCT2075(1, 0x49)
     device.wakeup()
-    valid = ["low", "high"]
-    for pol in valid:
+    for pol in ["high", "low"]:
         device.os_polarity = pol
         assert device.os_polarity == pol
-    invalid = ["garbage", 10]
-    for value in invalid:
+    for value in ["garbage", 10, ""]:
         try:
             device.os_polarity = value
             raise RuntimeError("SHOULD NOT REACH HERE!!!")
@@ -101,12 +94,10 @@ def test_os_queue():
     """Test changing the OS fault queue."""
     device = PCT2075(1, 0x49)
     device.wakeup()
-    valid = [1, 2, 4, 6]
-    for value in valid:
+    for value in [2, 4, 6, 1]:
         device.os_queue = value
         assert (device.os_queue) == value
-    invalid = [-1, 0.5, 1000, "garbage"]
-    for value in invalid:
+    for value in [-1, 0.5, 1000, "garbage"]:
         try:
             device.os_queue = value
             raise RuntimeError("SHOULD NOT REACH HERE!!!")
@@ -117,18 +108,26 @@ def test_os_queue():
 def test_overtemperature_threshold():
     device = PCT2075(1, 0x49)
     device.wakeup()
-    for value in [-55, -25, -0.5, 0, 0.5, 25, 80, 125]:
+    for value in [-55, -25, -0.5, 0, 0.5, 25, 125, 80]:
         device.overtemperature_threshold = value
-        print(device.overtemperature_threshold)
         assert device.overtemperature_threshold == value
-    device.overtemperature_threshold = 80
+    for value in [-100, 10000]:
+        try:
+            device.overtemperature_threshold = value
+            raise RuntimeError("SHOULD NOT REACH HERE!!!")
+        except ValueError:
+            pass
 
 
 def test_hysteresis_temperature():
     device = PCT2075(1, 0x49)
     device.wakeup()
-    for value in [-55, -25, -0.5, 0, 0.5, 25, 80, 125]:
+    for value in [-55, -25, -0.5, 0, 0.5, 25, 125, 75]:
         device.hysteresis_temperature = value
-        print(device.hysteresis_temperature)
         assert device.hysteresis_temperature == value
-    device.hysteresis_temperature = 75
+    for value in [-100, 10000]:
+        try:
+            device.hysteresis_temperature = value
+            raise RuntimeError("SHOULD NOT REACH HERE!!!")
+        except ValueError:
+            pass
