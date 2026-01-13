@@ -34,6 +34,9 @@ def voltage_to_wiper(voltage: float):
 def set_voltage(voltage: float):
     """Set the bias to the value closest to the specified value."""
     device = ISL22317(0, 0x28)
+    device.awake = True
+    device.mode = "two-terminal"
+    device.precision_mode = True
     device.wiper = voltage_to_wiper(voltage)
 
 
