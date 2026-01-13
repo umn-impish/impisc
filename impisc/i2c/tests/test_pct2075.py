@@ -11,23 +11,21 @@ from impisc.i2c.devices.pct2075 import PCT2075
 def test_shutdown():
     """Check that the device can be shutdown and woken up."""
     device = PCT2075(1, 0x49)
-    starting_state = device.is_shutdown
+    starting_state = device.awake
     if starting_state:
-        device.wakeup()
-        assert not device.is_shutdown, "Failed to wakeup"
+        device.awake = False
+        assert not device.awake, "Failed to shutdown"
     else:
-        device.shutdown()
-        assert device.is_shutdown, "Failed to shutdown"
-
-    device.shutdown()
-    assert device.is_shutdown
-    device.shutdown()
-    assert device.is_shutdown
-
-    device.wakeup()
-    assert not device.is_shutdown
-    device.wakeup()
-    assert not device.is_shutdown
+        device.awake = True
+        assert device.awake, "Failed to wakeup"
+    device.awake = False
+    assert not device.awake
+    device.awake = False
+    assert not device.awake
+    device.awake = True
+    assert device.awake
+    device.awake = True
+    assert device.awake
 
 
 def test_temperature_reading():
@@ -35,16 +33,16 @@ def test_temperature_reading():
     Does no validation of the value itself...
     """
     device = PCT2075(1, 0x49)
-    device.shutdown()
+    device.awake = False
     device.read_temperature()
-    device.wakeup()
+    device.awake = True
     device.read_temperature()
 
 
 def test_idle():
     """Test setting the idle time between temperature measurements."""
     device = PCT2075(1, 0x49)
-    device.wakeup()
+    device.awake = True
     device.idle_time = 0.1
     for value in [0.2, 0.16, 1.4989561561, 3.1, 0.1]:
         device.idle_time = value
@@ -63,7 +61,7 @@ def test_idle():
 def test_os_mode():
     """Test changing the OS operation mode."""
     device = PCT2075(1, 0x49)
-    device.wakeup()
+    device.awake = True
     for mode in ["interrupt", "comparator"]:
         device.os_mode = mode
         assert device.os_mode == mode
@@ -78,7 +76,7 @@ def test_os_mode():
 def test_os_polarity():
     """Test changing the OS polarity."""
     device = PCT2075(1, 0x49)
-    device.wakeup()
+    device.awake = True
     for pol in ["high", "low"]:
         device.os_polarity = pol
         assert device.os_polarity == pol
@@ -93,7 +91,7 @@ def test_os_polarity():
 def test_os_queue():
     """Test changing the OS fault queue."""
     device = PCT2075(1, 0x49)
-    device.wakeup()
+    device.awake = True
     for value in [2, 4, 6, 1]:
         device.os_queue = value
         assert (device.os_queue) == value
@@ -107,7 +105,7 @@ def test_os_queue():
 
 def test_overtemperature_threshold():
     device = PCT2075(1, 0x49)
-    device.wakeup()
+    device.awake = True
     for value in [-55, -25, -0.5, 0, 0.5, 25, 125, 80]:
         device.overtemperature_threshold = value
         assert device.overtemperature_threshold == value
@@ -121,7 +119,7 @@ def test_overtemperature_threshold():
 
 def test_hysteresis_temperature():
     device = PCT2075(1, 0x49)
-    device.wakeup()
+    device.awake = True
     for value in [-55, -25, -0.5, 0, 0.5, 25, 125, 75]:
         device.hysteresis_temperature = value
         assert device.hysteresis_temperature == value

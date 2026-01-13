@@ -66,17 +66,19 @@ class PCT2075(GenericDevice):
         self.write_block_data("thyst", value)
 
     @property
-    def is_shutdown(self) -> bool:
-        """Indicates whether the device is shutdown (True) or not (False)."""
-        return bool(self.conf_register & 1)
+    def awake(self) -> bool:
+        """Specfies whether the device is awake (True) or shutdown (False)
+        by reading the SHUTDOWN bit in the conf register.
+        """
+        return not bool(self.read_block_data("conf") & 1)
 
-    def shutdown(self):
-        """Set the device to shutdown mode."""
-        self.write_block_data("conf", self.conf_register | 0b00000001)
-
-    def wakeup(self):
-        """Wakeup the device from shutdown mode."""
-        self.write_block_data("conf", self.conf_register & 0b11111110)
+    @awake.setter
+    def awake(self, state: bool):
+        """Set the device to be awake (True) or shutdown (False)."""
+        if state:
+            self.write_block_data("conf", self.conf_register & 0b11111110)
+        else:
+            self.write_block_data("conf", self.conf_register | 0b00000001)
 
     @property
     def os_mode(self) -> str:
