@@ -10,7 +10,7 @@ from impisc.i2c.devices.isl22317 import ISL22317
 
 def voltage_to_wiper(voltage: float):
     """Set the wiper to the value closest to the specified voltage.
-    Currently uses a qusrtic fit, but we can change this later.
+    Currently uses a quartic fit, but we can change this later.
     """
     coeffs = [
         0.0001539627508034794,
