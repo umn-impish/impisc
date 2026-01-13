@@ -112,16 +112,3 @@ def test_os_queue():
             raise RuntimeError("SHOULD NOT REACH HERE!!!")
         except ValueError:
             pass
-
-
-import time
-
-device = PCT2075(1, 0x49)
-device.wakeup()
-while True:
-    device.os_polarity = "low"
-    print("low")
-    time.sleep(2)
-    device.os_polarity = "high"
-    print("high")
-    time.sleep(2)
