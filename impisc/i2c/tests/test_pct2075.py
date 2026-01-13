@@ -112,3 +112,23 @@ def test_os_queue():
             raise RuntimeError("SHOULD NOT REACH HERE!!!")
         except ValueError:
             pass
+
+
+def test_overtemperature_threshold():
+    device = PCT2075(1, 0x49)
+    device.wakeup()
+    for value in [-55, -25, -0.5, 0, 0.5, 25, 80, 125]:
+        device.overtemperature_threshold = value
+        print(device.overtemperature_threshold)
+        assert device.overtemperature_threshold == value
+    device.overtemperature_threshold = 80
+
+
+def test_hysteresis_temperature():
+    device = PCT2075(1, 0x49)
+    device.wakeup()
+    for value in [-55, -25, -0.5, 0, 0.5, 25, 80, 125]:
+        device.hysteresis_temperature = value
+        print(device.hysteresis_temperature)
+        assert device.hysteresis_temperature == value
+    device.hysteresis_temperature = 75
