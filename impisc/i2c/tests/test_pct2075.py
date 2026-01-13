@@ -50,12 +50,78 @@ def test_idle():
     for value in valid:
         device.idle_time = value
         expected = round(value, 1)
-        assert expected == device.idle_time, f'Expected {expected} but got {device.idle_time} instead (rounding error?)'
+        assert expected == device.idle_time, (
+            f"Expected {expected} but got {device.idle_time} instead (rounding error?)"
+        )
     invalid = [0.01, 3.11]
     for value in invalid:
         try:
             device.idle_time = value
-            raise RuntimeError('SHOULD NOT REACH HERE!!!')
+            raise RuntimeError("SHOULD NOT REACH HERE!!!")
         except ValueError:
             pass
     device.idle_time = 0.1
+
+
+def test_os_mode():
+    """Test changing the OS operation mode."""
+    device = PCT2075(1, 0x49)
+    device.wakeup()
+    valid = ["comparator", "interrupt"]
+    for mode in valid:
+        device.os_mode = mode
+        assert device.os_mode == mode
+    invalid = ["garbage", 10]
+    for value in invalid:
+        try:
+            device.os_mode = value
+            raise RuntimeError("SHOULD NOT REACH HERE!!!")
+        except ValueError:
+            pass
+
+
+def test_os_polarity():
+    """Test changing the OS polarity."""
+    device = PCT2075(1, 0x49)
+    device.wakeup()
+    valid = ["low", "high"]
+    for pol in valid:
+        device.os_polarity = pol
+        assert device.os_polarity == pol
+    invalid = ["garbage", 10]
+    for value in invalid:
+        try:
+            device.os_polarity = value
+            raise RuntimeError("SHOULD NOT REACH HERE!!!")
+        except ValueError:
+            pass
+
+
+def test_os_queue():
+    """Test changing the OS fault queue."""
+    device = PCT2075(1, 0x49)
+    device.wakeup()
+    valid = [1, 2, 4, 6]
+    for value in valid:
+        device.os_queue = value
+        assert (device.os_queue) == value
+    invalid = [-1, 0.5, 1000, "garbage"]
+    for value in invalid:
+        try:
+            device.os_queue = value
+            raise RuntimeError("SHOULD NOT REACH HERE!!!")
+        except ValueError:
+            pass
+
+
+import time
+
+device = PCT2075(1, 0x49)
+device.wakeup()
+while True:
+    device.os_polarity = "low"
+    print("low")
+    time.sleep(2)
+    device.os_polarity = "high"
+    print("high")
+    time.sleep(2)

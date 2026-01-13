@@ -35,6 +35,92 @@ class PCT2075(GenericDevice):
         self.write_block_data("conf", self.conf_register & 0b11111110)
 
     @property
+    def os_mode(self) -> str:
+        """The current OS (overtemperature shutdown) operation mode.
+        Either "comparator" or "interrupt".
+        """
+        match (self.conf_register >> 1) & 1:
+            case 0:
+                mode = "comparator"
+            case 1:
+                mode = "interrupt"
+
+        return mode
+
+    @os_mode.setter
+    def os_mode(self, mode: str):
+        """Set the OS operation mode to either "comparator" or "interrupt"."""
+        match mode:
+            case "comparator":
+                self.write_block_data("conf", self.conf_register & 0b11111101)
+            case "interrupt":
+                self.write_block_data("conf", self.conf_register | 0b00000010)
+            case _:
+                raise ValueError(
+                    f"Provided OS mode ({mode}) is invalid; "
+                    'must either be "comparator" or "interrupt"'
+                )
+
+    @property
+    def os_polarity(self) -> str:
+        """The current OS (overtemperature shutdown) polarity.
+        Either active "low" or "high".
+        """
+        match (self.conf_register >> 2) & 1:
+            case 0:
+                polarity = "low"
+            case 1:
+                polarity = "high"
+
+        return polarity
+
+    @os_polarity.setter
+    def os_polarity(self, polarity: str):
+        """Set the OS polarity to either "low" or "high"."""
+        match polarity:
+            case "low":
+                self.write_block_data("conf", self.conf_register & 0b11111011)
+            case "high":
+                self.write_block_data("conf", self.conf_register | 0b00000100)
+            case _:
+                raise ValueError(
+                    f"Provided OS polarity ({polarity}) is invalid; "
+                    'must either be "low" or "high"'
+                )
+
+    @property
+    def os_queue(self) -> int:
+        """The current OS (overtemperature shutdown) fault queue value.
+        Valid values: 1, 2, 4, 6.
+        """
+        bits = ((self.read_block_data("conf") >> 3) & 0b11) << 1
+        match bits:
+            case 0:
+                queue = 1
+            case x if x in [2, 4, 6]:
+                queue = bits
+
+        return queue
+
+    @os_queue.setter
+    def os_queue(self, queue: int):
+        """Set the OS fault queue to 1, 2, 4, or 6."""
+        match queue:
+            case 1:
+                bits = 0b00
+            case x if x in [2, 4, 6]:
+                bits = queue << 2
+            case _:
+                raise ValueError(
+                    f"Provided OS fault queue ({queue}) is invalid; "
+                    "must be 1, 2, 4, or 6"
+                )
+        conf_register = self.read_block_data("conf")
+        conf_register &= ~0b00011000
+        conf_register += bits
+        self.write_block_data("conf", conf_register)
+
+    @property
     def idle_time(self) -> float:
         """The value in the tidle register (0x04), in seconds.
         Valid values range from [0.1, 3.1] seconds, at 0.1 s increments.
