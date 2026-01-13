@@ -24,7 +24,8 @@ class PCT2075(GenericDevice):
     @property
     def overtemperature_threshold(self) -> float:
         """The value of the overtemperature shutdown temperature (Tos register; 0x03)."""
-        return int_to_twos_complement(self.read_block_data("tos") >> 7, 9) / 2
+        value = self.read_block_data("tos") >> 7
+        return int_to_twos_complement(value, 9) / 2
 
     @overtemperature_threshold.setter
     def overtemperature_threshold(self, value: float):
@@ -32,19 +33,21 @@ class PCT2075(GenericDevice):
         Accepted range: [-55, +125] deg Celsius.
         The provided value is rounded to the nearest 0.5 degree.
         """
-        value = ((value * 2) // 1) / 2  # Round to nearest 0.5
+        value = (value * 2) / 2  # Round to nearest 0.5
         if (value < -55) or (value > 125):
             raise ValueError(
                 f"Overtemperature threshold must be within "
                 f"[-55, 125] *C; provided value {value} invalid."
             )
-        value = int.from_bytes((int(value * 2) << 7).to_bytes(2, signed=True))
+        # 9-bit two's complement shifted into 16 bits
+        value = (int(value * 2) & 0x1FF) << 7
         self.write_block_data("tos", value)
 
     @property
     def hysteresis_temperature(self) -> float:
         """The value of the overtemperature shutdown temperature (Thyst register; 0x02)."""
-        return int_to_twos_complement(self.read_block_data("thyst") >> 7, 9) / 2
+        value = self.read_block_data("thyst") >> 7
+        return int_to_twos_complement(value, 9) / 2
 
     @hysteresis_temperature.setter
     def hysteresis_temperature(self, value: float):
@@ -52,13 +55,14 @@ class PCT2075(GenericDevice):
         Accepted range: [-55, +125] deg Celsius.
         The provided value is rounded to the nearest 0.5 degree.
         """
-        value = ((value * 2) // 1) / 2  # Round to nearest 0.5
+        value = (value * 2) / 2  # Round to nearest 0.5
         if (value < -55) or (value > 125):
             raise ValueError(
                 f"Hysteresis temperature must be within "
                 f"[-55, 125] *C; provided value {value} invalid."
             )
-        value = int.from_bytes((int(value * 2) << 7).to_bytes(2, signed=True))
+        # 9-bit two's complement shifted into 16 bits
+        value = (int(value * 2) & 0x1FF) << 7
         self.write_block_data("thyst", value)
 
     @property
@@ -79,13 +83,8 @@ class PCT2075(GenericDevice):
         """The current OS (overtemperature shutdown) operation mode.
         Either "comparator" or "interrupt".
         """
-        match (self.conf_register >> 1) & 1:
-            case 0:
-                mode = "comparator"
-            case 1:
-                mode = "interrupt"
-
-        return mode
+        bit = (self.conf_register >> 1) & 1
+        return "interrupt" if bit else "comparator"
 
     @os_mode.setter
     def os_mode(self, mode: str):
@@ -106,13 +105,8 @@ class PCT2075(GenericDevice):
         """The current OS (overtemperature shutdown) polarity.
         Either active "low" or "high".
         """
-        match (self.conf_register >> 2) & 1:
-            case 0:
-                polarity = "low"
-            case 1:
-                polarity = "high"
-
-        return polarity
+        bit = (self.conf_register >> 2) & 1
+        return "high" if bit else "low"
 
     @os_polarity.setter
     def os_polarity(self, polarity: str):
@@ -133,31 +127,23 @@ class PCT2075(GenericDevice):
         """The current OS (overtemperature shutdown) fault queue value.
         Valid values: 1, 2, 4, 6.
         """
-        bits = ((self.read_block_data("conf") >> 3) & 0b11) << 1
-        match bits:
-            case 0:
-                queue = 1
-            case x if x in [2, 4, 6]:
-                queue = bits
+        bits = (self.read_block_data("conf") >> 3) & 0b11
+        mapping = {0: 1, 1: 2, 2: 4, 3: 6}
 
-        return queue
+        return mapping[bits]
 
     @os_queue.setter
     def os_queue(self, queue: int):
         """Set the OS fault queue to 1, 2, 4, or 6."""
-        match queue:
-            case 1:
-                bits = 0b00
-            case x if x in [2, 4, 6]:
-                bits = queue << 2
-            case _:
-                raise ValueError(
-                    f"Provided OS fault queue ({queue}) is invalid; "
-                    "must be 1, 2, 4, or 6"
-                )
+        mapping = {1: 0b00, 2: 0b01, 4: 0b10, 6: 0b11}
+        if queue not in mapping:
+            raise ValueError(
+                f"Provided OS fault queue ({queue}) is invalid; must be 1, 2, 4, or 6"
+            )
+        QUEUE_MASK = 0b00011000
         conf_register = self.read_block_data("conf")
-        conf_register &= ~0b00011000
-        conf_register += bits
+        conf_register &= ~QUEUE_MASK
+        conf_register += mapping[queue] << 3
         self.write_block_data("conf", conf_register)
 
     @property
@@ -183,10 +169,5 @@ class PCT2075(GenericDevice):
         """Read the temperature from the temp register (0x00),
         returned in degrees Celsius.
         """
-        comp = (
-            int_to_twos_complement(
-                self.read_block_data("temp"), self.registers["temp"].num_bits
-            )
-            >> 5
-        )
-        return comp / 8
+        value = self.read_block_data("temp") >> 5
+        return int_to_twos_complement(value, 11) / 8
