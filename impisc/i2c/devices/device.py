@@ -3,7 +3,8 @@ Defines a general class to generally interface with I2C devices
 along with some useful bit/byte manipulation functions.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Literal
 
 import smbus2
 
@@ -26,10 +27,14 @@ def twos_complement_to_int(binary_string: str) -> int:
         return -(int(inverted_string, 2) + 1)
 
 
-def _int_to_bytes(value: int, length: int, endianness: str = "big") -> bytearray:
+def _int_to_bytes(
+    value: int,
+    length: int,
+    endianness: Literal["little", "big"] = "big"
+) -> bytearray:
     """Converts the provided integer to a bytearray."""
     try:
-        return value.to_bytes(length, endianness)
+        return bytearray(value.to_bytes(length, endianness))
     except AttributeError:
         output = bytearray()
         for x in range(length):
@@ -56,10 +61,8 @@ class GenericDevice:
 
     bus_number: int
     address: int
-
-    def __post_init__(self):
-        self.registers = {}
-        self._bus = smbus2.SMBus(self.bus_number)
+    registers: dict[str, Register] = field(default_factory=dict)
+    _bus: smbus2.SMBus = field(init=False, repr=False, default_factory=smbus2.SMBus)
 
     def add_register(self, reg: Register):
         """Add a register to the device."""
@@ -80,12 +83,12 @@ class GenericDevice:
 
     @property
     def responsive(self) -> bool:
-        """Tries to read data from register 0x00;
+        """Tries to read data from a register;
         returns boolean indicating success.
         """
         try:
-            test_reg = next(iter(self.registers.values()))
-            self.read_data(test_reg.address)
+            test_reg: Register = next(iter(self.registers.values()))
+            _ = self.read_data(test_reg.name)
             return True
         except Exception as e:  # TODO: specify which Exception
             print(f"Could not ping I2C device at address {hex(self.address)}:\n{e}")
@@ -101,29 +104,27 @@ class GenericDevice:
             print(f"{name.rjust(10)}:", f"{data:16b}".zfill(16), f"{data}".rjust(8))
         print("------------------------")
 
-    def read_block_data(self, register: str) -> list[int]:
-        """Reads all bytes' worth of register data."""
-        register = self.registers[register]
-        num_bytes = int(register.num_bits // 8)
+    def read_block_data(self, register: str) -> int:
+        """Reads all bytes of register data."""
+        reg: Register = self.registers[register]
+        num_bytes = int(reg.num_bits // 8)
         value = 0
-        for x in self.bus.read_i2c_block_data(
-            self.address, register.address, num_bytes
-        ):
+        for x in self.bus.read_i2c_block_data(self.address, reg.address, num_bytes):
             value = (value << 8) | x
 
         return value
 
     def write_block_data(self, register: str, value: int):
         """Writes all bytes to the register."""
-        register = self.registers[register]
-        num_bytes = int(register.num_bits // 8)
+        reg: Register = self.registers[register]
+        num_bytes = int(reg.num_bits // 8)
         bytes_to_send = list(_int_to_bytes(value, num_bytes))
-        self.bus.write_i2c_block_data(self.address, register.address, bytes_to_send)
+        self.bus.write_i2c_block_data(self.address, reg.address, bytes_to_send)
 
-    def read_data(self, register: int) -> int:
+    def read_data(self, register: str) -> int:
         """Reads a single byte from the provided register."""
-        return self.bus.read_byte_data(self.address, register)
+        return self.bus.read_byte_data(self.address, self.registers[register].address)
 
-    def write_data(self, register: int, data: int):
+    def write_data(self, register: str, data: int):
         """Writes a single byte to the provided register."""
-        self.bus.write_byte_data(self.address, register, data)
+        self.bus.write_byte_data(self.address, self.registers[register].address, data)

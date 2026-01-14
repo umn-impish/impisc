@@ -16,6 +16,8 @@ class DS3231(GenericDevice):
         super().__init__(bus_number=bus_number, address=address)
         self.add_register(Register("control", 0x0E, 8))
         self.add_register(Register("status", 0x0F, 8))
+        self.add_register(Register("tmsb", 0x11, 8))
+        self.add_register(Register("tlsb", 0x12, 8))
         self.give_to_kernel()
 
     @property
@@ -64,8 +66,8 @@ class DS3231(GenericDevice):
         TODO: Add in LSB?
         """
         self._force_convert()
-        byte_tmsb = self.read_data(0x11)
-        self.read_data(0x12)
+        byte_tmsb = self.read_data("tmsb")
+        # byte_lmsb = self.read_data("tlsb")
         tinteger = (byte_tmsb & 0x7F) + ((byte_tmsb & 0x80) >> 7) * -(2**8)
         tdecimal = (byte_tmsb >> 7) * 2 ** (-1) + ((byte_tmsb & 0x40) >> 6) * 2 ** (-2)
 
@@ -94,7 +96,7 @@ class DS3231(GenericDevice):
         if not quiet:
             print("Adding rtc_ds1307 to kernel.")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/bind", "w") as f:
-            f.write(f"{self.bus_number}-{self.address:04x}")
+            _ = f.write(f"{self.bus_number}-{self.address:04x}")
         while not self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
 
@@ -105,7 +107,7 @@ class DS3231(GenericDevice):
         if not quiet:
             print("Releasing rtc_ds1307 from kernel.")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/unbind", "w") as f:
-            f.write(f"{self.bus_number}-{self.address:04x}")
+            _ = f.write(f"{self.bus_number}-{self.address:04x}")
         while self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
 
