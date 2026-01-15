@@ -65,7 +65,9 @@ def test_mode():
     starting_mode = device.mode
     if starting_mode == "two-terminal":
         device.mode = "three-terminal"
-        assert device.mode == "three-terminal", "Failed to change to three-terminal mode"
+        assert device.mode == "three-terminal", (
+            "Failed to change to three-terminal mode"
+        )
     else:
         device.mode = "two-terminal"
         assert device.mode == "two-terminal", "Failed to change to two-terminal mode"
