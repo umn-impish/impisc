@@ -26,4 +26,3 @@ dev = [
 
 [project.scripts]
 set-bias = "scripts:set_bias.main"
-set-pps = "scripts:set_pps.main"
