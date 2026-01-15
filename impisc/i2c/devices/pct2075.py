@@ -37,7 +37,7 @@ class PCT2075(GenericDevice):
         if (value < -55) or (value > 125):
             raise ValueError(
                 f"Overtemperature threshold must be within "
-                f"[-55, 125] *C; provided value {value} invalid."
+                + f"[-55, 125] *C; provided value {value} invalid."
             )
         # 9-bit two's complement shifted into 16 bits
         value = (int(value * 2) & 0x1FF) << 7
@@ -59,7 +59,7 @@ class PCT2075(GenericDevice):
         if (value < -55) or (value > 125):
             raise ValueError(
                 f"Hysteresis temperature must be within "
-                f"[-55, 125] *C; provided value {value} invalid."
+                + f"[-55, 125] *C; provided value {value} invalid."
             )
         # 9-bit two's complement shifted into 16 bits
         value = (int(value * 2) & 0x1FF) << 7
@@ -99,7 +99,7 @@ class PCT2075(GenericDevice):
             case _:
                 raise ValueError(
                     f"Provided OS mode ({mode}) is invalid; "
-                    'must either be "comparator" or "interrupt"'
+                    + 'must either be "comparator" or "interrupt"'
                 )
 
     @property
@@ -112,7 +112,7 @@ class PCT2075(GenericDevice):
 
     @os_polarity.setter
     def os_polarity(self, polarity: str):
-        """Set the OS polarity to either "low" or "high"."""
+        """Set the OS (overtemperature shutdown) polarity to either "low" or "high"."""
         match polarity:
             case "low":
                 self.write_block_data("conf", self.conf_register & 0b11111011)
@@ -121,7 +121,7 @@ class PCT2075(GenericDevice):
             case _:
                 raise ValueError(
                     f"Provided OS polarity ({polarity}) is invalid; "
-                    'must either be "low" or "high"'
+                    + 'must either be "low" or "high"'
                 )
 
     @property
@@ -136,7 +136,7 @@ class PCT2075(GenericDevice):
 
     @os_queue.setter
     def os_queue(self, queue: int):
-        """Set the OS fault queue to 1, 2, 4, or 6."""
+        """Set the OS (overtemperature shutdown) fault queue to 1, 2, 4, or 6."""
         mapping = {1: 0b00, 2: 0b01, 4: 0b10, 6: 0b11}
         if queue not in mapping:
             raise ValueError(
