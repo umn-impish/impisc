@@ -64,7 +64,7 @@ class ISL22317(GenericDevice):
             self.write_block_data("control", self.control_register | 0b01000000)
         else:
             self.write_block_data("control", self.control_register & 0b10111111)
-        
+
     @property
     def writing(self) -> bool:
         """Returns the value of the WIP bit in the access control register (0x02).
@@ -72,7 +72,7 @@ class ISL22317(GenericDevice):
         the wiper and control registers cannot be written to.
         """
         return bool((self.control_register >> 5) & 1)
-    
+
     @property
     def mode(self) -> str:
         """The device mode, either two-terminal (rheostat) or
@@ -80,7 +80,7 @@ class ISL22317(GenericDevice):
         """
         bit = (self.mode_register >> 7) & 1
         return "three-terminal" if bit else "two-terminal"
-    
+
     @mode.setter
     def mode(self, new_mode: str):
         """Set the mode of the device; either "two-terminal" or "three-terminal"."""
@@ -100,7 +100,7 @@ class ISL22317(GenericDevice):
     def precision_mode(self) -> bool:
         """Specifies whether precision mode is being used."""
         return not ((self.mode_register >> 6) & 1)
-    
+
     @precision_mode.setter
     def precision_mode(self, state: bool):
         """Sets the state of precision mode; on (True) or off (False)."""
