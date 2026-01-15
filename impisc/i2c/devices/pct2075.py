@@ -2,6 +2,8 @@
 Defines a class for interfacing with a PCT2075 I2C temperature sensor.
 """
 
+from typing import Literal
+
 from .device import GenericDevice, Register, int_to_twos_complement
 
 
@@ -81,7 +83,7 @@ class PCT2075(GenericDevice):
             self.write_block_data("conf", self.conf_register | 0b00000001)
 
     @property
-    def os_mode(self) -> str:
+    def os_mode(self) -> Literal["comparator", "interrupt"]:
         """The current OS (overtemperature shutdown) operation mode.
         Either "comparator" or "interrupt".
         """
@@ -89,7 +91,7 @@ class PCT2075(GenericDevice):
         return "interrupt" if bit else "comparator"
 
     @os_mode.setter
-    def os_mode(self, mode: str):
+    def os_mode(self, mode: Literal["comparator", "interrupt"]):
         """Set the OS operation mode to either "comparator" or "interrupt"."""
         match mode:
             case "comparator":
@@ -97,13 +99,13 @@ class PCT2075(GenericDevice):
             case "interrupt":
                 self.write_block_data("conf", self.conf_register | 0b00000010)
             case _:
-                raise ValueError(
+                raise ValueError(  # pyright: ignore[reportUnreachable]
                     f"Provided OS mode ({mode}) is invalid; "
                     + 'must either be "comparator" or "interrupt"'
                 )
 
     @property
-    def os_polarity(self) -> str:
+    def os_polarity(self) -> Literal["low", "high"]:
         """The current OS (overtemperature shutdown) polarity.
         Either active "low" or "high".
         """
@@ -111,7 +113,7 @@ class PCT2075(GenericDevice):
         return "high" if bit else "low"
 
     @os_polarity.setter
-    def os_polarity(self, polarity: str):
+    def os_polarity(self, polarity: Literal["low", "high"]):
         """Set the OS (overtemperature shutdown) polarity to either "low" or "high"."""
         match polarity:
             case "low":
@@ -119,7 +121,7 @@ class PCT2075(GenericDevice):
             case "high":
                 self.write_block_data("conf", self.conf_register | 0b00000100)
             case _:
-                raise ValueError(
+                raise ValueError(  # pyright: ignore[reportUnreachable]
                     f"Provided OS polarity ({polarity}) is invalid; "
                     + 'must either be "low" or "high"'
                 )

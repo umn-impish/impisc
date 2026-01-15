@@ -57,11 +57,8 @@ def test_idle():
             f"Expected {expected} but got {device.idle_time} instead (rounding error?)"
         )
     for value in [0.01, 3.11]:
-        try:
+        with pytest.raises(ValueError):
             device.idle_time = value
-            raise RuntimeError("SHOULD NOT REACH HERE!!!")
-        except ValueError:
-            pass
 
 
 def test_os_mode():
