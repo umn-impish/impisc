@@ -7,6 +7,8 @@ import smbus2
 import struct
 import time
 
+from typing import override
+
 from .device import GenericDevice, Register
 
 
@@ -52,7 +54,7 @@ class ADS112C04(GenericDevice):
     }
 
     def __init__(self, bus_number: int, address: int):
-        """Initialization always resets the device to default values
+        """Initialization **always** resets the device to default values
         since the RESET command (0x06) is sent to the device.
         """
         super().__init__(bus_number=bus_number, address=address)
@@ -60,14 +62,15 @@ class ADS112C04(GenericDevice):
         self.add_register(Register("config1", 0x01, 8))
         self.add_register(Register("config2", 0x02, 8))
         self.add_register(Register("config3", 0x03, 8))
-        self.reset_device()
+        self.reset()
         # We opt to store these variables rather than reading them
         # from the device registers for speed and ease of access.
         # Also minimizes communication with the device.
-        self.gain = 1
-        self._data_rate = 20
-        self.mux = "01"
-        self.turbo_enabled = False
+        self.gain: int = 1
+        self._data_rate: int = 20
+        self.mux: str = "01"
+        self.turbo_enabled: bool = False
+        self.temperature_sensing: bool = False
 
     @property
     def data_rate(self) -> int:
@@ -88,22 +91,22 @@ class ADS112C04(GenericDevice):
         """
         return bool((self.read_block_data("config2") >> 7) & 1)
 
-    @property
-    def temperature_sensing(self) -> bool:
-        """Reads the value of the TS bit in config register 1.
-        Returns True if the temperature sensor is active.
+    # @property
+    # def temperature_sensing(self) -> bool:
+    #     """Reads the value of the TS bit in config register 1.
+    #     Returns True if the temperature sensor is active.
 
-        TODO: Consider making this an object attribute
-        so we don't constantly ping the device when
-        calling read_voltage() or read_temperature().
-        """
-        return bool(self.read_block_data("config1") & 1)
+    #     TODO: Consider making this an object attribute
+    #     so we don't constantly ping the device when
+    #     calling read_voltage() or read_temperature().
+    #     """
+    #     return bool(self.read_block_data("config1") & 1)
 
     def power_down(self):
         """Sends the POWERDOWN command (0x02) to the device."""
         self.bus.write_byte(self.address, 0x02)
 
-    def reset_device(self):
+    def reset(self):
         """Sends the RESET command (0x06) to the device."""
         self.bus.write_byte(self.address, 0x06)
 
@@ -115,6 +118,7 @@ class ADS112C04(GenericDevice):
         """
         self.bus.write_byte(self.address, 0x08)
 
+    @override
     def read_block_data(self, register: str, timeout: float = 0.01) -> int:
         """Returns the value from the provided register.
         Overrides the Device read_block_data method because the ADS112C04
@@ -122,11 +126,9 @@ class ADS112C04(GenericDevice):
         timeout is the number of seconds it will try to communicate with
         the device in the event of an OSError.
         """
-        rreg = 0b00100000 | (self.registers[register].address << 2)  # 0010rrXX
+        rreg: int = 0b00100000 | (self.registers[register].address << 2)  # 0010rrXX
         write = smbus2.i2c_msg.write(self.address, [rreg])
-        read = smbus2.i2c_msg.read(
-            self.address, length=self.registers[register].num_bits // 8
-        )
+        read = smbus2.i2c_msg.read(self.address, self.registers[register].num_bits // 8)
         successful, tries = False, 0
         start = time.time()
         while not successful:
@@ -136,17 +138,20 @@ class ADS112C04(GenericDevice):
             except OSError as e:
                 tries += 1
                 if (time.time() - start) > timeout:
-                    raise IOError(f"I2C transaction timed out; tried {tries} times") from e
+                    raise IOError(
+                        f"I2C transaction timed out; tried {tries} times"
+                    ) from e
                 continue
-        
+
         return int.from_bytes(bytes(list(read)), byteorder="big")
 
+    @override
     def write_block_data(self, register: str, value: int):
         """Writes value to the specified register.
         Overrides the Device write_block_data method because the ADS112C04
         requires commands to be sent in order to write register data.
         """
-        wreg = 0b01000000 | (self.registers[register].address << 2)  # 0100rrXX
+        wreg: int = 0b01000000 | (self.registers[register].address << 2)  # 0100rrXX
         write = smbus2.i2c_msg.write(self.address, [wreg, value])
         self.bus.i2c_rdwr(write)
 
@@ -159,8 +164,8 @@ class ADS112C04(GenericDevice):
         pin = f"AIN{which}"
         error = ValueError(
             f"Invalid multiplexer pin selection: {pin}\nValid selections: "
-            f"\nSingle-ended: {list(ADS112C04.SINGLE_ENDED_PIN_MAP.keys())}"
-            f"\nDifferential: {list(ADS112C04.DIFFERENTIAL_PIN_MAP.keys())}"
+            + f"\nSingle-ended: {list(ADS112C04.SINGLE_ENDED_PIN_MAP.keys())}"
+            + f"\nDifferential: {list(ADS112C04.DIFFERENTIAL_PIN_MAP.keys())}"
         )
         match len(which):
             case 1:
@@ -188,6 +193,11 @@ class ADS112C04(GenericDevice):
                 self.write_block_data("config1", config_register & 0b11110111)
             case 1:
                 self.write_block_data("config1", config_register | 0b00001000)
+            case _:
+                raise ValueError(
+                    f"Invalid mode given: {mode}; "
+                    + "valid values are 0 (single-shot) and 1 (continuous)."
+                )
 
     def set_gain(self, gain: int):
         """Set the ADC gain.
@@ -229,6 +239,7 @@ class ADS112C04(GenericDevice):
         """
         config_register = self.read_block_data("config1") | 0b00000001
         self.write_block_data("config1", config_register)
+        self.temperature_sensing = True
 
     def disable_temperature_sensor(self):
         """Disables the temperature sensor.
@@ -236,6 +247,7 @@ class ADS112C04(GenericDevice):
         """
         config_register = self.read_block_data("config1") & 0b11111110
         self.write_block_data("config1", config_register)
+        self.temperature_sensing = False
 
     def enable_turbo_mode(self):
         """Enables turbo mode, doubling the sample rate."""
@@ -271,12 +283,10 @@ class ADS112C04(GenericDevice):
         self.bus.i2c_rdwr(rdata, read)
 
         # Combine and interpret as signed 16-bits big-endian
-        return struct.unpack(">h", bytes(read))[0]
+        return struct.unpack(">h", bytes(read))[0]  # pyright: ignore[reportAny]
 
     def read_voltage(
-        self,
-        pin_number: int | str,
-        force_conversion: bool = False
+        self, pin_number: int | str, force_conversion: bool = False
     ) -> float:
         """Reads the voltage from the provided multiplexer selection,
         chosen with pin_number. See set_multiplexer for options.
