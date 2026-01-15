@@ -4,6 +4,8 @@ Basic tests for the ISL22317 digital potentiometer. Tests:
 - Wiper setting/reading
 """
 
+import pytest
+
 from impisc.i2c.devices.isl22317 import ISL22317
 
 
@@ -37,11 +39,8 @@ def test_wiper():
         device.wiper = value
         assert device.wiper == value, f"Expected {value} but got {device.wiper} instead"
     for value in [-1, 0.1, 10000, 1293820138048]:
-        try:
+        with pytest.raises(ValueError):
             device.wiper = value
-            raise RuntimeError("SHOULD NOT REACH HERE!!!")
-        except ValueError:
-            pass
 
 
 def test_fast_operations():
@@ -71,12 +70,8 @@ def test_mode():
     else:
         device.mode = "two-terminal"
         assert device.mode == "two-terminal", "Failed to change to two-terminal mode"
-    try:
+    with pytest.raises(ValueError):
         device.mode = "garbage"
-        raise RuntimeError("SHOULD NOT REACH HERE!!!")
-    except ValueError:
-        pass
-    device.mode = "two-terminal"
 
 
 def test_precision_mode():
