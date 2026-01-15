@@ -4,6 +4,8 @@ Defines a class for interfacing with a ISL22317 I2C digital potentiometer.
 
 import time
 
+from typing import Literal
+
 from .device import GenericDevice, Register
 
 
@@ -74,7 +76,7 @@ class ISL22317(GenericDevice):
         return bool((self.control_register >> 5) & 1)
 
     @property
-    def mode(self) -> str:
+    def mode(self) -> Literal["two-terminal", "three-terminal"]:
         """The device mode, either two-terminal (rheostat) or
         three-terminal (voltage divier).
         """
@@ -82,7 +84,7 @@ class ISL22317(GenericDevice):
         return "three-terminal" if bit else "two-terminal"
 
     @mode.setter
-    def mode(self, new_mode: str):
+    def mode(self, new_mode: Literal["two-terminal", "three-terminal"]):
         """Set the mode of the device; either "two-terminal" or "three-terminal"."""
         match new_mode:
             case "two-terminal":
@@ -90,9 +92,9 @@ class ISL22317(GenericDevice):
             case "three-terminal":
                 self.write_block_data("mode", self.mode_register | 0b10000000)
             case _:
-                raise ValueError(
+                raise ValueError(  # pyright: ignore[reportUnreachable]
                     f"Provided mode ({new_mode}) is invalid; "
-                    'must either be "two-terminal" or "three-terminal"'
+                    + 'must either be "two-terminal" or "three-terminal"'
                 )
         time.sleep(0.05)
 
