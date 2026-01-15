@@ -91,17 +91,6 @@ class ADS112C04(GenericDevice):
         """
         return bool((self.read_block_data("config2") >> 7) & 1)
 
-    # @property
-    # def temperature_sensing(self) -> bool:
-    #     """Reads the value of the TS bit in config register 1.
-    #     Returns True if the temperature sensor is active.
-
-    #     TODO: Consider making this an object attribute
-    #     so we don't constantly ping the device when
-    #     calling read_voltage() or read_temperature().
-    #     """
-    #     return bool(self.read_block_data("config1") & 1)
-
     def power_down(self):
         """Sends the POWERDOWN command (0x02) to the device."""
         self.bus.write_byte(self.address, 0x02)
