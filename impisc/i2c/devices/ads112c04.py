@@ -3,8 +3,9 @@ Defines a class allowing primitive control with the ADS112C04 analog-to-digital
 converter by Texas Instruments.
 """
 
-import time
 import smbus2
+import struct
+import time
 
 from .device import GenericDevice, Register
 
@@ -114,25 +115,31 @@ class ADS112C04(GenericDevice):
         """
         self.bus.write_byte(self.address, 0x08)
 
-    def read_block_data(self, register: str) -> int:
+    def read_block_data(self, register: str, timeout: float = 0.01) -> int:
         """Returns the value from the provided register.
         Overrides the Device read_block_data method because the ADS112C04
         requires commands to be sent in order to read register data.
+        timeout is the number of seconds it will try to communicate with
+        the device in the event of an OSError.
         """
         rreg = 0b00100000 | (self.registers[register].address << 2)  # 0010rrXX
         write = smbus2.i2c_msg.write(self.address, [rreg])
         read = smbus2.i2c_msg.read(
             self.address, length=self.registers[register].num_bits // 8
         )
-        successful = False
+        successful, tries = False, 0
+        start = time.time()
         while not successful:
             try:
                 self.bus.i2c_rdwr(write, read)
                 successful = True
-            except OSError:
+            except OSError as e:
+                tries += 1
+                if (time.time() - start) > timeout:
+                    raise IOError(f"I2C transaction timed out; tried {tries} times") from e
                 continue
-
-        return list(read)[0]  # TODO: combine if num bytes > 1
+        
+        return int.from_bytes(bytes(list(read)), byteorder="big")
 
     def write_block_data(self, register: str, value: int):
         """Writes value to the specified register.
@@ -140,7 +147,7 @@ class ADS112C04(GenericDevice):
         requires commands to be sent in order to write register data.
         """
         wreg = 0b01000000 | (self.registers[register].address << 2)  # 0100rrXX
-        write = smbus2.i2c_msg.write(self.address, buf=[wreg, value])
+        write = smbus2.i2c_msg.write(self.address, [wreg, value])
         self.bus.i2c_rdwr(write)
 
     def set_multiplexer(self, which: int | str):
@@ -149,23 +156,25 @@ class ADS112C04(GenericDevice):
         Single-ended measurements are referenced to device GND.
         """
         which = f"{which}".replace("AIN", "")
+        pin = f"AIN{which}"
+        error = ValueError(
+            f"Invalid multiplexer pin selection: {pin}\nValid selections: "
+            f"\nSingle-ended: {list(ADS112C04.SINGLE_ENDED_PIN_MAP.keys())}"
+            f"\nDifferential: {list(ADS112C04.DIFFERENTIAL_PIN_MAP.keys())}"
+        )
         match len(which):
             case 1:
                 pin_map = self.SINGLE_ENDED_PIN_MAP
                 self.disable_pga()  # For bookkeeping purposes
             case 2:
                 pin_map = self.DIFFERENTIAL_PIN_MAP
-        pin = f"AIN{which}"
+            case _:
+                raise error
+        if pin not in pin_map:
+            raise error
         config_register = self.read_block_data("config0")
         config_register &= ~self.ANALOG_PIN_MASK
-        try:
-            config_register += pin_map[pin]
-        except KeyError as e:
-            raise ValueError(
-                f"Invalid multiplexer pin selection: {pin}\nValid selections: "
-                f"\nSingle-ended: {list(ADS112C04.SINGLE_ENDED_PIN_MAP.keys())}"
-                f"\nDifferential: {list(ADS112C04.DIFFERENTIAL_PIN_MAP.keys())}"
-            ) from e
+        config_register += pin_map[pin]
         self.write_block_data("config0", config_register)
         self.mux = which
 
@@ -176,9 +185,9 @@ class ADS112C04(GenericDevice):
         config_register = self.read_block_data("config1")
         match mode:
             case 0:
-                self.write_block_data("config1", 0b11110111 & config_register)
+                self.write_block_data("config1", config_register & 0b11110111)
             case 1:
-                self.write_block_data("config1", 0b00001000 | config_register)
+                self.write_block_data("config1", config_register | 0b00001000)
 
     def set_gain(self, gain: int):
         """Set the ADC gain.
@@ -257,15 +266,17 @@ class ADS112C04(GenericDevice):
         if force_conversion:
             self.start_sync()
             self.wait_for_conversion()
-        rdata = smbus2.i2c_msg.write(self.address, buf=[0x10])
+        rdata = smbus2.i2c_msg.write(self.address, [0x10])
         read = smbus2.i2c_msg.read(self.address, length=2)
         self.bus.i2c_rdwr(rdata, read)
-        msb, lsb = list(read)
 
-        return (msb << 8) + lsb
+        # Combine and interpret as signed 16-bits big-endian
+        return struct.unpack(">h", bytes(read))[0]
 
     def read_voltage(
-        self, pin_number: int | str, force_conversion: bool = False
+        self,
+        pin_number: int | str,
+        force_conversion: bool = False
     ) -> float:
         """Reads the voltage from the provided multiplexer selection,
         chosen with pin_number. See set_multiplexer for options.
@@ -279,8 +290,6 @@ class ADS112C04(GenericDevice):
         if self.mux != f"{pin_number}":  # Only change mux if needed; save cycles
             self.set_multiplexer(pin_number)
         value = self.read_conversion(force_conversion)
-        # Twos complement
-        value = int.from_bytes(value.to_bytes(2), signed=True)
 
         # Vref = 2.048
         return value * 2.048 / self.gain / 32768
@@ -293,8 +302,6 @@ class ADS112C04(GenericDevice):
         if not self.temperature_sensing:
             self.enable_temperature_sensor()
             force_conversion = True
-        value = self.read_conversion(force_conversion)
-        # Twos complement
-        value = int.from_bytes(value.to_bytes(2), signed=True) >> 2
+        value = self.read_conversion(force_conversion) >> 2
 
         return value * 0.0312
