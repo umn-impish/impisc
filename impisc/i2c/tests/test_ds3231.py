@@ -24,21 +24,29 @@ def test_pps():
     device.release_from_kernel()
 
     starting_state = device.pps_enabled
-    device.toggle_pps()
+    _ = device.toggle_pps()
     assert starting_state != device.pps_enabled, "PPS toggle failed"
-    device.toggle_pps()
+    _ = device.toggle_pps()
     assert starting_state == device.pps_enabled
 
-    device.enable_pps()
-    assert device.pps_enabled
-
     device.disable_pps()
     assert not device.pps_enabled
 
-    device.enable_pps()
     device.enable_pps()
     assert device.pps_enabled
 
     device.disable_pps()
     device.disable_pps()
     assert not device.pps_enabled
+
+    device.enable_pps()
+    device.enable_pps()
+    assert device.pps_enabled
+
+
+def test_temperature():
+    """Test reading the temperature from the device."""
+    device = DS3231(1, 0x68)
+    device.release_from_kernel()
+    for _ in range(3):
+        _ = device.read_temperature()
