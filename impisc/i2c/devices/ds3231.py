@@ -4,7 +4,10 @@ from Analog Devices. We will be using its PPS function.
 """
 
 import os
+import struct
 import time
+
+import smbus2
 
 from .device import GenericDevice, Register
 
@@ -62,16 +65,13 @@ class DS3231(GenericDevice):
         return self.pps_enabled
 
     def read_temperature(self) -> float:
-        """Temperature in degrees celsius.
-        TODO: Add in LSB?
-        """
+        """Temperature in degrees celsius."""
         self._force_convert()
         byte_tmsb = self.read_data("tmsb")
-        # byte_lmsb = self.read_data("tlsb")
-        tinteger = (byte_tmsb & 0x7F) + ((byte_tmsb & 0x80) >> 7) * -(2**8)
-        tdecimal = (byte_tmsb >> 7) * 2 ** (-1) + ((byte_tmsb & 0x40) >> 6) * 2 ** (-2)
+        byte_tlsb = self.read_data("tlsb")
+        value = struct.unpack(">h", bytes([byte_tmsb, byte_tlsb]))[0] >> 6  # pyright: ignore[reportAny]
 
-        return tinteger + tdecimal
+        return value * 0.25
 
     def _force_convert(self):
         """Force a conversion and wait until it completes.
