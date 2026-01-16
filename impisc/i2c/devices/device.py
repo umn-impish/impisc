@@ -3,6 +3,8 @@ Defines a general class to generally interface with I2C devices
 along with some useful bit/byte manipulation functions.
 """
 
+import os
+
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -83,16 +85,11 @@ class GenericDevice:
 
     @property
     def responsive(self) -> bool:
-        """Tries to read data from a register;
+        """Pings a device using i2cget;
         returns boolean indicating success.
         """
-        try:
-            test_reg: Register = next(iter(self.registers.values()))
-            _ = self.read_data(test_reg.name)
-            return True
-        except Exception as e:  # TODO: specify which Exception
-            print(f"Could not ping I2C device at address {hex(self.address)}:\n{e}")
-            return False
+        resp: int = os.system(f"i2cget -y {self.bus_number} 0x{self.address:02x} >> /dev/null")
+        return resp == 0
 
     def print_register_status(self):
         """Prints the current value for all
