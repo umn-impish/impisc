@@ -1,9 +1,10 @@
 """
-Tests the kernel control and PPS enabling/disabling/toggling for the 
+Tests the kernel control and PPS enabling/disabling/toggling for the
 DS3231 device class.
 """
 
 from impisc.i2c.devices.ds3231 import DS3231
+import time
 
 
 def test_kernel_control():
@@ -48,5 +49,15 @@ def test_temperature():
     """Test reading the temperature from the device."""
     device = DS3231(1, 0x68)
     device.release_from_kernel()
+
+    initial_temp = device.read_temperature()
+    assert -50 < initial_temp < 100
+    time.sleep(0.5)
+
     for _ in range(3):
-        _ = device.read_temperature()
+        t = device.read_temperature()
+        # Assume the temperature doesn't change much
+        # during the loop iterations
+        assert abs(t - initial_temp) < 1
+
+    device.give_to_kernel()
