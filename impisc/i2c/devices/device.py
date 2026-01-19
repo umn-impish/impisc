@@ -4,7 +4,6 @@ along with some useful bit/byte manipulation functions.
 """
 
 import os
-
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -30,9 +29,7 @@ def twos_complement_to_int(binary_string: str) -> int:
 
 
 def _int_to_bytes(
-    value: int,
-    length: int,
-    endianness: Literal["little", "big"] = "big"
+    value: int, length: int, endianness: Literal["little", "big"] = "big"
 ) -> bytearray:
     """Converts the provided integer to a bytearray."""
     try:
@@ -88,7 +85,9 @@ class GenericDevice:
         """Pings a device using i2cget;
         returns boolean indicating success.
         """
-        resp: int = os.system(f"i2cget -y {self.bus_number} 0x{self.address:02x} >> /dev/null")
+        resp: int = os.system(
+            f"i2cget -y {self.bus_number} 0x{self.address:02x} >> /dev/null"
+        )
         return resp == 0
 
     def print_register_status(self):

@@ -7,8 +7,6 @@ import os
 import struct
 import time
 
-import smbus2
-
 from .device import GenericDevice, Register
 
 
