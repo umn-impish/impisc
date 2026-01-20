@@ -31,7 +31,7 @@ def test_kernel_control():
 def test_pps():
     """Test toggling the PPS; ensures enabling/disabling/toggling."""
     device = DS3231(1, 0x68)
-    with device.release_from_kernel(quiet=False):
+    with device.release_from_kernel():
         starting_state = device.pps_enabled
         _ = device.toggle_pps()
         assert starting_state != device.pps_enabled, "PPS toggle failed"
@@ -56,7 +56,7 @@ def test_pps():
 def test_temperature():
     """Test reading the temperature from the device."""
     device = DS3231(1, 0x68)
-    with device.release_from_kernel(quiet=False):
+    with device.release_from_kernel():
         initial_temp = device.read_temperature()
         assert -50 < initial_temp < 100
         time.sleep(0.5)
@@ -65,3 +65,12 @@ def test_temperature():
             # Assume the temperature doesn't change much
             # during the loop iterations
             assert abs(t - initial_temp) < 1
+
+
+def test_responsive():
+    """Test the responsiveness of the device."""
+    device = DS3231(1, 0x68)
+    assert not device.responsive  # Under kernel control
+    with device.release_from_kernel():
+        assert device.responsive
+    assert not device.responsive  # Under kernel control

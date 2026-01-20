@@ -5,6 +5,7 @@ from Analog Devices. We will be using its PPS function.
 
 import os
 import struct
+import syslog
 import time
 
 from collections.abc import Generator
@@ -49,7 +50,7 @@ class DS3231(GenericDevice):
         )
 
     @contextmanager
-    def release_from_kernel(self, quiet: bool = True) -> Generator[None]:
+    def release_from_kernel(self) -> Generator[None]:
         """The public API for kernel control. Defines a context manager
         within which the device can be used to do things without
         kernel control, e.g. reading temperature.
@@ -57,9 +58,9 @@ class DS3231(GenericDevice):
         is raised within the while block.
         """
         try:
-            yield self._release_from_kernel(quiet=quiet)
+            yield self._release_from_kernel()
         finally:
-            self._give_to_kernel(quiet=quiet)
+            self._give_to_kernel()
 
     def enable_pps(self) -> None:
         """Enables the PPS."""
@@ -103,23 +104,25 @@ class DS3231(GenericDevice):
             # takes a while to perform the conversion anyway
             time.sleep(0.1)
 
-    def _give_to_kernel(self, quiet: bool = True):
-        """Gives the DS3231 to the Linux Kernel."""
+    def _give_to_kernel(self):
+        """Gives the DS3231 to the Linux Kernel.
+        Logged to system journal.
+        """
         if self.kernel_control:
             return
-        if not quiet:
-            print("Adding rtc_ds1307 to kernel.")
+        syslog.syslog(syslog.LOG_ALERT, "releasing DS3231 RTC from the kernel")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/bind", "w") as f:
             _ = f.write(f"{self.bus_number}-{self.address:04x}")
         while not self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
 
-    def _release_from_kernel(self, quiet: bool = True):
-        """Releases the DS3231 from the Linux Kernel."""
+    def _release_from_kernel(self):
+        """Releases the DS3231 from the Linux Kernel.
+        Logged to system journal.
+        """
         if not self.kernel_control:
             return
-        if not quiet:
-            print("Releasing rtc_ds1307 from kernel.")
+        syslog.syslog(syslog.LOG_ALERT, "releasing DS3231 RTC from the kernel")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/unbind", "w") as f:
             _ = f.write(f"{self.bus_number}-{self.address:04x}")
         while self.kernel_control:

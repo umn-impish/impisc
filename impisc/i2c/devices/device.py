@@ -4,6 +4,8 @@ along with some useful bit/byte manipulation functions.
 """
 
 import os
+import syslog
+
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -82,12 +84,13 @@ class GenericDevice:
 
     @property
     def responsive(self) -> bool:
-        """Pings a device using i2cget;
-        returns boolean indicating success.
+        """Pings a device using i2cget; returns boolean indicating success.
+        Logged to system journal.
         """
-        resp: int = os.system(
-            f"i2cget -y {self.bus_number} 0x{self.address:02x} >> /dev/null"
-        )
+        cmd = f"i2cget -y {self.bus_number} 0x{self.address:02x} >> /dev/null"
+        resp: int = os.system(cmd)
+        syslog.syslog(syslog.LOG_INFO, f"testing device responsiveness:\n\t{cmd}")
+
         return resp == 0
 
     def print_register_status(self):
