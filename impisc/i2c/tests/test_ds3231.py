@@ -11,7 +11,7 @@ def test_kernel_control():
     """Test the kernel control conditions."""
     device = DS3231(1, 0x68)
     assert device.kernel_control, "Kernel should have control by default"
-    
+
     # Test private method functionality.
     device._release_from_kernel()  # pyright: ignore[reportPrivateUsage]
     assert not device.kernel_control
@@ -21,7 +21,7 @@ def test_kernel_control():
     assert device.kernel_control
     device._release_from_kernel()  # pyright: ignore[reportPrivateUsage]
     assert not device.kernel_control
-    
+
     # Test context manager.
     with device.release_from_kernel():
         assert not device.kernel_control
