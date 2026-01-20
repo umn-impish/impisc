@@ -7,6 +7,9 @@ import os
 import struct
 import time
 
+from collections.abc import Generator
+from contextlib import contextmanager
+
 from .device import GenericDevice, Register
 
 
@@ -19,7 +22,7 @@ class DS3231(GenericDevice):
         self.add_register(Register("status", 0x0F, 8))
         self.add_register(Register("tmsb", 0x11, 8))
         self.add_register(Register("tlsb", 0x12, 8))
-        self.give_to_kernel()
+        self._give_to_kernel()
 
     @property
     def busy(self) -> bool:
@@ -45,6 +48,19 @@ class DS3231(GenericDevice):
             f"/sys/bus/i2c/devices/i2c-1/{self.bus_number}-{self.address:04x}/driver"
         )
 
+    @contextmanager
+    def release_from_kernel(self, quiet: bool = True) -> Generator[None]:
+        """The public API for kernel control. Defines a context manager
+        within which the device can be used to do things without
+        kernel control, e.g. reading temperature.
+        Control is returned to the kernel even if an exception
+        is raised within the while block.
+        """
+        try:
+            yield self._release_from_kernel(quiet=quiet)
+        finally:
+            self._give_to_kernel(quiet=quiet)
+
     def enable_pps(self) -> None:
         """Enables the PPS."""
         self.write_block_data("control", self.control_register & 0b11100011)
@@ -67,7 +83,7 @@ class DS3231(GenericDevice):
         self._force_convert()
         byte_tmsb = self.read_data("tmsb")
         byte_tlsb = self.read_data("tlsb")
-        value = struct.unpack(">h", bytes([byte_tmsb, byte_tlsb]))[0] >> 6  # pyright: ignore[reportAny]
+        value: float = struct.unpack(">h", bytes([byte_tmsb, byte_tlsb]))[0] >> 6  # pyright: ignore[reportAny]
 
         return value * 0.25
 
@@ -87,7 +103,7 @@ class DS3231(GenericDevice):
             # takes a while to perform the conversion anyway
             time.sleep(0.1)
 
-    def give_to_kernel(self, quiet: bool = True):
+    def _give_to_kernel(self, quiet: bool = True):
         """Gives the DS3231 to the Linux Kernel."""
         if self.kernel_control:
             return
@@ -98,7 +114,7 @@ class DS3231(GenericDevice):
         while not self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
 
-    def release_from_kernel(self, quiet: bool = True):
+    def _release_from_kernel(self, quiet: bool = True):
         """Releases the DS3231 from the Linux Kernel."""
         if not self.kernel_control:
             return
@@ -111,4 +127,4 @@ class DS3231(GenericDevice):
 
     def __del__(self):
         """Return device to kernel upon destruction."""
-        self.give_to_kernel()
+        self._give_to_kernel()

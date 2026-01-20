@@ -13,24 +13,21 @@ from impisc.i2c.devices.ds3231 import DS3231
 def set_pps(state: Literal["on", "off"] | str):
     """Turn the PPS on or off."""
     device = DS3231(1, 0x68)
-    control_status = device.kernel_control
-    device.release_from_kernel()
-    match state:
-        case "on":
-            device.enable_pps()
-        case "off":
-            device.disable_pps()
-        case _:
-            if control_status:
-                device.give_to_kernel()
-            raise ValueError(f'Provided PPS state "{state}" is invalid; specify on or off')
-
+    with device.release_from_kernel():
+        match state:
+            case "on":
+                device.enable_pps()
+            case "off":
+                device.disable_pps()
+            case _:
+                raise ValueError(f'Provided PPS state "{state}" is invalid; specify on or off')
+            
 
 def main():
     parser = argparse.ArgumentParser()
     _ = parser.add_argument("state", type=str, help="the desired PPS state, on or off")
     arg = parser.parse_args()
-    set_pps(arg.state)
+    set_pps(arg.state)  # pyright: ignore[reportAny]
 
 
 if __name__ == "__main__":
