@@ -110,7 +110,7 @@ class DS3231(GenericDevice):
         """
         if self.kernel_control:
             return
-        syslog.syslog(syslog.LOG_ALERT, "releasing DS3231 RTC from the kernel")
+        syslog.syslog(syslog.LOG_ALERT, "giving DS3231 RTC to the kernel")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/bind", "w") as f:
             _ = f.write(f"{self.bus_number}-{self.address:04x}")
         while not self.kernel_control:
