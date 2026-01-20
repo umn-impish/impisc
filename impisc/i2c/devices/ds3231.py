@@ -55,7 +55,7 @@ class DS3231(GenericDevice):
         within which the device can be used to do things without
         kernel control, e.g. reading temperature.
         Control is returned to the kernel even if an exception
-        is raised within the while block.
+        is raised within the with block.
         """
         try:
             yield self._release_from_kernel()

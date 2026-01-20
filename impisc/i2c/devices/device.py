@@ -68,7 +68,9 @@ class GenericDevice:
     def add_register(self, reg: Register):
         """Add a register to the device."""
         if reg.name in self.registers:
-            raise ValueError()
+            raise ValueError(
+                f"Register {reg.name} already in device register dictionary."
+            )
         self.registers[reg.name] = reg
 
     @property
