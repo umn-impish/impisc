@@ -27,6 +27,15 @@ def test_kernel_control():
         assert not device.kernel_control
     assert device.kernel_control
 
+    # Test that the context manager handles exceptions
+    try:
+        with device.release_from_kernel():
+            raise RuntimeError()
+    except RuntimeError:
+        pass
+    finally:
+        assert device.kernel_control
+
 
 def test_pps():
     """Test toggling the PPS; ensures enabling/disabling/toggling."""
