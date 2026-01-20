@@ -4,7 +4,12 @@ from Analog Devices. We will be using its PPS function.
 """
 
 import os
+import struct
+import syslog
 import time
+
+from collections.abc import Generator
+from contextlib import contextmanager
 
 from .device import GenericDevice, Register
 
@@ -16,7 +21,9 @@ class DS3231(GenericDevice):
         super().__init__(bus_number=bus_number, address=address)
         self.add_register(Register("control", 0x0E, 8))
         self.add_register(Register("status", 0x0F, 8))
-        self.give_to_kernel()
+        self.add_register(Register("tmsb", 0x11, 8))
+        self.add_register(Register("tlsb", 0x12, 8))
+        self._give_to_kernel()
 
     @property
     def busy(self) -> bool:
@@ -42,6 +49,19 @@ class DS3231(GenericDevice):
             f"/sys/bus/i2c/devices/i2c-1/{self.bus_number}-{self.address:04x}/driver"
         )
 
+    @contextmanager
+    def release_from_kernel(self) -> Generator[None]:
+        """The public API for kernel control. Defines a context manager
+        within which the device can be used to do things without
+        kernel control, e.g. reading temperature.
+        Control is returned to the kernel even if an exception
+        is raised within the with block.
+        """
+        try:
+            yield self._release_from_kernel()
+        finally:
+            self._give_to_kernel()
+
     def enable_pps(self) -> None:
         """Enables the PPS."""
         self.write_block_data("control", self.control_register & 0b11100011)
@@ -60,16 +80,13 @@ class DS3231(GenericDevice):
         return self.pps_enabled
 
     def read_temperature(self) -> float:
-        """Temperature in degrees celsius.
-        TODO: Add in LSB?
-        """
+        """Temperature in degrees celsius."""
         self._force_convert()
-        byte_tmsb = self.read_data(0x11)
-        self.read_data(0x12)
-        tinteger = (byte_tmsb & 0x7F) + ((byte_tmsb & 0x80) >> 7) * -(2**8)
-        tdecimal = (byte_tmsb >> 7) * 2 ** (-1) + ((byte_tmsb & 0x40) >> 6) * 2 ** (-2)
+        byte_tmsb = self.read_data("tmsb")
+        byte_tlsb = self.read_data("tlsb")
+        value: float = struct.unpack(">h", bytes([byte_tmsb, byte_tlsb]))[0] >> 6  # pyright: ignore[reportAny]
 
-        return tinteger + tdecimal
+        return value * 0.25
 
     def _force_convert(self):
         """Force a conversion and wait until it completes.
@@ -87,28 +104,30 @@ class DS3231(GenericDevice):
             # takes a while to perform the conversion anyway
             time.sleep(0.1)
 
-    def give_to_kernel(self, quiet: bool = True):
-        """Gives the DS3231 to the Linux Kernel."""
+    def _give_to_kernel(self):
+        """Gives the DS3231 to the Linux Kernel.
+        Logged to system journal.
+        """
         if self.kernel_control:
             return
-        if not quiet:
-            print("Adding rtc_ds1307 to kernel.")
+        syslog.syslog(syslog.LOG_ALERT, "giving DS3231 RTC to the kernel")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/bind", "w") as f:
-            f.write(f"{self.bus_number}-{self.address:04x}")
+            _ = f.write(f"{self.bus_number}-{self.address:04x}")
         while not self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
 
-    def release_from_kernel(self, quiet: bool = True):
-        """Releases the DS3231 from the Linux Kernel."""
+    def _release_from_kernel(self):
+        """Releases the DS3231 from the Linux Kernel.
+        Logged to system journal.
+        """
         if not self.kernel_control:
             return
-        if not quiet:
-            print("Releasing rtc_ds1307 from kernel.")
+        syslog.syslog(syslog.LOG_ALERT, "releasing DS3231 RTC from the kernel")
         with open("/sys/bus/i2c/drivers/rtc-ds1307/unbind", "w") as f:
-            f.write(f"{self.bus_number}-{self.address:04x}")
+            _ = f.write(f"{self.bus_number}-{self.address:04x}")
         while self.kernel_control:
             time.sleep(0.001)  # Reduced CPU usage compared to pass
 
     def __del__(self):
         """Return device to kernel upon destruction."""
-        self.give_to_kernel()
+        self._give_to_kernel()

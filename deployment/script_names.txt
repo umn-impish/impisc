@@ -5,4 +5,5 @@ rtc_disconnect
 set_rtc_time
 setup_daqbox_network
 toggle_power
+set_pps
 set_bias
