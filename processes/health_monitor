@@ -86,7 +86,7 @@ def measure_os_disk_usage() -> tuple[bool, bytes]:
     then convert it to the units the health packet wants:
     10 MiB per tick."""
     try:
-        return disk_usage(partition="/dev/mmcblk0p2")
+        return False, disk_usage(partition="/dev/mmcblk0p2")
     except Exception as e:
         logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
 
@@ -97,7 +97,7 @@ def measure_os_disk_usage() -> tuple[bool, bytes]:
 def measure_data_disk_usage() -> tuple[bool, bytes]:
     """Same as OS disk usage, but for the data disk"""
     try:
-        return disk_usage(partition="/dev/mmcblk1p1")
+        return False, disk_usage(partition="/dev/mmcblk1p1")
     except Exception as e:
         logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
 
@@ -106,7 +106,7 @@ def measure_data_disk_usage() -> tuple[bool, bytes]:
 
 
 def fill_extra() -> tuple[bool, bytes]:
-    return False, [0] * ctypes.sizeof(HealthPacket._fields_["extra"][1])
+    return False, (ctypes.c_uint8 * HealthPacket.EXTRA_BYTES)()
 
 
 if __name__ == "__main__":
