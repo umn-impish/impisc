@@ -35,4 +35,7 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # remove bytes from this as needed
         # to add packet fields after flight starts.
         ("extra", 64 * ctypes.c_uint8)
+
+        # Missing fields: one bit per field missing, in order
+        ("missing_fields", ctypes.c_uint16),
     ]
