@@ -1,6 +1,8 @@
+# execute with python -m scripts.tests.test_daq_control
 import sys
 import time
 import logging
+import datetime
 import numpy as np
 from time import sleep
 from pathlib import Path
@@ -9,7 +11,6 @@ from impisc.et_daqbox.daq_box_api import DaqBoxConfig, DaqBoxInterface, START, S
 def print_help():
     print("""
         DAQ control commands:
-          config spectrum|waveform            Load configuration from daq_config.json
           recalibrate                         Recalibrate the DAQ system
           flush                               Flush DAQ packets
           recv                                Receive packet
@@ -19,7 +20,9 @@ def print_help():
           quit / exit                         Quit the application
         """)
 
-LOG_DIR = Path("/impisc/impish_logs")
+SCRIPT_DIR = Path(__file__).resolve().parent
+LOG_DIR = SCRIPT_DIR / "impish_logs"
+print("Logging into:", LOG_DIR)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR/"daq.log"
 logging.basicConfig(level=logging.INFO,
@@ -27,10 +30,9 @@ logging.basicConfig(level=logging.INFO,
                     handlers=[logging.FileHandler(LOG_FILE),
                               logging.StreamHandler()])
 
-ts = time.strftime("%Y%m%d_%H%M%S")
 cfg_files = {
-    "waveform": Path("waveform_config.json"),
-    "spectrum": Path("spectrum_config.json"),
+    "waveform": SCRIPT_DIR / "waveform_config.json",
+    "spectrum": SCRIPT_DIR / "spectrum_config.json",
 }
 counters = {
     "waveform": 0,
@@ -51,6 +53,9 @@ def safe_stop(dbi):
         pass
 
 def load_config(dbi, mode: str):
+    """
+    Load configuration parameters
+    """
     cfg_file = cfg_files.get(mode)
     if cfg_file is None or not cfg_file.exists():
         raise RuntimeError(f"Missing config file for {mode} mode")
@@ -58,6 +63,7 @@ def load_config(dbi, mode: str):
     safe_stop(dbi)
 
     cfg = DaqBoxConfig.from_file(cfg_file)
+
     dbi.send(cfg.to_packet())
     dbi.flush()
 
@@ -66,20 +72,20 @@ def load_config(dbi, mode: str):
 # similar to waveform_test.py written by Willy
 def collect_waveforms(dbi, n_waveforms: int):
     print(f"Collecting {n_waveforms} waveforms ...")
-
+    dbi.send(STOP)
     load_config(dbi, 'waveform')
 
-    dbi.send(START)
     dbi.recalibrate_baseline()
+    dbi.send(START)
     time.sleep(1)
     dbi.flush(128)
     
     waveforms = []
-    t0 = time.time()
-    timeout = 10  # seconds
+    timeout = 5  # seconds
+    t_last_packet = time.time()
     
     while len(waveforms) < n_waveforms: # 3000 was used, why???
-        if time.time() - t0 > timeout:
+        if time.time() - t_last_packet > timeout:
             logging.error("Waveform acquisition timed out")
             break
         try:
@@ -95,6 +101,7 @@ def collect_waveforms(dbi, n_waveforms: int):
             counters["waveform"] += 1
             if decoded['channel'] == 0:
                 waveforms.append(decoded["data"])
+                t_last_packet = time.time()
         else:
             counters["unknown"] += 1
 
@@ -103,8 +110,9 @@ def collect_waveforms(dbi, n_waveforms: int):
 
     # print(waveforms[10])
     # print('Waveform acquisition complete')
-    np.savetxt(f'waveforms_{ts}.txt', waveforms)
-    print(f"Saved {len(waveforms)} to waveforms_{ts}.txt")
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    np.savetxt(LOG_DIR / f'waveforms_{ts}.txt', waveforms)
+    print(f"Saved {len(waveforms)} waveforms to {LOG_DIR / f'waveforms_{ts}.txt'}")
 
 # also similar to testing.ipynb by Willy
 def collect_spectra(dbi, n_spectra: int):
@@ -112,17 +120,17 @@ def collect_spectra(dbi, n_spectra: int):
 
     load_config(dbi, 'spectrum')
 
+    dbi.send(STOP)
     dbi.send(START)
-    dbi.recalibrate_baseline()
     time.sleep(1)
     dbi.flush(64) # why 64????
 
     spectra = []
-    t0 = time.time()
-    timeout = 10  # seconds
+    timeout = 5  # seconds
+    t_last_packet = time.time()
 
     while len(spectra) < n_spectra:
-        if time.time() - t0 > timeout:
+        if time.time() - t_last_packet > timeout:
             logging.error("Spectrum acquisition timed out")
             break
         try:
@@ -138,6 +146,7 @@ def collect_spectra(dbi, n_spectra: int):
             spec = parse_spectrum_packet(data)
             counters["spectrum"] += 1
             spectra.append(spec[0])
+            t_last_packet = time.time()
         except Exception:
             counters["unknown"] += 1
 
@@ -145,8 +154,9 @@ def collect_spectra(dbi, n_spectra: int):
     safe_stop(dbi)
 
     # print("Spectrum acquisition complete")
-    np.savetxt(f'spectra_{ts}.txt', spectra)
-    print(f"Saved {len(spectra)} to spectra_{ts}.txt")
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    np.savetxt(LOG_DIR / f'spectra_{ts}.txt', spectra)
+    print(f"Saved {len(spectra)} spectra to {LOG_DIR / f'spectra_{ts}.txt'}")
 
 def main():
     print("Connecting to DAQ box interface...")
