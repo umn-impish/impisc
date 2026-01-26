@@ -1,11 +1,20 @@
 #!/bin/bash
+# Install systemd services and associated process programs
 
-# Install systemd services and associated programs
+# Install all .service files and enable them
+services=$(cat service_names.txt)
+for s in $services; do
+    sudo cp "../services/$s" "/etc/systemd/system"
+done
 
-# Health service
-sudo cp '../processes/health_monitor' '/usr/local/bin'
-sudo cp '../services/system-health.service' '/etc/systemd/system/'
 sudo systemctl daemon-reload
-sudo systemctl enable system-health.service
-sudo systemctl start system-health.service
+for s in $services; do
+    sudo systemctl enable "$s"
+    sudo systemctl start "$s"
+done
 
+# Install all processes
+processes=$(cat process_names.txt)
+for s in $processs; do
+    sudo cp "../processes/$s" "/usr/local/bin"
+done
