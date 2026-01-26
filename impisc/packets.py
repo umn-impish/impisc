@@ -12,6 +12,9 @@ class HealthPacket(ctypes.LittleEndianStructure):
     we should make a GitHub release.
     """
 
+    # Reserved bytes for additional data
+    EXTRA_BYTES = 64
+
     # Do not include padding bytes
     _pack_ = 1
 
@@ -34,7 +37,7 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # Padding on the end of the health packet:
         # remove bytes from this as needed
         # to add packet fields after flight starts.
-        ("extra", 64 * ctypes.c_uint8),
+        ("extra", EXTRA_BYTES * ctypes.c_uint8),
         # Missing fields: one bit per field missing, in order
         ("missing_fields", ctypes.c_uint16),
     ]
