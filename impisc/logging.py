@@ -1,15 +1,18 @@
 """
-Should log to systemd. How do we do that??
+Standard functions for logging to the system journal with syslog.
 """
 
+import syslog
+
+
 def log_debug(s: str):
-    print("debug", s)
+    syslog.syslog(syslog.LOG_DEBUG, s)
 
 def log_info(s: str):
-    print("info", s)
+    syslog.syslog(syslog.LOG_INFO, s)
 
 def log_warning(s: str):
-    print("warning", s)
+    syslog.syslog(syslog.LOG_WARNING, s)
 
 def log_error(s: str):
-    print("error", s)
+    syslog.syslog(syslog.LOG_ERR, s)
