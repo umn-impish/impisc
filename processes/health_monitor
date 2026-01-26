@@ -14,7 +14,7 @@ from impisc.packets import HealthPacket
 def main():
     # The functions which generate health bytes for the packet
     generator_type = Callable[[], tuple[bool, typing.Any]]
-    generators: list[tuple[str, generator_type]] = list(
+    generators: list[tuple[str, generator_type]] = [
         ("cm4_volts", measure_pi_voltage),
         ("sipm_preamp_pos_volts", measure_preamp_pos),
         ("sipm_preamp_neg_volts", measure_preamp_neg),
@@ -25,7 +25,7 @@ def main():
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("extra", fill_extra),
-    )
+    ]
 
     my_port = int(sys.argv[1])
     send_port = int(sys.argv[2])
@@ -107,3 +107,7 @@ def measure_data_disk_usage() -> tuple[bool, bytes]:
 
 def fill_extra() -> tuple[bool, bytes]:
     return False, [0] * ctypes.sizeof(HealthPacket._fields_["extra"][1])
+
+
+if __name__ == "__main__":
+    main()
