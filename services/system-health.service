@@ -1,0 +1,15 @@
+[Unit]
+Description=Send health packets to a port (udpcapture, probably)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart="/usr/local/bin/health_monitor"
+StandardOutput=inherit
+StandardError=inherit
+Restart=on-failure
+User=impish
+
+[Install]
+WantedBy=multi-user.target
+
