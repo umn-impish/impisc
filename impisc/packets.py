@@ -1,7 +1,8 @@
 import ctypes
 
+
 class HealthPacket(ctypes.LittleEndianStructure):
-    '''
+    """
     The IMPISH health packet
 
     Contains health information on temperatures, voltages,
@@ -9,11 +10,12 @@ class HealthPacket(ctypes.LittleEndianStructure):
 
     Once this is developed to something we're happy with,
     we should make a GitHub release.
-    '''
+    """
+
     # Do not include padding bytes
     _pack_ = 1
 
-    # Update fields 
+    # Update fields
     _fields_ = [
         ("cm4_volts", ctypes.c_uint8),
         # +- SiPM preamp input voltages
@@ -26,16 +28,13 @@ class HealthPacket(ctypes.LittleEndianStructure):
         ("bubba_input_neg_volts", ctypes.c_uint16),
         # bubba output bias voltage (~30V to ~60V)
         ("bubba_output_volts", ctypes.c_uint16),
-
         # Disk usages in 10 MiB units
         ("os_disk_usage", ctypes.c_uint16),
         ("data_disk_usage", ctypes.c_uint16),
-
         # Padding on the end of the health packet:
         # remove bytes from this as needed
         # to add packet fields after flight starts.
-        ("extra", 64 * ctypes.c_uint8)
-
+        ("extra", 64 * ctypes.c_uint8),
         # Missing fields: one bit per field missing, in order
         ("missing_fields", ctypes.c_uint16),
     ]
