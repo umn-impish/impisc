@@ -7,7 +7,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Any, Callable, TypeAlias
+from typing import Any, Callable, Literal, TypeAlias
 
 from impisc import logging
 from impisc.packets import HealthPacket
@@ -18,10 +18,21 @@ from impisc.i2c.devices import ads112c04, ds3231, isl22317, max11617
 my_port = 12345
 send_port = 12346
 cadence_seconds = 3
-THREAD_TIMEOUT_SECONDS = 1  # TODO: might need to tweak this...
-
 
 generator_type: TypeAlias = Callable[[], tuple[bool, Any]]
+
+
+MAX11617_CHANNELS: dict[str, Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]] = {
+    "-SIPM": 0,
+    "-BUBBA": 1,
+    "+CREMAT": 2,
+    "-CREMAT": 3,
+    "+SIPM": 4,
+    "BP": 5,
+    "+BUBBA": 6,
+    "HEATER": 7,
+    "CM4": 8
+}
 
 
 # Define measurement timeouts, in seconds
@@ -88,28 +99,46 @@ def measure(func: generator_type, results: list[tuple[bool, Any]], index: int) -
     results[index] = func()
 
 
+def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[bool, float]:
+    """Measure the voltage (in mV) on the specified channel on the MAX11617."""
+    try:
+        MAX11617: max11617.MAX11617 = max11617.MAX11617(1, 0x35)
+        MAX11617.reference = "internal"
+        MAX11617.scan = 3
+        return False, int(MAX11617.read_conversion(which=channel) * 1000)
+    except Exception as e:
+        logging.log_warning(f"Could not read channel {channel} from MAX11617.\n{e}")
+    return True, -1.0
+
+
 def measure_pi_voltage() -> tuple[bool, float]:
-    return True, 0.0
+    """Measure the voltage (mV) powering the CM4."""
+    return measure_power_line(MAX11617_CHANNELS["CM4"])
 
 
 def measure_preamp_pos() -> tuple[bool, float]:
-    return True, 0.0
+    """Measure the positive voltage (mV) powering the SiPM boards."""
+    return measure_power_line(MAX11617_CHANNELS["+SIPM"])
 
 
 def measure_preamp_neg() -> tuple[bool, float]:
-    return True, 0.0
+    """Measure the negative voltage (mV) powering the SiPM boards."""
+    return measure_power_line(MAX11617_CHANNELS["-SIPM"])
 
 
 def measure_heater_volts() -> tuple[bool, float]:
-    return True, 0.0
+    """Measure the heater voltage."""
+    return measure_power_line(MAX11617_CHANNELS["HEATER"])
 
 
 def measure_bubba_pos_input() -> tuple[bool, float]:
-    return True, 0.0
+    """Measure the positive voltage (mV) powering the bias board."""
+    return measure_power_line(MAX11617_CHANNELS["+BUBBA"])
 
 
 def measure_bubba_neg_input() -> tuple[bool, float]:
-    return True, 0.0
+    """Measure the negative voltage (mV) powering the bias board."""
+    return measure_power_line(MAX11617_CHANNELS["-BUBBA"])
 
 
 def measure_bubba_output() -> tuple[bool, float]:
@@ -121,7 +150,7 @@ def measure_bubba_output() -> tuple[bool, float]:
         ADS112C04.power_down()
         return False, conversion * 155 / 5
     except Exception as e:  # TODO: better exception handling here?
-        logging.log_warning(f"\nCould not read bias voltage.\n{e}")
+        logging.log_warning(f"Could not read bias voltage.\n{e}")
     return True, -1
 
 
@@ -134,7 +163,7 @@ def measure_bubba_wiper() -> tuple[bool, int]:
         ISL22317.awake = False
         return False, value
     except IOError as e:
-        logging.log_warning(f"\nCannot contact ISL22317; is it on?\n{e}")
+        logging.log_warning(f"Cannot contact ISL22317; is it on?\n{e}")
     return True, -1
 
 
