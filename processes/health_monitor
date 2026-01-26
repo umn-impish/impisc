@@ -1,25 +1,47 @@
 #!/python-venv/bin/python
 
-from impisc import logging
+
 import ctypes
-from collections.abc import Callable
 import socket
 import subprocess
 import sys
+import threading
 import time
-import typing
+from typing import Any, Callable, TypeAlias
+
+from impisc import logging
 from impisc.packets import HealthPacket
+from impisc.i2c.devices import ads112c04, ds3231, isl22317, max11617
 
 
 # TODO: standardize these
 my_port = 12345
 send_port = 12346
-cadence_seconds = 10
+cadence_seconds = 3
+THREAD_TIMEOUT_SECONDS = 1  # TODO: might need to tweak this...
+
+
+generator_type: TypeAlias = Callable[[], tuple[bool, Any]]
+
+
+# Define measurement timeouts, in seconds
+TIMEOUTS: dict[str, int | float] = {
+    "cm4_volts": 1,
+    "sipm_preamp_pos_volts": 1,
+    "sipm_preamp_neg_volts": 1,
+    "heater_volts": 1,
+    "bubba_input_pos_volts": 1,
+    "bubba_input_neg_volts": 1,
+    "bubba_output_volts": 1,
+    "bubba_wiper": 1,
+    "os_disk_usage": 0.2,
+    "data_disk_usage": 0.2,
+    "extra": 1,
+}
 
 
 def main():
     # The functions which generate health bytes for the packet
-    generator_type = Callable[[], tuple[bool, typing.Any]]
     generators: list[tuple[str, generator_type]] = [
         ("cm4_volts", measure_pi_voltage),
         ("sipm_preamp_pos_volts", measure_preamp_pos),
@@ -28,6 +50,7 @@ def main():
         ("bubba_input_pos_volts", measure_bubba_pos_input),
         ("bubba_input_neg_volts", measure_bubba_neg_input),
         ("bubba_output_volts", measure_bubba_output),
+        ("bubba_wiper", measure_bubba_wiper),
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("extra", fill_extra),
@@ -38,41 +61,81 @@ def main():
 
     while True:
         packet = HealthPacket()
-        for i, (field, func) in enumerate(generators):
-            missing, data = func()
+        threads: dict[str, threading.Thread] = {}
+        results = [(True, -1)] * len(generators)
+        for i, (field, func) in enumerate[tuple[str, generator_type]](generators):
+            thread: threading.Thread = threading.Thread(
+                target=measure,
+                args=(func, results, i),
+                name=f"measure_{field}"
+            )
+            threads[field] = thread
+            thread.start()
+        for field, thread in threads.items():
+            thread.join(timeout=TIMEOUTS[field])
+            if thread.is_alive():
+                logging.log_debug(f'thread {thread.name} did not finish')
+        for i, (missing, data) in enumerate(results):
             if not missing:
+                field = generators[i][0]
                 setattr(packet, field, data)
             packet.missing_fields |= int(missing) << i
         sock.sendto(packet, ("localhost", send_port))
         time.sleep(cadence_seconds)
 
 
-def measure_pi_voltage() -> tuple[bool, bytes]:
-    return True, b""
+def measure(func: generator_type, results: list[tuple[bool, Any]], index: int) -> None:
+    results[index] = func()
 
 
-def measure_preamp_pos() -> tuple[bool, bytes]:
-    return True, b""
+def measure_pi_voltage() -> tuple[bool, float]:
+    return True, 0.0
 
 
-def measure_preamp_neg() -> tuple[bool, bytes]:
-    return True, b""
+def measure_preamp_pos() -> tuple[bool, float]:
+    return True, 0.0
 
 
-def measure_heater_volts() -> tuple[bool, bytes]:
-    return True, b""
+def measure_preamp_neg() -> tuple[bool, float]:
+    return True, 0.0
 
 
-def measure_bubba_pos_input() -> tuple[bool, bytes]:
-    return True, b""
+def measure_heater_volts() -> tuple[bool, float]:
+    return True, 0.0
 
 
-def measure_bubba_neg_input() -> tuple[bool, bytes]:
-    return True, b""
+def measure_bubba_pos_input() -> tuple[bool, float]:
+    return True, 0.0
 
 
-def measure_bubba_output() -> tuple[bool, bytes]:
-    return True, b""
+def measure_bubba_neg_input() -> tuple[bool, float]:
+    return True, 0.0
+
+
+def measure_bubba_output() -> tuple[bool, float]:
+    """Measure the bias voltage from the ADS112C04."""
+    try:
+        ADS112C04: ads112c04.ADS112C04 = ads112c04.ADS112C04(0, 0x40)
+        ADS112C04.set_mode(0)  # Single-shot
+        conversion: float = ADS112C04.read_voltage(pin_number="01", force_conversion=True)
+        ADS112C04.power_down()
+        return False, conversion * 155 / 5
+    except Exception as e:  # TODO: better exception handling here?
+        logging.log_warning(f"\nCould not read bias voltage.\n{e}")
+    return True, -1
+
+
+def measure_bubba_wiper() -> tuple[bool, int]:
+    """Measure the wiper value from the ISL22317 that sets the bias voltage."""
+    try:
+        ISL22317 = isl22317.ISL22317(0, 0x28)
+        ISL22317.awake = True
+        value = ISL22317.wiper
+        ISL22317.awake = False
+        return False, value
+    except IOError as e:
+        logging.log_warning(f"\nCannot contact ISL22317; is it on?\n{e}")
+    return True, -1
 
 
 def disk_usage(partition: str) -> int:
@@ -83,7 +146,7 @@ def disk_usage(partition: str) -> int:
     return use_in_bytes // (1024 * 10)
 
 
-def measure_os_disk_usage() -> tuple[bool, bytes]:
+def measure_os_disk_usage() -> tuple[bool, int]:
     """Measure the OS disk usage in bytes,
     then convert it to the units the health packet wants:
     10 MiB per tick."""
@@ -93,10 +156,10 @@ def measure_os_disk_usage() -> tuple[bool, bytes]:
         logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
 
     # Failed to get disk usage; indicate missing
-    return True, b""
+    return True, -1
 
 
-def measure_data_disk_usage() -> tuple[bool, bytes]:
+def measure_data_disk_usage() -> tuple[bool, int]:
     """Same as OS disk usage, but for the data disk"""
     try:
         return False, disk_usage(partition="/dev/mmcblk1p1")
@@ -104,10 +167,10 @@ def measure_data_disk_usage() -> tuple[bool, bytes]:
         logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
 
     # Failed to get disk usage; indicate missing
-    return True, b""
+    return True, -1
 
 
-def fill_extra() -> tuple[bool, bytes]:
+def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:
     return False, (ctypes.c_uint8 * HealthPacket.EXTRA_BYTES)()
 
 

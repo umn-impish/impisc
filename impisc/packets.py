@@ -29,8 +29,9 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # +- bubba input voltages
         ("bubba_input_pos_volts", ctypes.c_uint16),
         ("bubba_input_neg_volts", ctypes.c_uint16),
-        # bubba output bias voltage (~30V to ~60V)
-        ("bubba_output_volts", ctypes.c_uint16),
+        # bubba output bias voltage (~30V to ~50V)
+        ("bubba_output_volts", ctypes.c_float),
+        ("bubba_wiper", ctypes.c_uint8),
         # Disk usages in 10 MiB units
         ("os_disk_usage", ctypes.c_uint16),
         ("data_disk_usage", ctypes.c_uint16),
