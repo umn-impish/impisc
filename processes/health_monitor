@@ -31,7 +31,7 @@ MAX11617_CHANNELS: dict[str, Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]] = {
     "BP": 5,
     "+BUBBA": 6,
     "HEATER": 7,
-    "CM4": 8
+    "CM4": 8,
 }
 
 
@@ -76,16 +76,14 @@ def main():
         results = [(True, -1)] * len(generators)
         for i, (field, func) in enumerate[tuple[str, generator_type]](generators):
             thread: threading.Thread = threading.Thread(
-                target=measure,
-                args=(func, results, i),
-                name=f"measure_{field}"
+                target=measure, args=(func, results, i), name=f"measure_{field}"
             )
             threads[field] = thread
             thread.start()
         for field, thread in threads.items():
             thread.join(timeout=TIMEOUTS[field])
             if thread.is_alive():
-                logging.log_debug(f'thread {thread.name} did not finish')
+                logging.log_debug(f"thread {thread.name} did not finish")
         for i, (missing, data) in enumerate(results):
             if not missing:
                 field = generators[i][0]
@@ -147,7 +145,9 @@ def measure_bubba_output() -> tuple[bool, float]:
     try:
         ADS112C04: ads112c04.ADS112C04 = ads112c04.ADS112C04(0, 0x40)
         ADS112C04.set_mode(0)  # Single-shot
-        conversion: float = ADS112C04.read_voltage(pin_number="01", force_conversion=True)
+        conversion: float = ADS112C04.read_voltage(
+            pin_number="01", force_conversion=True
+        )
         ADS112C04.power_down()
         return False, conversion * 155 / 5
     except Exception as e:  # TODO: better exception handling here?
