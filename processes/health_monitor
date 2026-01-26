@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+
+from impisc import logging
+import ctypes
+from collections.abc import Callable
+import socket
+import subprocess
+import sys
+import time
+import typing
+from impisc.packets import HealthPacket
+
+
+def main():
+    # The functions which generate health bytes for the packet
+    generator_type = Callable[[], tuple[bool, typing.Any]]
+    generators: list[tuple[str, generator_type]] = list(
+        ("cm4_volts", measure_pi_voltage),
+        ("sipm_preamp_pos_volts", measure_preamp_pos),
+        ("sipm_preamp_neg_volts", measure_preamp_neg),
+        ("heater_volts", measure_heater_volts),
+        ("bubba_input_pos_volts", measure_bubba_pos_input),
+        ("bubba_input_neg_volts", measure_bubba_neg_input),
+        ("bubba_output_volts", measure_bubba_output),
+        ("os_disk_usage", measure_os_disk_usage),
+        ("data_disk_usage", measure_data_disk_usage),
+        ("extra", fill_extra)
+    )
+
+    my_port = int(sys.argv[1])
+    send_port = int(sys.argv[2])
+    cadence_seconds = int(sys.argv[3])
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", my_port))
+
+    while True:
+        packet = HealthPacket()
+        for i, (field, func) in enumerate(generators):
+            missing, data = func()
+            if not missing:
+                setattr(packet, field, data)
+            packet.missing_fields |= (int(missing) << i)
+        sock.sendto(packet, ("localhost", send_port))
+        time.sleep(cadence_seconds)
+
+
+def measure_pi_voltage() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def measure_preamp_pos() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def measure_preamp_neg() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def measure_heater_volts() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def measure_heater_volts() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def measure_bubba_pos_input() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def measure_bubba_neg_input() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def measure_bubba_output() -> tuple[bool, bytes]:
+    return True, b''
+
+
+def disk_usage(partition: str) -> int:
+    res = subprocess.run([f"df {partition}"], shell=True, capture_output=True)
+    if res.stderr:
+        raise ValueError(f"Error running command: {res.stderr.decode("utf-8")}")
+    use_in_bytes = int(
+        res.stdout
+            .decode("utf-8")
+            .split("\n")[1]
+            .strip()
+            .split()[2]
+    )
+    return use_in_bytes // (1024 * 10)
+
+
+def measure_os_disk_usage() -> tuple[bool, bytes]:
+    """Measure the OS disk usage in bytes,
+    then convert it to the units the health packet wants:
+    10 MiB per tick."""
+    try:
+        return disk_usage(partition="/dev/mmcblk0p2")
+    except Exception as e:
+        logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
+
+    # Failed to get disk usage; indicate missing
+    return True, b""
+
+
+def measure_data_disk_usage() -> tuple[bool, bytes]:
+    """Same as OS disk usage, but for the data disk"""
+    try:
+        return disk_usage(partition="/dev/mmcblk1p1")
+    except Exception as e:
+        logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
+
+    # Failed to get disk usage; indicate missing
+    return True, b""
+
+
+def fill_extra() -> tuple[bool, bytes]:
+    return False, [0] * ctypes.sizeof(HealthPacket._fields_["extra"][1])
