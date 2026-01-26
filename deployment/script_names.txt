@@ -1,5 +1,6 @@
 gpio_toggles
 initialize_gpios
+initialize_gpiomem
 rtc_connect
 rtc_disconnect
 set_rtc_time
