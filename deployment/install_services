@@ -1,6 +1,12 @@
 #!/bin/bash
 # Install systemd services and associated process programs
 
+# Install all processes
+processes=$(cat process_names.txt)
+for s in $processes; do
+    sudo cp "../processes/$s" "/usr/local/bin"
+done
+
 # Install all .service files and enable them
 services=$(cat service_names.txt)
 for s in $services; do
@@ -9,12 +15,5 @@ done
 
 sudo systemctl daemon-reload
 for s in $services; do
-    sudo systemctl enable "$s"
-    sudo systemctl start "$s"
-done
-
-# Install all processes
-processes=$(cat process_names.txt)
-for s in $processs; do
-    sudo cp "../processes/$s" "/usr/local/bin"
+    sudo systemctl restart "$s"
 done
