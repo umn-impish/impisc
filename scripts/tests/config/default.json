@@ -1,0 +1,22 @@
+{
+    "global": {
+        "enabled": 1,
+        "thresholds": [100, 50, 50, 50],
+        "polarities": 0,
+        "enable_pileup_rejection": false,
+        "integration_window": 74,
+        "zoom_division": 4,
+        "pileup_integration_time": 20
+    },
+
+    "modes": {
+        "spectrum": {
+            "acquisition_mode": "spectrum"
+        },
+        "waveform": {
+            "acquisition_mode": "waveform"
+        }
+    },
+
+    "startup_mode": "idle"
+}
