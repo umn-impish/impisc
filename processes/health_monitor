@@ -96,10 +96,11 @@ def main():
 
 
 def measure(func: generator_type, results: list[tuple[bool, Any]], index: int) -> None:
+    """Helper function for threading purposes."""
     results[index] = func()
 
 
-def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[bool, float]:
+def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[bool, int]:
     """Measure the voltage (in mV) on the specified channel on the MAX11617."""
     try:
         MAX11617: max11617.MAX11617 = max11617.MAX11617(1, 0x35)
@@ -108,7 +109,7 @@ def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[boo
         return False, int(MAX11617.read_conversion(which=channel) * 1000)
     except Exception as e:
         logging.log_warning(f"Could not read channel {channel} from MAX11617.\n{e}")
-    return True, -1.0
+    return True, -1
 
 
 def measure_pi_voltage() -> tuple[bool, float]:
