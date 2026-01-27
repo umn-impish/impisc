@@ -172,9 +172,10 @@ def measure_bubba_wiper() -> tuple[bool, int]:
     """Measure the wiper value from the ISL22317 that sets the bias voltage."""
     try:
         ISL22317 = isl22317.ISL22317(0, 0x28)
+        initial_status = ISL22317.awake
         ISL22317.awake = True
         value = ISL22317.wiper
-        ISL22317.awake = False
+        ISL22317.awake = initial_status
         return False, value
     except IOError as e:
         logging.log_warning(f"Cannot contact ISL22317; is it on?\n{e}")
