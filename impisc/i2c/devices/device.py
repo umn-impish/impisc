@@ -11,6 +11,8 @@ from typing import Literal
 
 import smbus2
 
+from impisc import logging
+
 
 def int_to_twos_complement(value: int, bits: int) -> int:
     """Compute the 2's complement of int value.
@@ -129,3 +131,7 @@ class GenericDevice:
     def write_data(self, register: str, data: int):
         """Writes a single byte to the provided register."""
         self.bus.write_byte_data(self.address, self.registers[register].address, data)
+
+    def __del__(self):
+        """Close the bus upon deletion; closes the file."""
+        self._bus.close()
