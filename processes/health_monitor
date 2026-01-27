@@ -45,6 +45,7 @@ TIMEOUTS: dict[str, int | float] = {
     "bubba_input_neg_volts": 1,
     "bubba_output_volts": 1,
     "bubba_wiper": 1,
+    "toggle_byte": 0.2,
     "os_disk_usage": 0.2,
     "data_disk_usage": 0.2,
     "extra": 1,
@@ -62,6 +63,7 @@ def main():
         ("bubba_input_neg_volts", measure_bubba_neg_input),
         ("bubba_output_volts", measure_bubba_output),
         ("bubba_wiper", measure_bubba_wiper),
+        ("toggle_byte", measure_toggle_byte),
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("extra", fill_extra),
@@ -81,9 +83,10 @@ def main():
             threads[field] = thread
             thread.start()
         for field, thread in threads.items():
+            logging.log_debug(f"joining thread {thread.name}")
             thread.join(timeout=TIMEOUTS[field])
             if thread.is_alive():
-                logging.log_debug(f"thread {thread.name} did not finish")
+                logging.log_warning(f"thread {thread.name} did not finish")
         for i, (missing, data) in enumerate(results):
             if not missing:
                 field = generators[i][0]
@@ -110,38 +113,38 @@ def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[boo
     return True, -1
 
 
-def measure_pi_voltage() -> tuple[bool, float]:
+def measure_pi_voltage() -> tuple[bool, int]:
     """Measure the voltage (mV) powering the CM4."""
     return measure_power_line(MAX11617_CHANNELS["CM4"])
 
 
-def measure_preamp_pos() -> tuple[bool, float]:
+def measure_preamp_pos() -> tuple[bool, int]:
     """Measure the positive voltage (mV) powering the SiPM boards."""
     return measure_power_line(MAX11617_CHANNELS["+SIPM"])
 
 
-def measure_preamp_neg() -> tuple[bool, float]:
+def measure_preamp_neg() -> tuple[bool, int]:
     """Measure the negative voltage (mV) powering the SiPM boards."""
     return measure_power_line(MAX11617_CHANNELS["-SIPM"])
 
 
-def measure_heater_volts() -> tuple[bool, float]:
+def measure_heater_volts() -> tuple[bool, int]:
     """Measure the heater voltage."""
     return measure_power_line(MAX11617_CHANNELS["HEATER"])
 
 
-def measure_bubba_pos_input() -> tuple[bool, float]:
+def measure_bubba_pos_input() -> tuple[bool, int]:
     """Measure the positive voltage (mV) powering the bias board."""
     return measure_power_line(MAX11617_CHANNELS["+BUBBA"])
 
 
-def measure_bubba_neg_input() -> tuple[bool, float]:
+def measure_bubba_neg_input() -> tuple[bool, int]:
     """Measure the negative voltage (mV) powering the bias board."""
     return measure_power_line(MAX11617_CHANNELS["-BUBBA"])
 
 
-def measure_bubba_output() -> tuple[bool, float]:
-    """Measure the bias voltage from the ADS112C04."""
+def measure_bubba_output() -> tuple[bool, int]:
+    """Measure the bias voltage (mV) from the ADS112C04."""
     try:
         ADS112C04: ads112c04.ADS112C04 = ads112c04.ADS112C04(0, 0x40)
         ADS112C04.set_mode(0)  # Single-shot
@@ -149,10 +152,20 @@ def measure_bubba_output() -> tuple[bool, float]:
             pin_number="01", force_conversion=True
         )
         ADS112C04.power_down()
-        return False, conversion * 155 / 5
+        return False, int(conversion * 155 / 5 * 1000)  # mV
     except Exception as e:  # TODO: better exception handling here?
         logging.log_warning(f"Could not read bias voltage.\n{e}")
     return True, -1
+
+
+def measure_toggle_byte() -> tuple[bool, int]:
+    """Measure the byte indicating the status of all the GPIO toggles."""
+    res = subprocess.run([f"power_status"], shell=True, capture_output=True)
+    if res.stderr:
+        logging.log_error("Problem reading power toggle status byte.")
+        return True, -1
+    status_byte = int(res.stdout.decode("utf-8"), base=2)
+    return False, status_byte
 
 
 def measure_bubba_wiper() -> tuple[bool, int]:
