@@ -19,7 +19,7 @@ class MAX11617(GenericDevice):
     # functionality since we do not need access to all features.
     REFERENCE_VOLTAGE_MAP: dict[str, int] = {
         "vdd": 0b00000000,
-        "external": 0b01000000,  # We will never need this, but included anyway
+        "external": 0b00100000,  # We will never need this, but included anyway
         "internal": 0b01010000,  # Internal reference, always on
     }
 
