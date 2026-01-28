@@ -16,6 +16,12 @@ from .device import GenericDevice, Register
 class ADS112C04(GenericDevice):
     """Interface with a connected ADS112C04 ADC."""
 
+    # Command bytes
+    CMD_POWERDOWN: int = 0x02
+    CMD_RESET: int = 0x06
+    CMD_START_SYNC: int = 0x08
+    CMD_READ_CONVERSION: int = 0x10
+
     # Config 0
     MUX_MASK: int = 0b11110000
     SINGLE_ENDED_PIN_MAP: dict[str, int] = {
@@ -54,10 +60,11 @@ class ADS112C04(GenericDevice):
         1000: 0b11000000,
     }
 
+    # Inverted maps (computed once)
+    _INV_GAIN_MAP: dict[int, int] = {v: k for k, v in GAIN_MAP.items()}
+    _INV_SPS_MAP: dict[int, int] = {v: k for k, v in SPS_MAP.items()}
+
     def __init__(self, bus_number: int, address: int):
-        """Initialization **always** resets the device to default values
-        since the RESET command (0x06) is sent to the device.
-        """
         super().__init__(bus_number=bus_number, address=address)
         self.add_register(Register("config0", 0x00, 8))
         self.add_register(Register("config1", 0x01, 8))
@@ -69,8 +76,9 @@ class ADS112C04(GenericDevice):
         """The currently selected multiplexer input (analog input)."""
         value: int = self.read_block_data("config0") & self.MUX_MASK
         combined: dict[str, int] = {**self.SINGLE_ENDED_PIN_MAP, **self.DIFFERENTIAL_PIN_MAP}
-        flipped: dict[int, str] = dict((v,k) for k,v in combined.items())
-
+        flipped: dict[int, str] = dict((v, k) for k, v in combined.items())
+        if value not in flipped:
+            raise ValueError(f"Unknown multiplexer value: {value:#010b}")
         return flipped[value].replace("AIN", "")
 
     @mux.setter
@@ -89,7 +97,8 @@ class ADS112C04(GenericDevice):
         match len(which):
             case 1:
                 pin_map = self.SINGLE_ENDED_PIN_MAP
-                self.pga_bypassed = True  # For bookkeeping purposes
+                # For bookkeeping purposes mark PGA bypass for single-ended
+                self.pga_bypassed = True
             case 2:
                 pin_map = self.DIFFERENTIAL_PIN_MAP
             case _:
@@ -98,15 +107,16 @@ class ADS112C04(GenericDevice):
             raise error
         config_register = self.read_block_data("config0")
         config_register &= ~self.MUX_MASK
-        config_register += pin_map[pin]
+        config_register |= pin_map[pin]
         self.write_block_data("config0", config_register)
 
     @property
     def gain(self) -> int:
-        """The device gain, valid values are:
-        1, 2, 4, 8, 16, 32, 64, 128.
-        """
-        return self.read_block_data("config0") & self.GAIN_MASK
+        """The device gain as an integer (1,2,4,...)."""
+        masked = self.read_block_data("config0") & self.GAIN_MASK
+        if masked not in self._INV_GAIN_MAP:
+            raise ValueError(f"Unknown gain bitfield: {masked:#010b}")
+        return self._INV_GAIN_MAP[masked]
 
     @gain.setter
     def gain(self, gain: int):
@@ -114,10 +124,10 @@ class ADS112C04(GenericDevice):
         1, 2, 4, 8, 16, 32, 64, 128.
         """
         if gain not in self.GAIN_MAP:
-            raise ValueError(f"Invalid gain selection: \"{gain}\"\nValid selections: {self.GAIN_MAP.values()}")
+            raise ValueError(f"Invalid gain selection: \"{gain}\"\nValid selections: {list(self.GAIN_MAP.keys())}")
         config_register = self.read_block_data("config0")
         config_register &= ~self.GAIN_MASK
-        config_register += self.GAIN_MAP[gain]
+        config_register |= self.GAIN_MAP[gain]
         self.write_block_data("config0", config_register)
 
     @property
@@ -139,23 +149,28 @@ class ADS112C04(GenericDevice):
 
     @property
     def data_rate(self) -> int:
-        """The device data rate, taking turbo mode into account."""
-        return self._data_rate * (1 + self.turbo_mode)
+        """The device data rate in samples/sec, taking turbo mode into account."""
+        return self._data_rate * (1 + int(self.turbo_mode))
 
-    @property
-    def _data_rate(self) -> int:
-        """The device data rate, not accounting for turbo mode."""
-        return self.read_block_data("config1") & self.SPS_MASK
-
-    @_data_rate.setter
-    def _data_rate(self, rate: int):
+    @data_rate.setter
+    def data_rate(self, rate: int):
         """Set the device data rate, where rate is in samples per second.
         Valid values are: 20, 45, 90, 175, 330, 600, 1000
         """
+        if rate not in self.SPS_MAP:
+            raise ValueError(f"Invalid data rate: {rate}; valid: {list(self.SPS_MAP.keys())}")
         config_register = self.read_block_data("config1")
         config_register &= ~self.SPS_MASK
-        config_register += self.SPS_MAP[rate]
+        config_register |= self.SPS_MAP[rate]
         self.write_block_data("config1", config_register)
+
+    @property
+    def _data_rate(self) -> int:
+        """The device data rate (SPS) not accounting for turbo mode."""
+        masked = self.read_block_data("config1") & self.SPS_MASK
+        if masked not in self._INV_SPS_MAP:
+            raise ValueError(f"Unknown SPS bitfield: {masked:#010b}")
+        return self._INV_SPS_MAP[masked]
 
     @property
     def turbo_mode(self) -> bool:
@@ -194,21 +209,38 @@ class ADS112C04(GenericDevice):
         """
         return bool((self.read_block_data("config2") >> 7) & 1)
 
+    @property
+    def continuous_mode(self) -> bool:
+        """Specifies whether the device is in continuous mode (True) or single-shot mode."""
+        return bool((self.read_block_data("config1") >> 3) & 1)
+
+    @continuous_mode.setter
+    def continuous_mode(self, continuous: bool):
+        """Set the device in either continuous mode (True) or single-shot (False)."""
+        if continuous:
+            config_register = self.read_block_data("config1") & 0b11110111
+            self.write_block_data("config1", config_register)
+            self.start_sync()
+        else:
+            config_register = self.read_block_data("config1") | 0b00001000
+            self.write_block_data("config1", config_register)
+            self.start_sync()
+
     def power_down(self):
-        """Sends the POWERDOWN command (0x02) to the device."""
-        self.bus.write_byte(self.address, 0x02)
+        """Sends the POWERDOWN command to the device."""
+        self.bus.write_byte(self.address, self.CMD_POWERDOWN)
 
     def reset(self):
-        """Sends the RESET command (0x06) to the device."""
-        self.bus.write_byte(self.address, 0x06)
+        """Sends the RESET command to the device."""
+        self.bus.write_byte(self.address, self.CMD_RESET)
 
     def start_sync(self):
-        """Sends the START/SYNC command (0x08) to the device.
+        """Sends the START/SYNC command to the device.
         In single-shot mode, this starts a single conversion and must
         be called every time an update is desired.
-        In continous mode, this only needs to be called once.
+        In continuous mode, this only needs to be called once.
         """
-        self.bus.write_byte(self.address, 0x08)
+        self.bus.write_byte(self.address, self.CMD_START_SYNC)
 
     @override
     def read_block_data(self, register: str, timeout: float = 0.01) -> int:
@@ -230,12 +262,11 @@ class ADS112C04(GenericDevice):
             except OSError as e:
                 tries += 1
                 if (time.time() - start) > timeout:
-                    raise IOError(
-                        f"I2C transaction timed out; tried {tries} times"
-                    ) from e
+                    raise IOError(f"I2C transaction timed out; tried {tries} times") from e
                 continue
 
-        return int.from_bytes(bytes(list(read)), byteorder="big")
+        # read is an i2c_msg, convert to bytes consistently
+        return int.from_bytes(bytes(list(read)), byteorder="big", signed=False)
 
     @override
     def write_block_data(self, register: str, value: int):
@@ -246,22 +277,6 @@ class ADS112C04(GenericDevice):
         wreg: int = 0b01000000 | (self.registers[register].address << 2)  # 0100rrXX
         write = smbus2.i2c_msg.write(self.address, [wreg, value])
         self.bus.i2c_rdwr(write)
-
-    def set_mode(self, mode: int):
-        """0 for single-shot (requires manual conversion),
-        1 for continuous.
-        """
-        config_register = self.read_block_data("config1")
-        match mode:
-            case 0:
-                self.write_block_data("config1", config_register & 0b11110111)
-            case 1:
-                self.write_block_data("config1", config_register | 0b00001000)
-            case _:
-                raise ValueError(
-                    f"Invalid mode given: {mode}; "
-                    + "valid values are 0 (single-shot) and 1 (continuous)."
-                )
 
     def wait_for_conversion(self, timeout: float = 0.5):
         """Loops until either the conversion is over or timeout
@@ -275,17 +290,17 @@ class ADS112C04(GenericDevice):
     def read_conversion(self, force_conversion: bool = False) -> int:
         """Reads the most recent conversion result.
         Force a new conversion with force_conversion.
-        Returns the conversion result in two's complement format.
+        Returns the conversion result in two's complement format (signed 16-bit).
         """
         if force_conversion:
             self.start_sync()
             self.wait_for_conversion()
-        rdata = smbus2.i2c_msg.write(self.address, [0x10])
-        read = smbus2.i2c_msg.read(self.address, length=2)
+        rdata = smbus2.i2c_msg.write(self.address, [self.CMD_READ_CONVERSION])
+        read = smbus2.i2c_msg.read(self.address, 2)
         self.bus.i2c_rdwr(rdata, read)
 
         # Combine and interpret as signed 16-bits big-endian
-        return struct.unpack(">h", bytes(read))[0]  # pyright: ignore[reportAny]
+        return struct.unpack(">h", bytes(list(read)))[0]  # pyright: ignore[reportAny]
 
     def read_voltage(
         self, pin_number: int | str, force_conversion: bool = False
@@ -309,7 +324,7 @@ class ADS112C04(GenericDevice):
     def read_temperature(self, force_conversion: bool = False) -> float:
         """Reads the temperature. If temperature sensing is disabled,
         it's enabled and a conversion is forced, regardless of
-        force_conversion value. Returns temperature is degrees Celsius.
+        force_conversion value. Returns temperature in degrees Celsius.
         """
         if not self.temperature_sensing:
             self.temperature_sensing = True
