@@ -1,6 +1,7 @@
 #!/python-venv/bin/python
 
 
+from collections import defaultdict
 import ctypes
 import os
 import socket
@@ -15,7 +16,6 @@ from impisc.packets import HealthPacket
 from impisc.i2c.devices import ads112c04, ds3231, isl22317, max11617
 
 
-# TODO: standardize these
 my_port = int(os.getenv("HEALTH_MONITOR_PORT"))
 send_port = int(os.getenv("HEALTH_FORWARD_PORT"))
 cadence_seconds = int(os.getenv("HEALTH_CADENCE"))
@@ -37,24 +37,15 @@ MAX11617_CHANNELS: dict[str, Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]] = {
 
 
 # Define measurement timeouts, in seconds
-TIMEOUTS: dict[str, int | float] = {
-    "cm4_volts": 1,
-    "sipm_preamp_pos_volts": 1,
-    "sipm_preamp_neg_volts": 1,
-    "heater_volts": 1,
-    "bubba_input_pos_volts": 1,
-    "bubba_input_neg_volts": 1,
-    "bubba_output_volts": 1,
-    "bubba_wiper": 1,
+TIMEOUTS: defaultdict[str, float] = defaultdict(lambda: 1.0)
+TIMEOUTS.update({
     "toggle_byte": 0.2,
     "os_disk_usage": 0.2,
     "data_disk_usage": 0.2,
-    "extra": 1,
-}
+})
 
 
 def main():
-    # The functions which generate health bytes for the packet
     generators: list[tuple[str, generator_type]] = [
         ("cm4_volts", measure_pi_voltage),
         ("sipm_preamp_pos_volts", measure_preamp_pos),
@@ -67,6 +58,7 @@ def main():
         ("toggle_byte", measure_toggle_byte),
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
+        ("cpu_temperature", measure_cpu_temp),
         ("extra", fill_extra),
     ]
 
@@ -76,7 +68,7 @@ def main():
     while True:
         packet = HealthPacket()
         threads: dict[str, threading.Thread] = {}
-        results = [(True, -1)] * len(generators)
+        results = [(True, None)] * len(generators)
         for i, (field, func) in enumerate[tuple[str, generator_type]](generators):
             thread: threading.Thread = threading.Thread(
                 target=measure, args=(func, results, i), name=f"measure_{field}"
@@ -213,6 +205,17 @@ def measure_data_disk_usage() -> tuple[bool, int]:
 
     # Failed to get disk usage; indicate missing
     return True, -1
+
+
+def measure_cpu_temp() -> tuple[bool, int]:
+    """measure the CPU temperature in centikelvin"""
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+            # Convert millicelsius into centikelvin (LMAO)
+            return False, (273150 + int(f.read().strip())) // 10
+    except Exception as e:
+        logging.log_error(f"Problem getting CPU temp: {type(e)} --> {e.args}")
+        return True, 0
 
 
 def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:

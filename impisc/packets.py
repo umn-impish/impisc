@@ -30,13 +30,17 @@ class HealthPacket(ctypes.LittleEndianStructure):
         ("bubba_input_pos_volts", ctypes.c_uint16),
         ("bubba_input_neg_volts", ctypes.c_uint16),
         # bubba output bias voltage (~30V to ~50V)
-        ("bubba_output_volts", ctypes.c_int16),
+        ("bubba_output_volts", ctypes.c_uint16),
         ("bubba_wiper", ctypes.c_uint8),
         # Power toggle status byte
         ("toggle_byte", ctypes.c_uint8),
         # Disk usages in 10 MiB units
         ("os_disk_usage", ctypes.c_uint16),
         ("data_disk_usage", ctypes.c_uint16),
+
+        # In units of centikelvin
+        ("cpu_temperature", ctypes.c_uint16),
+
         # Padding on the end of the health packet:
         # remove bytes from this as needed
         # to add packet fields after flight starts.
