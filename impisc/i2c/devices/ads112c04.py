@@ -3,11 +3,12 @@ Defines a class allowing primitive control with the ADS112C04 analog-to-digital
 converter by Texas Instruments.
 """
 
-import smbus2
 import struct
 import time
 
 from typing import override
+
+import smbus2
 
 from .device import GenericDevice, Register
 
@@ -16,7 +17,7 @@ class ADS112C04(GenericDevice):
     """Interface with a connected ADS112C04 ADC."""
 
     # Config 0
-    ANALOG_PIN_MASK = 0b11110000
+    MUX_MASK = 0b11110000
     SINGLE_ENDED_PIN_MAP = {
         "AIN0": 0b10000000,
         "AIN1": 0b10010000,
@@ -62,20 +63,63 @@ class ADS112C04(GenericDevice):
         self.add_register(Register("config1", 0x01, 8))
         self.add_register(Register("config2", 0x02, 8))
         self.add_register(Register("config3", 0x03, 8))
-        self.reset()
-        # We opt to store these variables rather than reading them
-        # from the device registers for speed and ease of access.
-        # Also minimizes communication with the device.
-        self.gain: int = 1
-        self._data_rate: int = 20
-        self.mux: str = "01"
-        self.turbo_enabled: bool = False
-        self.temperature_sensing: bool = False
+        # self.reset()
 
     @property
-    def data_rate(self) -> int:
-        """The device data rate, taking turbo mode into account."""
-        return self._data_rate * (1 + self.turbo_enabled)
+    def mux(self) -> str:
+        """The currently selected multiplexer input (analog input)."""
+        value: int = self.read_block_data("config0") & self.MUX_MASK
+        combined: dict[str, int] = {**self.SINGLE_ENDED_PIN_MAP, **self.DIFFERENTIAL_PIN_MAP}
+        flipped: dict[int, str] = dict((v,k) for k,v in combined.items())
+
+        return flipped[value].replace("AIN", "")
+
+    @mux.setter
+    def mux(self, which: int | str):  # pyright: ignore[reportPropertyTypeMismatch]
+        """Select which input, either single-ended or differential.
+        0, 1, 2, 3, 01, 02, 03, 10, ...
+        Single-ended measurements are referenced to device GND.
+        """
+        which = f"{which}".replace("AIN", "")
+        pin = f"AIN{which}"
+        error = ValueError(
+            f"Invalid multiplexer pin selection: {pin}\nValid selections: "
+            + f"\nSingle-ended: {list(ADS112C04.SINGLE_ENDED_PIN_MAP.keys())}"
+            + f"\nDifferential: {list(ADS112C04.DIFFERENTIAL_PIN_MAP.keys())}"
+        )
+        match len(which):
+            case 1:
+                pin_map = self.SINGLE_ENDED_PIN_MAP
+                self.pga_bypassed = True  # For bookkeeping purposes
+            case 2:
+                pin_map = self.DIFFERENTIAL_PIN_MAP
+            case _:
+                raise error
+        if pin not in pin_map:
+            raise error
+        config_register = self.read_block_data("config0")
+        config_register &= ~self.MUX_MASK
+        config_register += pin_map[pin]
+        self.write_block_data("config0", config_register)
+
+    @property
+    def gain(self) -> int:
+        """The device gain, valid values are:
+        1, 2, 4, 8, 16, 32, 64, 128.
+        """
+        return self.read_block_data("config0") & self.GAIN_MASK
+
+    @gain.setter
+    def gain(self, gain: int):
+        """Set the device gain, valid values are:
+        1, 2, 4, 8, 16, 32, 64, 128.
+        """
+        if gain not in self.GAIN_MAP:
+            raise ValueError(f"Specified gain \"{gain}\" invalid; valid values are {self.GAIN_MAP.values()}")
+        config_register = self.read_block_data("config0")
+        config_register &= ~self.GAIN_MASK
+        config_register += self.GAIN_MAP[gain]
+        self.write_block_data("config0", config_register)
 
     @property
     def pga_bypassed(self) -> bool:
@@ -83,6 +127,66 @@ class ADS112C04(GenericDevice):
         Returns True if the PGA is bypassed (PGA_BYPASS=1).
         """
         return bool(self.read_block_data("config0") & 1)
+
+    @pga_bypassed.setter
+    def pga_bypassed(self, bypassed: bool):
+        """Specify whether the PGA should be bypassed."""
+        if bypassed:
+            config_register = self.read_block_data("config0") | 0b00000001
+            self.write_block_data("config0", config_register)
+        else:
+            config_register = self.read_block_data("config0") & 0b11111110
+            self.write_block_data("config0", config_register)
+
+    @property
+    def data_rate(self) -> int:
+        """The device data rate, taking turbo mode into account."""
+        return self._data_rate * (1 + self.turbo_enabled)
+
+    @property
+    def _data_rate(self) -> int:
+        """The device data rate, not accounting for turbo mode."""
+        return self.read_block_data("config1") & self.SPS_MASK
+
+    @_data_rate.setter
+    def _data_rate(self, rate: int):
+        """Set the device data rate, where rate is in samples per second.
+        Valid values are: 20, 45, 90, 175, 330, 600, 1000
+        """
+        config_register = self.read_block_data("config1")
+        config_register &= ~self.SPS_MASK
+        config_register += self.SPS_MAP[rate]
+        self.write_block_data("config1", config_register)
+
+    @property
+    def turbo_mode(self) -> bool:
+        """Indicates whether turbo mode is enabled."""
+        return bool((self.read_block_data("config1") >> 4) & 1)
+
+    @turbo_mode.setter
+    def turbo_mode(self, mode: bool):
+        """Turn turbo mode on or off."""
+        if mode:
+            config_register = self.read_block_data("config1") | 0b00010000
+            self.write_block_data("config1", config_register)
+        else:
+            config_register = self.read_block_data("config1") & 0b11101111
+            self.write_block_data("config1", config_register)
+
+    @property
+    def temperature_sensing(self) -> bool:
+        """Specifies whether temperature sensing is enabled."""
+        return bool(self.read_block_data("config1") & 1)
+
+    @temperature_sensing.setter
+    def temperature_sensing(self, sensing: bool):
+        """Enable or disable temperature sensing mode."""
+        if sensing:
+            config_register = self.read_block_data("config1") | 0b00000001
+            self.write_block_data("config1", config_register)
+        else:
+            config_register = self.read_block_data("config1") & 0b11111110
+            self.write_block_data("config1", config_register)
 
     @property
     def conversion_ready(self) -> bool:
@@ -144,34 +248,6 @@ class ADS112C04(GenericDevice):
         write = smbus2.i2c_msg.write(self.address, [wreg, value])
         self.bus.i2c_rdwr(write)
 
-    def set_multiplexer(self, which: int | str):
-        """Select which input, either single-ended or differential.
-        0, 1, 2, 3, 01, 02, 03, 10, ...
-        Single-ended measurements are referenced to device GND.
-        """
-        which = f"{which}".replace("AIN", "")
-        pin = f"AIN{which}"
-        error = ValueError(
-            f"Invalid multiplexer pin selection: {pin}\nValid selections: "
-            + f"\nSingle-ended: {list(ADS112C04.SINGLE_ENDED_PIN_MAP.keys())}"
-            + f"\nDifferential: {list(ADS112C04.DIFFERENTIAL_PIN_MAP.keys())}"
-        )
-        match len(which):
-            case 1:
-                pin_map = self.SINGLE_ENDED_PIN_MAP
-                self.disable_pga()  # For bookkeeping purposes
-            case 2:
-                pin_map = self.DIFFERENTIAL_PIN_MAP
-            case _:
-                raise error
-        if pin not in pin_map:
-            raise error
-        config_register = self.read_block_data("config0")
-        config_register &= ~self.ANALOG_PIN_MASK
-        config_register += pin_map[pin]
-        self.write_block_data("config0", config_register)
-        self.mux = which
-
     def set_mode(self, mode: int):
         """0 for single-shot (requires manual conversion),
         1 for continuous.
@@ -187,68 +263,6 @@ class ADS112C04(GenericDevice):
                     f"Invalid mode given: {mode}; "
                     + "valid values are 0 (single-shot) and 1 (continuous)."
                 )
-
-    def set_gain(self, gain: int):
-        """Set the ADC gain.
-        Valid values are: 1, 2, 4, 8, 16, 32, 64, 128.
-        """
-        config_register = self.read_block_data("config0")
-        config_register &= ~self.GAIN_MASK
-        config_register += self.GAIN_MAP[gain]
-        self.write_block_data("config0", config_register)
-        self.gain = gain
-
-    def set_data_rate(self, rate: int):
-        """Set the device data rate, where rate is in samples per second.
-        Valid values are: 20, 45, 90, 175, 330, 600, 1000
-        """
-        config_register = self.read_block_data("config1")
-        config_register &= ~self.SPS_MASK
-        config_register += self.SPS_MAP[rate]
-        self.write_block_data("config1", config_register)
-        self._data_rate = rate
-
-    def enable_pga(self):
-        """Sets the last bit in config register 0 to 0.
-        This has no effect when reading single-ended analog inputs.
-        """
-        config_register = self.read_block_data("config0") & 0b11111110
-        self.write_block_data("config0", config_register)
-
-    def disable_pga(self):
-        """Sets the last bit in config register 0 to 1.
-        This has no effect when reading single-ended analog inputs.
-        """
-        config_register = self.read_block_data("config0") | 0b00000001
-        self.write_block_data("config0", config_register)
-
-    def enable_temperature_sensor(self):
-        """Enables the temperature sensor.
-        Sets the TS bit in config register 1 to 1.
-        """
-        config_register = self.read_block_data("config1") | 0b00000001
-        self.write_block_data("config1", config_register)
-        self.temperature_sensing = True
-
-    def disable_temperature_sensor(self):
-        """Disables the temperature sensor.
-        Sets the TS bit in config register 1 to 0.
-        """
-        config_register = self.read_block_data("config1") & 0b11111110
-        self.write_block_data("config1", config_register)
-        self.temperature_sensing = False
-
-    def enable_turbo_mode(self):
-        """Enables turbo mode, doubling the sample rate."""
-        config_register = self.read_block_data("config1") | 0b00010000
-        self.write_block_data("config1", config_register)
-        self.turbo_enabled = True
-
-    def disable_turbo_mode(self):
-        """Disables turbo mode."""
-        config_register = self.read_block_data("config1") & 0b11101111
-        self.write_block_data("config1", config_register)
-        self.turbo_enabled = False
 
     def wait_for_conversion(self, timeout: float = 0.5):
         """Loops until either the conversion is over or timeout
@@ -284,10 +298,10 @@ class ADS112C04(GenericDevice):
         Returns voltage on pin_number in volts.
         """
         if self.temperature_sensing:
-            self.disable_temperature_sensor()
+            self.temperature_sensing = False
             force_conversion = True
         if self.mux != f"{pin_number}":  # Only change mux if needed; save cycles
-            self.set_multiplexer(pin_number)
+            self.mux = pin_number
         value = self.read_conversion(force_conversion)
 
         # Vref = 2.048
@@ -299,7 +313,7 @@ class ADS112C04(GenericDevice):
         force_conversion value. Returns temperature is degrees Celsius.
         """
         if not self.temperature_sensing:
-            self.enable_temperature_sensor()
+            self.temperature_sensing = True
             force_conversion = True
         value = self.read_conversion(force_conversion) >> 2
 
