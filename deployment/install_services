@@ -2,7 +2,7 @@
 # Install systemd services and associated process programs
 
 # Install all processes
-processes=$(cat process_names.txt)
+processes=$(ls ../processes)
 for s in $processes; do
     sudo cp "../processes/$s" "/usr/local/bin"
 done

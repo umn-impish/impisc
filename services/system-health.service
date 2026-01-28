@@ -5,6 +5,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
+Environment=HEALTH_MONITOR_PORT=12345 HEALTH_FORWARD_PORT=12346 HEALTH_CADENCE=3
 ExecStart="/usr/local/bin/health_monitor"
 StandardOutput=inherit
 StandardError=journal

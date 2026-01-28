@@ -2,6 +2,7 @@
 
 
 import ctypes
+import os
 import socket
 import subprocess
 import sys
@@ -15,9 +16,9 @@ from impisc.i2c.devices import ads112c04, ds3231, isl22317, max11617
 
 
 # TODO: standardize these
-my_port = 12345
-send_port = 12346
-cadence_seconds = 3
+my_port = int(os.getenv("HEALTH_MONITOR_PORT"))
+send_port = int(os.getenv("HEALTH_FORWARD_PORT"))
+cadence_seconds = int(os.getenv("HEALTH_CADENCE"))
 
 generator_type: TypeAlias = Callable[[], tuple[bool, Any]]
 
