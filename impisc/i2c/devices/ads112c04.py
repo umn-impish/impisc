@@ -17,21 +17,21 @@ class ADS112C04(GenericDevice):
     """Interface with a connected ADS112C04 ADC."""
 
     # Config 0
-    MUX_MASK = 0b11110000
-    SINGLE_ENDED_PIN_MAP = {
+    MUX_MASK: int = 0b11110000
+    SINGLE_ENDED_PIN_MAP: dict[str, int] = {
         "AIN0": 0b10000000,
         "AIN1": 0b10010000,
         "AIN2": 0b10100000,
         "AIN3": 0b10110000,
     }
-    DIFFERENTIAL_PIN_MAP = {
+    DIFFERENTIAL_PIN_MAP: dict[str, int] = {
         "AIN01": 0b00000000,
         "AIN02": 0b00010000,
         "AIN03": 0b00100000,
         "AIN10": 0b00110000,
     }
-    GAIN_MASK = 0b00001110
-    GAIN_MAP = {
+    GAIN_MASK: int = 0b00001110
+    GAIN_MAP: dict[int, int] = {
         1: 0b00000000,
         2: 0b00000010,
         4: 0b00000100,
@@ -43,8 +43,8 @@ class ADS112C04(GenericDevice):
     }
 
     # Config 1
-    SPS_MASK = 0b11100000
-    SPS_MAP = {
+    SPS_MASK: int = 0b11100000
+    SPS_MAP: dict[int, int] = {
         20: 0b00000000,
         45: 0b00100000,
         90: 0b01000000,
@@ -63,7 +63,6 @@ class ADS112C04(GenericDevice):
         self.add_register(Register("config1", 0x01, 8))
         self.add_register(Register("config2", 0x02, 8))
         self.add_register(Register("config3", 0x03, 8))
-        # self.reset()
 
     @property
     def mux(self) -> str:
@@ -115,7 +114,7 @@ class ADS112C04(GenericDevice):
         1, 2, 4, 8, 16, 32, 64, 128.
         """
         if gain not in self.GAIN_MAP:
-            raise ValueError(f"Specified gain \"{gain}\" invalid; valid values are {self.GAIN_MAP.values()}")
+            raise ValueError(f"Invalid gain selection: \"{gain}\"\nValid selections: {self.GAIN_MAP.values()}")
         config_register = self.read_block_data("config0")
         config_register &= ~self.GAIN_MASK
         config_register += self.GAIN_MAP[gain]
@@ -141,7 +140,7 @@ class ADS112C04(GenericDevice):
     @property
     def data_rate(self) -> int:
         """The device data rate, taking turbo mode into account."""
-        return self._data_rate * (1 + self.turbo_enabled)
+        return self._data_rate * (1 + self.turbo_mode)
 
     @property
     def _data_rate(self) -> int:
