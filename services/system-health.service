@@ -1,0 +1,17 @@
+[Unit]
+Description=Send health packets to a port (udpcapture, probably)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Environment=HEALTH_MONITOR_PORT=12345 HEALTH_FORWARD_PORT=12346 HEALTH_CADENCE=3
+ExecStart="/usr/local/bin/health_monitor"
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

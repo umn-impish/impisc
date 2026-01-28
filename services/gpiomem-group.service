@@ -1,0 +1,14 @@
+[Unit]
+Description=Set the correct group ownership for /dev/gpiomem
+After=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/impish/initialize_gpiomem
+StandardOutput=inherit
+StandardError=inherit
+Restart=no
+User=impish
+
+[Install]
+WantedBy=multi-user.target
