@@ -1,5 +1,5 @@
 """
-Defines a class allowing primitive control with the MAX11617 analog-to-digital
+Defines a class allowing control of a MAX11617 analog-to-digital
 converter by Texas Instruments.
 """
 
@@ -30,12 +30,12 @@ class MAX11617(GenericDevice):
         # We track these as attributes since the register
         # values cannot be read from the device.
         self._reference: Literal["vdd", "external", "internal"] = "vdd"
-        self.external_clock: bool = False
-        self.bipolar: bool = False
+        self._external_clock: bool = False
+        self._bipolar: bool = False
         self._scan: Literal[0, 1, 2, 3] = 0
         self._channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] = 0
-        self.single_ended: bool = True
-        self.reset_config_register()
+        self._single_ended: bool = True
+        self.reset_registers()
 
     @property
     def setup_register(self) -> int:
@@ -54,21 +54,51 @@ class MAX11617(GenericDevice):
         return (self.scan << 5) + (self.channel << 1) + self.single_ended
 
     @property
-    def channel(self) -> Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
-        """The currently selected input channel."""
-        return self._channel
+    def reference(self) -> Literal["vdd", "external", "internal"]:
+        """The source of the reference voltage."""
+        return self._reference
 
-    @channel.setter
-    def channel(self, new_channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]):
-        """Set the desired input channel.
-        Must be within [0, 11].
+    @reference.setter
+    def reference(self, new_reference: Literal["vdd", "external", "internal"]):
+        """Set the source of the reference voltage:
+        "vdd", "internal", or "external".
         """
-        if new_channel not in range(0, 12):
+        if new_reference in self.REFERENCE_VOLTAGE_MAP.keys():
+            self._reference = new_reference
+            self._write_setup_register()
+        else:
             raise ValueError(
-                f"channel must be within [0, 11], value {new_channel} is invalid"
+                f'Desired reference "{new_reference}" invalid; '
+                + f"must be one of: {self.REFERENCE_VOLTAGE_MAP.keys()}"
             )
-        self._channel = new_channel
-        self._write_config_register()
+
+    @property
+    def external_clock(self) -> bool:
+        """Specifies whether an external or internal clock is used."""
+        return self._external_clock
+
+    @external_clock.setter
+    def external_clock(self, external_clock: bool):
+        """Set use of either an external or internal clock."""
+        if external_clock not in range(0, 2):
+            raise ValueError(f"External clock must either be 0 or 1, not {external_clock}.")
+        if external_clock != self._external_clock:
+            self._external_clock = external_clock
+            self._write_setup_register()
+
+    @property
+    def bipolar(self) -> bool:
+        """Specify whether the differential input is unipolar or bipolar."""
+        return self._bipolar
+
+    @bipolar.setter
+    def bipolar(self, bipolar: bool):
+        """Set the polarity of the different input range."""
+        if bipolar not in range(0, 2):
+            raise ValueError(f"Bipoalr must either be 0 or 1, not {bipolar}.")
+        if bipolar != self.bipolar:
+            self._bipolar = bipolar
+            self._write_setup_register()
 
     @property
     def scan(self) -> Literal[0, 1, 2, 3]:
@@ -86,23 +116,36 @@ class MAX11617(GenericDevice):
         self._write_config_register()
 
     @property
-    def reference(self) -> Literal["vdd", "external", "internal"]:
-        """The source of the reference voltage."""
-        return self._reference
+    def channel(self) -> Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
+        """The currently selected input channel."""
+        return self._channel
 
-    @reference.setter
-    def reference(self, new_reference: Literal["vdd", "external", "internal"]):
-        """Set the source of the reference voltage:
-        "vdd", "internal", or "external".
+    @channel.setter
+    def channel(self, new_channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]):
+        """Set the desired input channel.
+        Must be within [0, 11].
         """
-        if new_reference in self.REFERENCE_VOLTAGE_MAP.keys():
-            self._reference = new_reference
-            self._write_setup_register()
-        else:
+        if new_channel not in range(0, 12):
             raise ValueError(
-                f'Desired reference "{new_reference}" invalid;'
-                + f"must be one of: {self.REFERENCE_VOLTAGE_MAP.keys()}"
+                f"channel must be within [0, 11], value {new_channel} is invalid"
             )
+        if new_channel != self.channel:
+            self._channel = new_channel
+            self._write_config_register()
+
+    @property
+    def single_ended(self) -> bool:
+        """Specifies whether measurements are single-ended or differential."""
+        return self._single_ended
+
+    @single_ended.setter
+    def single_ended(self, single_ended: bool):
+        """Set either single-ended or differential input measurement."""
+        if single_ended not in range(0, 2):
+            raise ValueError(f"External clock must either be 0 or 1, not {single_ended}.")
+        if single_ended != self._single_ended:
+            self._single_ended = single_ended
+            self._write_config_register()
 
     def _write_setup_register(self):
         """Write the setup register to the device based
@@ -112,11 +155,17 @@ class MAX11617(GenericDevice):
 
     def _write_config_register(self):
         """Write the configuration register to the device based on set parameters."""
-        return self.bus.write_byte(self.address, self.config_register)
+        self.bus.write_byte(self.address, self.config_register)
 
-    def reset_config_register(self):
-        """Resets the configuration register to its default."""
+    def reset_registers(self):
+        """Resets the setup and configuration registers to their defaults."""
         self.bus.write_byte(self.address, 0b10000000)
+        self.reference = "vdd"
+        self.external_clock = False
+        self.bipolar = False
+        self.scan = 0
+        self.channel = 0
+        self.single_ended = True
 
     def read_conversion(
         self,
