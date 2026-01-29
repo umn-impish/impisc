@@ -7,14 +7,9 @@ import datetime
 import numpy as np
 from time import sleep
 from pathlib import Path
+import receive_cmd as rcmd
 from enum import Enum, auto
 from impisc.et_daqbox.daq_box_api import DaqBoxConfig, DaqBoxInterface, START, STOP, WAVEFORM_HEADER, parse_spectrum_packet, parse_waveform_packet
-
-class Mode(Enum):
-    BOOT = auto()
-    IDLE = auto()
-    SCIENCE = auto()
-    SAFE = auto()
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 LOG_DIR = SCRIPT_DIR / "impish_logs"
@@ -24,7 +19,6 @@ ACTIVE_CFG = CONFIG_DIR / "active.json"
 
 if not ACTIVE_CFG.exists():
     shutil.copy(DEFAULT_CFG, ACTIVE_CFG)
-
 
 print("Logging into:", LOG_DIR)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -39,12 +33,20 @@ counters = {
     "stale_ack": 0,
     "unknown": 0,
 }
-data_counts = [
-    ("waveform", 3000),
-    ("spectrum", 320),
-]
 
-current_mode = Mode.BOOT
+class Mode(Enum):
+    BOOT = auto()
+    IDLE = auto()
+    SCIENCE = auto()
+    SAFE = auto()
+
+class DAQstate():
+    def __init__(self):
+        self.mode = Mode.BOOT
+        self.last_cmd_time = None
+        self.error_count = 0
+
+# current_mode = Mode.BOOT
 acquiring = False
 
 def safe_stop(dbi):
@@ -57,15 +59,15 @@ def safe_stop(dbi):
     except Exception:
         pass
 
-def enter_idle(dbi):
-    global current_mode
+def enter_idle(dbi, state):
     safe_stop(dbi)
-    current_mode = Mode.IDLE
+    state.mode = Mode.IDLE
     logging.info("Entered IDLE mode")
 
-def enter_safe(dbi):
+def enter_safe(dbi, state, reason="unknown"):
+    logging.error(f"Entering safe mode, reason: {reason}")
     safe_stop(dbi)
-    current_mode = Mode.SAFE
+    state.mode = Mode.SAFE
 
 def load_active_config():
     with open(ACTIVE_CFG) as f:
@@ -78,8 +80,8 @@ def startup_mode(dbi):
     if mode == 'idle':
         safe_stop(dbi)
         logging.info('Startup mode: IDLE')
-    elif mode == 'science':
-        science_mode(dbi)
+    # elif mode == 'science':
+    #     science_mode(dbi)
     else:
         logging.info(f"Unknown startup mode: {mode}, defaulting to IDLE")
         safe_stop(dbi)
@@ -118,7 +120,7 @@ def apply_daq_mode(dbi, daq_mode: str):
     )
 
 # similar to waveform_test.py written by Willy
-def collect_waveforms(dbi, n_waveforms: int):
+def collect_waveforms(dbi, state, n_waveforms: int):
     logging.info(f"Collecting {n_waveforms} waveforms")
     apply_daq_mode(dbi, "waveform")
 
@@ -133,7 +135,7 @@ def collect_waveforms(dbi, n_waveforms: int):
     
     while len(waveforms) < n_waveforms:
         if time.time() - t_last_packet > timeout:
-            logging.error("Waveform acquisition timed out")
+            enter_safe(dbi, state, reason="DAQ timeout")
             break
         try:
             data = dbi.recv()
@@ -160,7 +162,7 @@ def collect_waveforms(dbi, n_waveforms: int):
     logging.info(f"Saved {len(waveforms)} waveforms to {LOG_DIR / f'waveforms_{ts}.txt'}")
 
 # also similar to testing.ipynb by Willy
-def collect_spectra(dbi, n_spectra: int):
+def collect_spectra(dbi, state, n_spectra: int):
     logging.info(f"Collecting {n_spectra} spectra...")
 
     apply_daq_mode(dbi, 'spectrum')
@@ -175,7 +177,7 @@ def collect_spectra(dbi, n_spectra: int):
 
     while len(spectra) < n_spectra:
         if time.time() - t_last_packet > timeout:
-            logging.error("Spectrum acquisition timed out")
+            enter_safe(dbi, state, reason="DAQ timeout")
             break
         try:
             data = dbi.recv()
@@ -197,31 +199,59 @@ def collect_spectra(dbi, n_spectra: int):
     np.savetxt(LOG_DIR / f'spectra_{ts}.txt', spectra)
     logging.info(f"Saved {len(spectra)} spectra to {LOG_DIR / f'spectra_{ts}.txt'}")
 
-def science_mode(dbi):
-    global current_mode
-    current_mode = Mode.SCIENCE
+def science_mode(dbi, n_waveform, n_spectrum):
     logging.info('Entered SCIENCE mode')
-    for daq_mode, counts in data_counts:
-        if daq_mode == "waveform":
-            collect_waveforms(dbi, counts)
-        elif daq_mode == "spectrum":
-            collect_spectra(dbi, counts)
-
-    enter_idle(dbi)
+    collect_waveforms(dbi, state, n_waveform)
+    collect_spectra(dbi, state, n_spectrum)
 
 def main():
+    state = DAQstate()
+    state.mode = Mode.IDLE
     logging.info("Starting DAQ")
     dbi = DaqBoxInterface()
+    
     startup_mode(dbi)
+    
+    enter_idle(dbi, state)
+   
+    n_waveform = 3000
+    n_spectrum = 320
 
-    try:
-        enter_idle(dbi)
-        science_mode(dbi)
-    except Exception as e:
-        logging.exception('DAQ task failed')
-    finally:
-        safe_stop(dbi)
+    cmd_sock = rcmd.setup_command_socket()
+    while True:
+        cmd, addr = rcmd.update_flight_mode(cmd_sock)
 
+        if cmd and addr:
+            logging.info(f"Received command: {cmd}")
+            state.last_cmd_time = time.time()
+
+            if cmd.get("cmd") != "set_mode":
+                rcmd.send_ack(cmd_sock, addr, cmd, "rejected", state.mode, error="unknown command")
+                continue
+
+            if state.mode == Mode.SAFE:
+                if cmd.get("cmd") == "set_mode" and cmd.get("mode") == 'idle':
+                    state.mode = Mode.IDLE
+                    rcmd.send_ack(cmd_sock, addr, cmd, "accepted", state.mode)
+            
+            elif cmd.get("cmd") == 'set_mode' and cmd.get('mode') == 'science':
+                params = cmd.get("params", {})
+                n_waveform = params.get('n_waveforms', 3000)
+                n_spectrum = params.get('n_spectra', 320)
+                
+                state.mode = Mode.SCIENCE
+                rcmd.send_ack(cmd_sock, addr, cmd, "accepted", state.mode)
+
+        if state.mode == Mode.SCIENCE:
+            science_mode(dbi, n_waveform, n_spectrum)
+            state.last_cmd_time = time.time()
+            enter_idle(dbi, state)
+            logging.info("Returned to idle mode")
+
+        except Exception as e:
+            enter_safe(dbi, state, reason=str(e))
+
+        time.sleep(0.05)
 
 if __name__ == "__main__":
     main()
