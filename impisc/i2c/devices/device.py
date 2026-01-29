@@ -6,6 +6,8 @@ along with some useful bit/byte manipulation functions.
 import os
 import syslog
 
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -73,16 +75,18 @@ class GenericDevice:
             )
         self.registers[reg.name] = reg
 
-    @property
-    def bus(self) -> smbus2.SMBus:
+    @contextmanager
+    def bus(self) -> Generator[smbus2.SMBus]:
         """The I2C bus needs to be reopened every time since it
         doesn't autoupdate. We close and reopen it so we leave
         unused, open files.
         """
-        self._bus.close()
-        self._bus = smbus2.SMBus(self.bus_number)
-
-        return self._bus
+        _bus = smbus2.SMBus()
+        try:
+            _bus = smbus2.SMBus(self.bus_number)
+            yield _bus
+        finally:
+            _bus.close()
 
     @property
     def responsive(self) -> bool:
@@ -110,8 +114,9 @@ class GenericDevice:
         reg: Register = self.registers[register]
         num_bytes = int(reg.num_bits // 8)
         value = 0
-        for x in self.bus.read_i2c_block_data(self.address, reg.address, num_bytes):
-            value = (value << 8) | x
+        with self.bus() as bus:
+            for x in bus.read_i2c_block_data(self.address, reg.address, num_bytes):
+                value = (value << 8) | x
 
         return value
 
@@ -120,12 +125,15 @@ class GenericDevice:
         reg: Register = self.registers[register]
         num_bytes = int(reg.num_bits // 8)
         bytes_to_send = list(_int_to_bytes(value, num_bytes))
-        self.bus.write_i2c_block_data(self.address, reg.address, bytes_to_send)
+        with self.bus() as bus:
+            bus.write_i2c_block_data(self.address, reg.address, bytes_to_send)
 
     def read_data(self, register: str) -> int:
         """Reads a single byte from the provided register."""
-        return self.bus.read_byte_data(self.address, self.registers[register].address)
+        with self.bus() as bus:
+            return bus.read_byte_data(self.address, self.registers[register].address)
 
     def write_data(self, register: str, data: int):
         """Writes a single byte to the provided register."""
-        self.bus.write_byte_data(self.address, self.registers[register].address, data)
+        with self.bus() as bus:
+            bus.write_byte_data(self.address, self.registers[register].address, data)
