@@ -189,7 +189,7 @@ class MAX11617(GenericDevice):
         self.channel = which
         read = smbus2.i2c_msg.read(self.address, 2)
         self.bus.i2c_rdwr(read)
-        value: int = struct.unpack(">h", bytes(read))[0]  # pyright: ignore[reportAny]
-        value &= 0xFFF  # Flip first four bits to zero since they're always high
+        # Flip first four bits to zero since they're always high
+        value: int = 0xFFF & struct.unpack(">h", bytes(list(read)))[0]  # pyright: ignore[reportAny]
 
         return value / (2**12) * vref
