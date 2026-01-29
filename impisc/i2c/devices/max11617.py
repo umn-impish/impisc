@@ -80,8 +80,8 @@ class MAX11617(GenericDevice):
     @external_clock.setter
     def external_clock(self, external_clock: bool):
         """Set use of either an external or internal clock."""
-        if external_clock not in range(0, 2):
-            raise ValueError(f"External clock must either be 0 or 1, not {external_clock}.")
+        if external_clock not in (True, False):
+            raise ValueError(f"External clock must either be True or False, not {external_clock}.")
         if external_clock != self._external_clock:
             self._external_clock = external_clock
             self._write_setup_register()
@@ -94,7 +94,7 @@ class MAX11617(GenericDevice):
     @bipolar.setter
     def bipolar(self, bipolar: bool):
         """Set the polarity of the different input range."""
-        if bipolar not in range(0, 2):
+        if bipolar not in (True, False):
             raise ValueError(f"Bipoalr must either be 0 or 1, not {bipolar}.")
         if bipolar != self.bipolar:
             self._bipolar = bipolar
@@ -141,7 +141,7 @@ class MAX11617(GenericDevice):
     @single_ended.setter
     def single_ended(self, single_ended: bool):
         """Set either single-ended or differential input measurement."""
-        if single_ended not in range(0, 2):
+        if single_ended not in (True, False):
             raise ValueError(f"External clock must either be 0 or 1, not {single_ended}.")
         if single_ended != self._single_ended:
             self._single_ended = single_ended
