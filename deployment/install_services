@@ -12,6 +12,8 @@ services=$(cat service_names.txt)
 for s in $services; do
     sudo cp "../services/$s" "/etc/systemd/system"
 done
+sudo cp '../services/variables.env' '/usr/local/bin'
+sudo cp '../services/variables.env' '/etc/systemd/system'
 
 sudo systemctl daemon-reload
 for s in $services; do

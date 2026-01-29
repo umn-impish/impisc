@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source variables.env
+udpcapture --port $LOCAL_HEALTH_FWD_PORT --forward-addrs $GROUNDSTATION_IP -f 127.0.0.1:12346
