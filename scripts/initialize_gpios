@@ -4,7 +4,15 @@
 # shut off during boot.
 # Happens in the systemd unit after its target.
 
-items="1 2 3 4 daqbox bias heater"
-for item in $items; do
-    toggle_power $item off
-done
+time_since_boot=$(cat /proc/uptime | cut -f1 -d' ' | cut -f1 -d'.')
+# Only deploy this in first ~minute after boot
+limit=60
+
+if [ $time_since_boot -lt $limit ]; then
+    items="1 2 3 4 daqbox bias heater"
+    for item in $items; do
+        toggle_power $item off
+    done
+else
+    echo 'not shutting of GPIOs; too late in boot'
+fi
