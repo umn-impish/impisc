@@ -33,7 +33,7 @@ class HealthPacket(ctypes.LittleEndianStructure):
         ("bubba_output_volts", ctypes.c_uint16),
         ("bubba_wiper", ctypes.c_uint8),
         # Power toggle status byte
-        ("toggle_byte", ctypes.c_uint8),
+        ("power_line_statuses", ctypes.c_uint8),
         # Disk usages in 10 MiB units
         ("os_disk_usage", ctypes.c_uint16),
         ("data_disk_usage", ctypes.c_uint16),
