@@ -39,7 +39,7 @@ MAX11617_CHANNELS: dict[str, Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]] = {
 # Define measurement timeouts, in seconds
 TIMEOUTS: defaultdict[str, float] = defaultdict(lambda: 1.0)
 TIMEOUTS.update({
-    "toggle_byte": 0.2,
+    "power_line_statuses": 0.2,
     "os_disk_usage": 0.2,
     "data_disk_usage": 0.2,
 })
@@ -55,7 +55,7 @@ def main():
         ("bubba_input_neg_volts", measure_bubba_neg_input),
         ("bubba_output_volts", measure_bubba_output),
         ("bubba_wiper", measure_bubba_wiper),
-        ("toggle_byte", measure_toggle_byte),
+        ("power_line_statuses", measure_toggle_byte),
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("cpu_temperature", measure_cpu_temp),
