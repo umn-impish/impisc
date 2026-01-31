@@ -1,9 +1,12 @@
 gpio_toggles
 initialize_gpios
+initialize_gpiomem
+power_status
 rtc_connect
 rtc_disconnect
-set_rtc_time
 setup_daqbox_network
-toggle_power
-set_pps
 set_bias
+set_pps
+set_rtc_time
+start_health_udpcapture
+toggle_power

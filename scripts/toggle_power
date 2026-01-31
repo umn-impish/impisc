@@ -16,4 +16,4 @@ else
     operation="dl"
 fi
 
-sudo pinctrl $gpio_pin op pd $operation
+pinctrl $gpio_pin op pd $operation

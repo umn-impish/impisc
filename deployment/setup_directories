@@ -1,0 +1,2 @@
+sudo mkdir -p /data/health
+sudo chmod -R 0777 /data

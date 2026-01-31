@@ -1,0 +1,16 @@
+[Unit]
+Description=Receive packets and forward them elsewhere (to files or other IPs)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=start_health_udpcapture
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target
