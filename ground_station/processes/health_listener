@@ -1,0 +1,68 @@
+#!/python-venv/bin/python
+
+import pprint
+import socket
+
+from mysql.connector.pooling import PooledMySQLConnection
+from mysql.connector.abstracts import MySQLConnectionAbstract
+
+from impisc.packets import HealthPacket
+from impish_monitor import TABLE_NAME, ADDR, COLUMNS, connect
+
+
+def unpack_power_byte(byte: int) -> dict[str, int]:
+    """Map the power status bits."""
+    power_cols: list[str] = [c for c in COLUMNS.keys() if c.startswith("power_")]
+    power_cols.remove("power_line_statuses")
+    bools: dict[str, int] = {c: int((byte >> i) & 1) for i, c in enumerate(reversed(power_cols))}
+    return bools
+
+
+def unpack_missing_bytes(bytes: int) -> dict[str, int]:
+    """Map the missing status bits."""
+    missing_cols: list[str] = [c for c in COLUMNS.keys() if c.startswith("missing_")]
+    missing_cols.remove("missing_fields")
+    bools: dict[str, int] = {c: int((bytes >> i) & 1) for i, c in enumerate(reversed(missing_cols))}
+    return bools
+
+
+def insert_packet(
+    db: PooledMySQLConnection | MySQLConnectionAbstract,
+    data: HealthPacket
+):
+    cursor = db.cursor()
+    cols = {f[0]: getattr(data, f[0]) for f in data._fields_ if "extra" not in f}
+    cols = {**cols, **unpack_power_byte(getattr(data, "power_line_statuses"))}
+    cols = {**cols, **unpack_missing_bytes(getattr(data, "missing_fields"))}
+    fmt = "%s, " * (len(cols) - 1) + "%s"
+    sql = f"INSERT INTO {TABLE_NAME} ({', '.join(cols.keys())}) VALUES ({fmt})"
+    val = tuple(cols.values())
+    print('sql:', sql)
+    print('val:', val)
+    pprint.pprint(cols)
+    cursor.execute(sql, val)
+    db.commit()
+
+
+def open_socket() -> socket.socket:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(ADDR)
+    return sock
+
+
+def main():
+    db: PooledMySQLConnection | MySQLConnectionAbstract = connect()
+    try:
+        sock: socket.socket = open_socket()
+        while True:
+            data, _ = sock.recvfrom(1024)
+            # timestamp = datetime.datetime.now()
+            packet = HealthPacket.from_buffer_copy(data)
+            insert_packet(db, packet)
+    finally:
+        print("Closing DB connection")
+        db.close()
+
+
+if __name__ == "__main__":
+    main()

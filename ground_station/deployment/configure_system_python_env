@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Configure a virtual environment
+# for running programs on the system.
+
+pushd /
+sudo rm -rf python-venv
+sudo mkdir python-venv
+sudo chmod -R 777 python-venv
+python3 -m venv python-venv
+source python-venv/bin/activate
+
+popd
+pip install ..
+cd ..
+pip install ..
