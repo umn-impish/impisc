@@ -4,13 +4,13 @@
 # Install all processes
 processes=$(ls ../processes)
 for s in $processes; do
-    sudo cp "../processes/$s" "/usr/local/bin"
+    sudo cp --preserve=mode "../processes/$s" "/usr/local/bin"
 done
 
 # Install all .service files and enable them
 services=$(cat service_names.txt)
 for s in $services; do
-    sudo cp "../services/$s" "/etc/systemd/system"
+    sudo cp --preserve=mode "../services/$s" "/etc/systemd/system"
 done
 sudo cp '../services/variables.env' '/usr/local/bin'
 sudo cp '../services/variables.env' '/etc/systemd/system'
