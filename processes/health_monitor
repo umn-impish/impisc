@@ -148,20 +148,29 @@ def measure_bubba_output() -> tuple[bool, int]:
             pin_number="01", force_conversion=True
         )
         ADS112C04.power_down()
+        # Ignore noise when powered off
+        if conversion < 0 and conversion > -0.1:
+            conversion = 0
         return False, int(conversion * 155 / 5 * 1000)  # mV
     except Exception as e:  # TODO: better exception handling here?
-        logging.log_warning(f"Could not read bias voltage.\n{e}")
+        logging.log_warning(f"Could not read bias voltage.\n{type(e)} --> {e.args}")
     return True, -1
 
 
 def measure_toggle_byte() -> tuple[bool, int]:
     """Measure the byte indicating the status of all the GPIO toggles."""
-    res = subprocess.run(["power_status"], shell=True, capture_output=True)
-    if res.stderr:
-        logging.log_error("Problem reading power toggle status byte.")
-        return True, -1
-    status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
-    return False, status_byte
+    try:
+        res = subprocess.run(["power_status"], shell=True, capture_output=True)
+        if res.stderr:
+            logging.log_error(
+                "Problem reading power toggle status byte: {res.stderr.decode('utf-8')}."
+            )
+            return True, -1
+        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
+        return False, status_byte
+    except Exception as e:
+        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
+    return True, 12345
 
 
 def measure_bubba_wiper() -> tuple[bool, int]:
