@@ -1,3 +1,5 @@
+import os
+
 from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING
@@ -21,7 +23,7 @@ def connect() -> PooledMySQLConnection | MySQLConnectionAbstract:
     return mysql.connector.connect(
         host="localhost",
         user="impish",
-        password="Supergiant",
+        password=os.getenv("PASS"),
         database=DB_NAME
     ) # TODO: remove plain-text password
 
