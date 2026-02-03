@@ -1,13 +1,11 @@
 [Unit]
-Description=Send health packets to a port (udpcapture, probably)
+Description=Receive packets and forward them elsewhere (to files or other IPs)
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-WorkingDirectory=/usr/local/bin
-EnvironmentFile=/usr/local/bin/variables.env
-ExecStart=health_monitor
+ExecStart=start_health_udpcapture
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

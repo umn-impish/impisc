@@ -6,18 +6,17 @@ import ctypes
 import os
 import socket
 import subprocess
-import sys
 import threading
 import time
 from typing import Any, Callable, Literal, TypeAlias
 
 from impisc import logging
 from impisc.packets import HealthPacket
-from impisc.i2c.devices import ads112c04, ds3231, isl22317, max11617
+from impisc.i2c.devices import ads112c04, isl22317, max11617
 
 
 my_port = int(os.getenv("HEALTH_MONITOR_PORT"))
-send_port = int(os.getenv("HEALTH_FORWARD_PORT"))
+send_port = int(os.getenv("LOCAL_HEALTH_FWD_PORT"))
 cadence_seconds = int(os.getenv("HEALTH_CADENCE"))
 
 generator_type: TypeAlias = Callable[[], tuple[bool, Any]]
@@ -38,11 +37,13 @@ MAX11617_CHANNELS: dict[str, Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]] = {
 
 # Define measurement timeouts, in seconds
 TIMEOUTS: defaultdict[str, float] = defaultdict(lambda: 1.0)
-TIMEOUTS.update({
-    "power_line_statuses": 0.2,
-    "os_disk_usage": 0.2,
-    "data_disk_usage": 0.2,
-})
+TIMEOUTS.update(
+    {
+        "power_line_statuses": 0.2,
+        "os_disk_usage": 0.2,
+        "data_disk_usage": 0.2,
+    }
+)
 
 
 def main():
@@ -59,6 +60,8 @@ def main():
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("cpu_temperature", measure_cpu_temp),
+        #                  Lol
+        ("unix_timestamp", lambda: (False, int(time.time()))),
         ("extra", fill_extra),
     ]
 
@@ -145,20 +148,29 @@ def measure_bubba_output() -> tuple[bool, int]:
             pin_number="01", force_conversion=True
         )
         ADS112C04.power_down()
+        # Ignore noise when powered off
+        if conversion < 0 and conversion > -0.1:
+            conversion = 0
         return False, int(conversion * 155 / 5 * 1000)  # mV
     except Exception as e:  # TODO: better exception handling here?
-        logging.log_warning(f"Could not read bias voltage.\n{e}")
+        logging.log_warning(f"Could not read bias voltage.\n{type(e)} --> {e.args}")
     return True, -1
 
 
 def measure_toggle_byte() -> tuple[bool, int]:
     """Measure the byte indicating the status of all the GPIO toggles."""
-    res = subprocess.run([f"power_status"], shell=True, capture_output=True)
-    if res.stderr:
-        logging.log_error("Problem reading power toggle status byte.")
-        return True, -1
-    status_byte = int(res.stdout.decode("utf-8"), base=2)
-    return False, status_byte
+    try:
+        res = subprocess.run(["power_status"], shell=True, capture_output=True)
+        if res.stderr:
+            logging.log_error(
+                "Problem reading power toggle status byte: {res.stderr.decode('utf-8')}."
+            )
+            return True, -1
+        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
+        return False, status_byte
+    except Exception as e:
+        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
+    return True, 12345
 
 
 def measure_bubba_wiper() -> tuple[bool, int]:
@@ -176,11 +188,11 @@ def measure_bubba_wiper() -> tuple[bool, int]:
 
 
 def disk_usage(partition: str) -> int:
-    res = subprocess.run([f"df {partition}"], shell=True, capture_output=True)
+    res = subprocess.run([f"df --block-size=10M --output=used {partition}"], shell=True, capture_output=True)
     if res.stderr:
         raise ValueError(f"Error running command: {res.stderr.decode('utf-8')}")
-    use_in_bytes = int(res.stdout.decode("utf-8").split("\n")[1].strip().split()[2])
-    return use_in_bytes // (1024 * 10)
+    # 10 MiB chunks
+    return int(res.stdout.decode("utf-8").split("\n")[1].strip())
 
 
 def measure_os_disk_usage() -> tuple[bool, int]:

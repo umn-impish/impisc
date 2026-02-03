@@ -14,5 +14,5 @@ if [ $time_since_boot -lt $limit ]; then
         toggle_power $item off
     done
 else
-    echo 'not shutting of GPIOs; too late in boot'
+    echo 'not shutting off GPIOs; too late in boot'
 fi

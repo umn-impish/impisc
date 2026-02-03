@@ -8,4 +8,5 @@ setup_daqbox_network
 set_bias
 set_pps
 set_rtc_time
+start_health_udpcapture
 toggle_power
