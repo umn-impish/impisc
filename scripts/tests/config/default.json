@@ -18,5 +18,5 @@
         }
     },
 
-    "startup_mode": "idle"
+    "startup_mode": "safe"
 }
