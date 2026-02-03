@@ -6,6 +6,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 ExecStart=health_listener
+EnvironmentFile=/usr/local/bin/grafana.env
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure
