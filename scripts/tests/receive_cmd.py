@@ -2,11 +2,9 @@ import json
 import socket
 import logging
 
-# Receiver/listening functions -- random IPs and ports
+IP = "192.168.0.3" # or "0.0.0.0" to listen on all interfaces?
 
-IP = "0.0.0.0"
-
-def setup_command_socket(port=5000):
+def setup_command_socket(port=8080):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((IP, port))
     sock.setblocking(False)
@@ -21,7 +19,7 @@ def update_flight_mode(sock):
         
     try:
         cmd_data = json.loads(data.decode('utf-8'))
-        logging.info(f'Received command {cmd_data} mode')
+        logging.info(f'Received command: {cmd_data}')
         return cmd_data, addr
 
     except Exception as e:
