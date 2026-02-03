@@ -3,7 +3,7 @@ import socket
 import struct
 import logging
 
-daq_box_addr = ("192.168.0.2", 8080)
+science_cap_addr = ("127.0.0.1", 13000)
 udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 def send_udp_data(data_array, tag="spectra"):
@@ -29,6 +29,6 @@ def send_udp_data(data_array, tag="spectra"):
 
     full_packet = metadata_header + data_bytes
     try:
-        udp_sock.sendto(full_packet, daq_box_addr)
+        udp_sock.sendto(full_packet, science_cap_addr)
     except Exception as e:
         logging.warning(f"UDP send failed: {e}")
