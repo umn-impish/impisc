@@ -1,0 +1,238 @@
+#!/python-venv/bin/python
+
+
+from collections import defaultdict
+import ctypes
+import os
+import socket
+import subprocess
+import threading
+import time
+from typing import Any, Callable, Literal, TypeAlias
+
+from impisc import logging
+from impisc.packets import HealthPacket
+from impisc.i2c.devices import ads112c04, isl22317, max11617
+
+
+my_port = int(os.getenv("HEALTH_MONITOR_PORT"))
+send_port = int(os.getenv("LOCAL_HEALTH_FWD_PORT"))
+cadence_seconds = int(os.getenv("HEALTH_CADENCE"))
+
+generator_type: TypeAlias = Callable[[], tuple[bool, Any]]
+
+
+MAX11617_CHANNELS: dict[str, Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]] = {
+    "-SIPM": 0,
+    "-BUBBA": 1,
+    "+CREMAT": 2,
+    "-CREMAT": 3,
+    "+SIPM": 4,
+    "BP": 5,
+    "+BUBBA": 6,
+    "HEATER": 7,
+    "CM4": 8,
+}
+
+
+# Define measurement timeouts, in seconds
+TIMEOUTS: defaultdict[str, float] = defaultdict(lambda: 1.0)
+TIMEOUTS.update(
+    {
+        "power_line_statuses": 0.2,
+        "os_disk_usage": 0.2,
+        "data_disk_usage": 0.2,
+    }
+)
+
+
+def main():
+    generators: list[tuple[str, generator_type]] = [
+        ("cm4_volts", measure_pi_voltage),
+        ("sipm_preamp_pos_volts", measure_preamp_pos),
+        ("sipm_preamp_neg_volts", measure_preamp_neg),
+        ("heater_volts", measure_heater_volts),
+        ("bubba_input_pos_volts", measure_bubba_pos_input),
+        ("bubba_input_neg_volts", measure_bubba_neg_input),
+        ("bubba_output_volts", measure_bubba_output),
+        ("bubba_wiper", measure_bubba_wiper),
+        ("power_line_statuses", measure_toggle_byte),
+        ("os_disk_usage", measure_os_disk_usage),
+        ("data_disk_usage", measure_data_disk_usage),
+        ("cpu_temperature", measure_cpu_temp),
+        #                  Lol
+        ("unix_timestamp", lambda: (False, int(time.time()))),
+        ("extra", fill_extra),
+    ]
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", my_port))
+
+    while True:
+        packet = HealthPacket()
+        threads: dict[str, threading.Thread] = {}
+        results = [(True, None)] * len(generators)
+        for i, (field, func) in enumerate[tuple[str, generator_type]](generators):
+            thread: threading.Thread = threading.Thread(
+                target=measure, args=(func, results, i), name=f"measure_{field}"
+            )
+            threads[field] = thread
+            thread.start()
+        for field, thread in threads.items():
+            logging.log_debug(f"joining thread {thread.name}")
+            thread.join(timeout=TIMEOUTS[field])
+            if thread.is_alive():
+                logging.log_warning(f"thread {thread.name} did not finish")
+        for i, (missing, data) in enumerate(results):
+            if not missing:
+                field = generators[i][0]
+                setattr(packet, field, data)
+            packet.missing_fields |= int(missing) << i
+        sock.sendto(packet, ("localhost", send_port))
+        time.sleep(cadence_seconds)
+
+
+def measure(func: generator_type, results: list[tuple[bool, Any]], index: int) -> None:
+    """Helper function for threading purposes."""
+    results[index] = func()
+
+
+def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[bool, int]:
+    """Measure the voltage (in mV) on the specified channel on the MAX11617."""
+    try:
+        MAX11617: max11617.MAX11617 = max11617.MAX11617(1, 0x35)
+        MAX11617.reference = "internal"
+        MAX11617.scan = 3
+        return False, int(MAX11617.read_conversion(which=channel) * 1000)
+    except Exception as e:
+        logging.log_warning(f"Could not read channel {channel} from MAX11617.\n{e}")
+    return True, -1
+
+
+def measure_pi_voltage() -> tuple[bool, int]:
+    """Measure the voltage (mV) powering the CM4."""
+    return measure_power_line(MAX11617_CHANNELS["CM4"])
+
+
+def measure_preamp_pos() -> tuple[bool, int]:
+    """Measure the positive voltage (mV) powering the SiPM boards."""
+    return measure_power_line(MAX11617_CHANNELS["+SIPM"])
+
+
+def measure_preamp_neg() -> tuple[bool, int]:
+    """Measure the negative voltage (mV) powering the SiPM boards."""
+    return measure_power_line(MAX11617_CHANNELS["-SIPM"])
+
+
+def measure_heater_volts() -> tuple[bool, int]:
+    """Measure the heater voltage."""
+    return measure_power_line(MAX11617_CHANNELS["HEATER"])
+
+
+def measure_bubba_pos_input() -> tuple[bool, int]:
+    """Measure the positive voltage (mV) powering the bias board."""
+    return measure_power_line(MAX11617_CHANNELS["+BUBBA"])
+
+
+def measure_bubba_neg_input() -> tuple[bool, int]:
+    """Measure the negative voltage (mV) powering the bias board."""
+    return measure_power_line(MAX11617_CHANNELS["-BUBBA"])
+
+
+def measure_bubba_output() -> tuple[bool, int]:
+    """Measure the bias voltage (mV) from the ADS112C04."""
+    try:
+        ADS112C04: ads112c04.ADS112C04 = ads112c04.ADS112C04(0, 0x40)
+        ADS112C04.set_mode(0)  # Single-shot
+        conversion: float = ADS112C04.read_voltage(
+            pin_number="01", force_conversion=True
+        )
+        ADS112C04.power_down()
+        # Ignore noise when powered off
+        if conversion < 0 and conversion > -0.1:
+            conversion = 0
+        return False, int(conversion * 155 / 5 * 1000)  # mV
+    except Exception as e:  # TODO: better exception handling here?
+        logging.log_warning(f"Could not read bias voltage.\n{type(e)} --> {e.args}")
+    return True, -1
+
+
+def measure_toggle_byte() -> tuple[bool, int]:
+    """Measure the byte indicating the status of all the GPIO toggles."""
+    try:
+        res = subprocess.run(["power_status"], shell=True, capture_output=True)
+        if res.stderr:
+            logging.log_error(
+                "Problem reading power toggle status byte: {res.stderr.decode('utf-8')}."
+            )
+            return True, -1
+        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
+        return False, status_byte
+    except Exception as e:
+        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
+    return True, 12345
+
+
+def measure_bubba_wiper() -> tuple[bool, int]:
+    """Measure the wiper value from the ISL22317 that sets the bias voltage."""
+    try:
+        ISL22317 = isl22317.ISL22317(0, 0x28)
+        initial_status = ISL22317.awake
+        ISL22317.awake = True
+        value = ISL22317.wiper
+        ISL22317.awake = initial_status
+        return False, value
+    except IOError as e:
+        logging.log_warning(f"Cannot contact ISL22317; is it on?\n{e}")
+    return True, -1
+
+
+def disk_usage(partition: str) -> int:
+    res = subprocess.run([f"df --block-size=10M --output=used {partition}"], shell=True, capture_output=True)
+    if res.stderr:
+        raise ValueError(f"Error running command: {res.stderr.decode('utf-8')}")
+    # 10 MiB chunks
+    return int(res.stdout.decode("utf-8").split("\n")[1].strip())
+
+
+def measure_os_disk_usage() -> tuple[bool, int]:
+    """Measure the OS disk usage in bytes,
+    then convert it to the units the health packet wants:
+    10 MiB per tick."""
+    try:
+        return False, disk_usage(partition="/dev/mmcblk0p2")
+    except Exception as e:
+        logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
+
+    # Failed to get disk usage; indicate missing
+    return True, -1
+
+
+def measure_data_disk_usage() -> tuple[bool, int]:
+    """Same as OS disk usage, but for the data disk"""
+    try:
+        return False, disk_usage(partition="/dev/mmcblk1p1")
+    except Exception as e:
+        logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
+
+    # Failed to get disk usage; indicate missing
+    return True, -1
+
+
+def measure_cpu_temp() -> tuple[bool, int]:
+    """measure the CPU temperature in centikelvin"""
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+            # Convert millicelsius into centikelvin (LMAO)
+            return False, (273150 + int(f.read().strip())) // 10
+    except Exception as e:
+        logging.log_error(f"Problem getting CPU temp: {type(e)} --> {e.args}")
+        return True, 0
+
+
+def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:
+    return False, (ctypes.c_uint8 * HealthPacket.EXTRA_BYTES)()
+
+
+if __name__ == "__main__":
+    main()
