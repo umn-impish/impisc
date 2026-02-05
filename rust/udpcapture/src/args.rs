@@ -16,6 +16,11 @@ use std::option::Option;
         .args(&["base_filename", "forward_addrs"])
         .multiple(true)
 ))]
+#[clap(group(
+    ArgGroup::new("fileopts")
+        .args(&["file_lifetime", "max_file_size"])
+        .multiple(true)
+))]
 // Info on the command itself
 #[command(
     version="1.0",
@@ -27,17 +32,19 @@ pub struct ProgramArgs {
     pub port: u16,
 
     #[arg(short='s', long,
+          group="fileopts",
           help="Maximum file size before close (bytes)")]
     pub max_file_size: Option<u64>,
 
     #[arg(short='l', long,
+          group="fileopts",
           help="Maximum file lifetime before close (seconds)")]
     pub file_lifetime: Option<u16>,
 
     #[arg(short='b', long,
           help="Initial part of output file name.",
           group="outputs",
-          requires="file_lifetime")]
+          requires="fileopts")]
     pub base_filename: Option<String>,
 
     #[arg(short='c', long,
