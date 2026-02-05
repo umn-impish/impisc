@@ -75,7 +75,10 @@ class ADS112C04(GenericDevice):
     def mux(self) -> str:
         """The currently selected multiplexer input (analog input)."""
         value: int = self.read_block_data("config0") & self.MUX_MASK
-        combined: dict[str, int] = {**self.SINGLE_ENDED_PIN_MAP, **self.DIFFERENTIAL_PIN_MAP}
+        combined: dict[str, int] = {
+            **self.SINGLE_ENDED_PIN_MAP,
+            **self.DIFFERENTIAL_PIN_MAP,
+        }
         flipped: dict[int, str] = dict((v, k) for k, v in combined.items())
         if value not in flipped:
             raise ValueError(f"Unknown multiplexer value: {value:#010b}")
@@ -124,7 +127,9 @@ class ADS112C04(GenericDevice):
         1, 2, 4, 8, 16, 32, 64, 128.
         """
         if gain not in self.GAIN_MAP:
-            raise ValueError(f"Invalid gain selection: \"{gain}\"\nValid selections: {list(self.GAIN_MAP.keys())}")
+            raise ValueError(
+                f'Invalid gain selection: "{gain}"\nValid selections: {list(self.GAIN_MAP.keys())}'
+            )
         config_register = self.read_block_data("config0")
         config_register &= ~self.GAIN_MASK
         config_register |= self.GAIN_MAP[gain]
@@ -158,7 +163,9 @@ class ADS112C04(GenericDevice):
         Valid values are: 20, 45, 90, 175, 330, 600, 1000
         """
         if rate not in self.SPS_MAP:
-            raise ValueError(f"Invalid data rate: {rate}; valid: {list(self.SPS_MAP.keys())}")
+            raise ValueError(
+                f"Invalid data rate: {rate}; valid: {list(self.SPS_MAP.keys())}"
+            )
         config_register = self.read_block_data("config1")
         config_register &= ~self.SPS_MASK
         config_register |= self.SPS_MAP[rate]
@@ -262,7 +269,9 @@ class ADS112C04(GenericDevice):
             except OSError as e:
                 tries += 1
                 if (time.time() - start) > timeout:
-                    raise IOError(f"I2C transaction timed out; tried {tries} times") from e
+                    raise IOError(
+                        f"I2C transaction timed out; tried {tries} times"
+                    ) from e
                 continue
 
         # read is an i2c_msg, convert to bytes consistently

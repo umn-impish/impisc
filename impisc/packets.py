@@ -37,12 +37,9 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # Disk usages in 10 MiB units
         ("os_disk_usage", ctypes.c_uint16),
         ("data_disk_usage", ctypes.c_uint16),
-
         # In units of centikelvin
         ("cpu_temperature", ctypes.c_uint16),
-
         ("unix_timestamp", ctypes.c_uint32),
-
         # Padding on the end of the health packet:
         # remove bytes from this as needed
         # to add packet fields after flight starts.

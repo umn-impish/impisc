@@ -38,7 +38,7 @@ class PCT2075(GenericDevice):
         value = (value * 2) / 2  # Round to nearest 0.5
         if (value < -55) or (value > 125):
             raise ValueError(
-                f"Overtemperature threshold must be within "
+                "Overtemperature threshold must be within "
                 + f"[-55, 125] *C; provided value {value} invalid."
             )
         # 9-bit two's complement shifted into 16 bits
@@ -60,7 +60,7 @@ class PCT2075(GenericDevice):
         value = (value * 2) / 2  # Round to nearest 0.5
         if (value < -55) or (value > 125):
             raise ValueError(
-                f"Hysteresis temperature must be within "
+                "Hysteresis temperature must be within "
                 + f"[-55, 125] *C; provided value {value} invalid."
             )
         # 9-bit two's complement shifted into 16 bits

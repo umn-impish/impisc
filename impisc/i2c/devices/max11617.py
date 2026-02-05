@@ -81,7 +81,9 @@ class MAX11617(GenericDevice):
     def external_clock(self, external_clock: bool):
         """Set use of either an external or internal clock."""
         if external_clock not in (True, False):
-            raise ValueError(f"External clock must either be True or False, not {external_clock}.")
+            raise ValueError(
+                f"External clock must either be True or False, not {external_clock}."
+            )
         if external_clock != self._external_clock:
             self._external_clock = external_clock
             self._write_setup_register()
@@ -142,7 +144,9 @@ class MAX11617(GenericDevice):
     def single_ended(self, single_ended: bool):
         """Set either single-ended or differential input measurement."""
         if single_ended not in (True, False):
-            raise ValueError(f"External clock must either be 0 or 1, not {single_ended}.")
+            raise ValueError(
+                f"External clock must either be 0 or 1, not {single_ended}."
+            )
         if single_ended != self._single_ended:
             self._single_ended = single_ended
             self._write_config_register()

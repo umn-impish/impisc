@@ -32,7 +32,7 @@ def test_ads112c04():
         reading = device.read_voltage("01", force_conversion=True)
         voltage = reading * 155 / 5
         print(f"reading: {reading} V")
-        print(f'voltage: {voltage:0.2f}')
+        print(f"voltage: {voltage:0.2f}")
         # device.print_register_status()
         temperature = device.read_temperature(force_conversion=False)
         print(f"temperature: {temperature:0.2f} *C")
@@ -89,15 +89,16 @@ def test_pct2075():
 
 def test_max11617():
     device = MAX11617(1, 0x35)
-    print(f'setup register: {device.setup_register:08b}')
-    print(f'config register: {device.config_register:08b}')
-    device.reference = 'internal'
+    print(f"setup register: {device.setup_register:08b}")
+    print(f"config register: {device.config_register:08b}")
+    device.reference = "internal"
     device.scan = 3
-    print(f'setup register: {device.setup_register:08b}')
-    print(f'config register: {device.config_register:08b}')
-    print('voltage reference:',     device.reference)
+    print(f"setup register: {device.setup_register:08b}")
+    print(f"config register: {device.config_register:08b}")
+    print("voltage reference:", device.reference)
     for chan in range(0, 12):
-        print(f'AIN{chan}:', device.read_conversion(chan))
+        print(f"AIN{chan}:", device.read_conversion(chan))
+
 
 test_pct2075()
 test_max11617()
