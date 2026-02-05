@@ -4,11 +4,8 @@ converter by Texas Instruments.
 """
 
 import struct
-
 from typing import Literal
-
 import smbus2
-
 from .device import GenericDevice
 
 
@@ -155,15 +152,18 @@ class MAX11617(GenericDevice):
         """Write the setup register to the device based
         on set parameters.
         """
-        self.bus.write_byte(self.address, self.setup_register)
+        with self.bus() as bus:
+            bus.write_byte(self.address, self.setup_register)
 
     def _write_config_register(self):
         """Write the configuration register to the device based on set parameters."""
-        self.bus.write_byte(self.address, self.config_register)
+        with self.bus() as bus:
+            bus.write_byte(self.address, self.config_register)
 
     def reset_registers(self):
         """Resets the setup and configuration registers to their defaults."""
-        self.bus.write_byte(self.address, 0b10000000)
+        with self.bus() as bus:
+            bus.write_byte(self.address, 0b10000000)
         self.reference = "vdd"
         self.external_clock = False
         self.bipolar = False
@@ -192,7 +192,8 @@ class MAX11617(GenericDevice):
             )
         self.channel = which
         read = smbus2.i2c_msg.read(self.address, 2)
-        self.bus.i2c_rdwr(read)
+        with self.bus() as bus:
+            bus.i2c_rdwr(read)
         # Flip first four bits to zero since they're always high
         value: int = 0xFFF & struct.unpack(">h", bytes(list(read)))[0]  # pyright: ignore[reportAny]
 
