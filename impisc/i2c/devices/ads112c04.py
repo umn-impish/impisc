@@ -235,11 +235,13 @@ class ADS112C04(GenericDevice):
 
     def power_down(self):
         """Sends the POWERDOWN command to the device."""
-        self.bus.write_byte(self.address, self.CMD_POWERDOWN)
+        with self.bus() as b:
+            b.write_byte(self.address, self.CMD_POWERDOWN)
 
     def reset(self):
         """Sends the RESET command to the device."""
-        self.bus.write_byte(self.address, self.CMD_RESET)
+        with self.bus() as b:
+            b.write_byte(self.address, self.CMD_RESET)
 
     def start_sync(self):
         """Sends the START/SYNC command to the device.
@@ -247,7 +249,8 @@ class ADS112C04(GenericDevice):
         be called every time an update is desired.
         In continuous mode, this only needs to be called once.
         """
-        self.bus.write_byte(self.address, self.CMD_START_SYNC)
+        with self.bus() as b:
+            b.write_byte(self.address, self.CMD_START_SYNC)
 
     @override
     def read_block_data(self, register: str, timeout: float = 0.01) -> int:
@@ -264,7 +267,8 @@ class ADS112C04(GenericDevice):
         start = time.time()
         while not successful:
             try:
-                self.bus.i2c_rdwr(write, read)
+                with self.bus() as b:
+                    b.i2c_rdwr(write, read)
                 successful = True
             except OSError as e:
                 tries += 1
@@ -285,7 +289,8 @@ class ADS112C04(GenericDevice):
         """
         wreg: int = 0b01000000 | (self.registers[register].address << 2)  # 0100rrXX
         write = smbus2.i2c_msg.write(self.address, [wreg, value])
-        self.bus.i2c_rdwr(write)
+        with self.bus() as b:
+            b.i2c_rdwr(write)
 
     def wait_for_conversion(self, timeout: float = 0.5):
         """Loops until either the conversion is over or timeout
@@ -306,7 +311,8 @@ class ADS112C04(GenericDevice):
             self.wait_for_conversion()
         rdata = smbus2.i2c_msg.write(self.address, [self.CMD_READ_CONVERSION])
         read = smbus2.i2c_msg.read(self.address, 2)
-        self.bus.i2c_rdwr(rdata, read)
+        with self.bus() as b:
+            b.i2c_rdwr(rdata, read)
 
         # Combine and interpret as signed 16-bits big-endian
         return struct.unpack(">h", bytes(list(read)))[0]  # pyright: ignore[reportAny]
