@@ -1,5 +1,5 @@
 [Unit]
-Description=Receive packets from IMPISH and write them to the database
+Description=Receive health packets from IMPISH and write them to the database
 After=network.target
 StartLimitIntervalSec=0
 

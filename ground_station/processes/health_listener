@@ -1,4 +1,9 @@
 #!/python-venv/bin/python
+"""
+Listens for health packets from the IMPISH flight computer.
+The received packets are put into a MySQL database to be read
+and displayed by Grafana.
+"""
 
 import pprint
 import socket
@@ -6,8 +11,9 @@ import socket
 from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
 
+from impisc import logging
 from impisc.packets import HealthPacket
-from impish_monitor import TABLE_NAME, ADDR, COLUMNS, connect
+from impish_monitor import TABLE_NAME, ADDR, COLUMNS, connect  # pyright: ignore[reportImplicitRelativeImport]
 
 
 def unpack_power_byte(byte: int) -> dict[str, int]:
@@ -40,8 +46,8 @@ def insert_packet(
     print('sql:', sql)
     print('val:', val)
     pprint.pprint(cols)
-    cursor.execute(sql, val)
-    db.commit()
+    _ = cursor.execute(sql, val)
+    _ = db.commit()
 
 
 def open_socket() -> socket.socket:
@@ -51,16 +57,18 @@ def open_socket() -> socket.socket:
 
 
 def main():
+    logging.log_info("Opening DB connection")
     db: PooledMySQLConnection | MySQLConnectionAbstract = connect()
+    sock: socket.socket = open_socket()
     try:
-        sock: socket.socket = open_socket()
         while True:
             data, _ = sock.recvfrom(1024)
             # timestamp = datetime.datetime.now()
             packet = HealthPacket.from_buffer_copy(data)
             insert_packet(db, packet)
     finally:
-        print("Closing DB connection")
+        logging.log_info("Closing DB connection")
+        sock.close()
         db.close()
 
 
