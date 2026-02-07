@@ -5,7 +5,7 @@ set -o pipefail
 set -x
 
 MYIP=$(ip route get 8.8.8.8 | awk -F"src " 'NR==1{split($2,a," ");print a[1]}')
-source /home/impish/grafana.env  # contains GRAFANA_API_TOKEN
+source /usr/local/bin/grafana.env  # contains GRAFANA_API_TOKEN
 FULLURL="http://$MYIP:3000"
 headers="Authorization: Bearer $GRAFANA_API_TOKEN"
 echo $headers
