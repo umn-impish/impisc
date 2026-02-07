@@ -1,0 +1,17 @@
+[Unit]
+Description=Receive journal packets from IMPISH and write them to files
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=journal_listener
+EnvironmentFile=/usr/local/bin/variables.env
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

@@ -6,12 +6,15 @@ processes=$(ls ../processes)
 for s in $processes; do
     sudo cp "../processes/$s" "/usr/local/bin"
 done
+sudo chown root:impish /usr/local/bin/journal_listener
 
 # Install all .service files and enable them
-services=$(ls ../services)
+services=$(find ../services/ -maxdepth 1 -type f -name "*.service" -printf "%f  ")
 for s in $services; do
+    echo $s
     sudo cp "../services/$s" "/etc/systemd/system"
 done
+sudo cp "../services/variables.env" "/usr/local/bin"
 
 sudo systemctl daemon-reload
 for s in $services; do

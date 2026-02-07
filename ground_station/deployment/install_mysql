@@ -1,0 +1,10 @@
+#!/bin/bash
+# Install and configure the MySQL server and database
+
+source /usr/local/bin/grafana.env
+sudo apt install mysql-server
+sudo systemctl start mysql
+sudo mysql -e "CREATE USER 'impish'@'localhost' IDENTIFIED BY $PASS;" > /dev/null 2>&1  # Suppress printing password ;P
+
+source /python-venv/bin/activate
+python -m impish_monitor.initialize_database

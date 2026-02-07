@@ -1,0 +1,57 @@
+#!/python-venv/bin/python
+"""
+Listen for journal data sent from the IMPISH flight computer.
+The incoming bytes are output from the journalctl --output=export
+that have been LZMA-compressed.
+"""
+
+import lzma
+import os
+import socket
+import time
+
+from pathlib import Path
+
+from impisc import logging
+
+
+RECV_ADDR: tuple[str, int] = ("", int(os.getenv("JOURNAL_MONITOR_PORT")))  # pyright: ignore[reportArgumentType]
+SEND_ADDR: tuple[str, int] = ("", int(os.getenv("LOCAL_JOURNAL_FWD_PORT")))  # pyright: ignore[reportArgumentType]
+SEND_SOCK_NAME = os.getenv(str("REMOTE_JOURNAL_SOCKET"))
+REMOTE_JOURNAL_DIR = Path(str(os.getenv("REMOTE_JOURNAL_DIR")))
+
+
+def write_file(data: bytes) -> str:
+    """Write the journal data to an xz file. data should be bytes
+    representing an xz-compressed journal file. Returns the full file path.
+    """
+    path: Path = REMOTE_JOURNAL_DIR / f"{int(time.time())}.journal.xz"
+    with open(path, "wb") as outfile:
+        written: int = outfile.write(data)
+    assert len(data) == written, "Number bytes written differs from number received."
+    return str(path)
+
+
+def main():
+    """Indefinitely listen for packets from IMPISH."""
+    recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    recv_sock.bind(RECV_ADDR)
+    logging.log_debug(f"My port: {RECV_ADDR[1]}")
+    send_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    send_sock.connect(SEND_ADDR)
+    logging.log_debug(f"Send port: {SEND_ADDR[1]}")
+    try:
+        while True:
+            data, addr = recv_sock.recvfrom(int(2**16))
+            print(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+            logging.log_info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+            _ = write_file(data)
+            uncompressed_data = lzma.decompress(data, format=lzma.FORMAT_XZ)
+            _ = send_sock.send(uncompressed_data)
+    finally:
+        recv_sock.close()
+        send_sock.close()
+
+
+if __name__ == "__main__":
+    main()
