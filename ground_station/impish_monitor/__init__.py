@@ -26,7 +26,7 @@ def connect() -> PooledMySQLConnection | MySQLConnectionAbstract:
         user="impish",
         password=os.getenv("PASS"),
         database=DB_NAME
-    ) # TODO: remove plain-text password
+    )
 
 
 def _columns() -> OrderedDict[str, str]:
@@ -36,8 +36,8 @@ def _columns() -> OrderedDict[str, str]:
     return OrderedDict({
         "id": "INT AUTO_INCREMENT PRIMARY KEY",
         **{f: "INTEGER" for f in fields if "extra" not in f},
-        **{f"missing_{f}": "BIT(1)" for f in fields},
-        **{f: "BIT(1)" for f in power_names}
+        **{f"missing_{f}": "INTEGER" for f in fields},
+        **{f: "INTEGER" for f in power_names}
     })
 
 
