@@ -1,6 +1,8 @@
 gpio_toggles
 initialize_gpios
 initialize_gpiomem
+journal_send
+journal_flush
 power_status
 rtc_connect
 rtc_disconnect
