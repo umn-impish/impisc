@@ -11,6 +11,7 @@ import socket
 import time
 
 from pathlib import Path
+from struct import unpack
 
 from impisc import logging
 
@@ -28,29 +29,34 @@ def write_file(data: bytes) -> str:
     path: Path = REMOTE_JOURNAL_DIR / f"{int(time.time())}.journal.xz"
     with open(path, "wb") as outfile:
         written: int = outfile.write(data)
+    logging.log_info(f"Archiving journal data to {path}")
     assert len(data) == written, "Number bytes written differs from number received."
     return str(path)
 
 
+# follows: https://stackoverflow.com/questions/42459499/what-is-the-proper-way-of-sending-a-large-amount-of-data-over-sockets-in-python
 def main():
-    """Indefinitely listen for packets from IMPISH."""
-    recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    recv_sock.bind(RECV_ADDR)
-    logging.log_debug(f"My port: {RECV_ADDR[1]}")
-    send_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    send_sock.connect(SEND_ADDR)
-    logging.log_debug(f"Send port: {SEND_ADDR[1]}")
-    try:
+    """Indefinitely listen for journal packets from IMPISH."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as recv_sock:
+        recv_sock.bind(RECV_ADDR)
+        recv_sock.listen(1)
+        logging.log_debug(f"My port: {RECV_ADDR[1]}")
         while True:
-            data, addr = recv_sock.recvfrom(int(2**16))
-            print(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+            connection, addr = recv_sock.accept()
+            buff = connection.recv(8)
+            (length,) = unpack(">Q", buff)
+            data = b""
+            while len(data) < length:
+                to_read = length - len(data)
+                data += connection.recv(4096 if to_read > 4096 else to_read)
+            connection.sendall(b"\00")  # send ack
             logging.log_info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
             _ = write_file(data)
             uncompressed_data = lzma.decompress(data, format=lzma.FORMAT_XZ)
-            _ = send_sock.send(uncompressed_data)
-    finally:
-        recv_sock.close()
-        send_sock.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as send_sock:
+                send_sock.connect(SEND_ADDR)
+                logging.log_info(f"Sending {len(uncompressed_data)} bytes to port {SEND_ADDR[1]}")
+                _ = send_sock.send(uncompressed_data)
 
 
 if __name__ == "__main__":
