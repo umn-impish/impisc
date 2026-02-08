@@ -15,11 +15,7 @@ def get_device() -> MAX11617:
 def test_reference():
     """Test setting and reading the reference voltage source."""
     device: MAX11617 = get_device()
-    mapped = {
-        "vdd": 0b10000010,
-        "external": 0b10100010,
-        "internal":0b11010010
-    }
+    mapped = {"vdd": 0b10000010, "external": 0b10100010, "internal": 0b11010010}
     for ref, byte in mapped.items():
         device.reference = ref
         assert device.reference == ref
@@ -32,10 +28,7 @@ def test_reference():
 def test_external_clock():
     """Test setting and reading the reference voltage source."""
     device: MAX11617 = get_device()
-    mapped = {
-        False: 0b10000010,
-        True: 0b10001010
-    }
+    mapped = {False: 0b10000010, True: 0b10001010}
     for clock, byte in mapped.items():
         device.external_clock = clock
         assert device.external_clock == clock
@@ -48,10 +41,7 @@ def test_external_clock():
 def test_bipolar():
     """Test setting and reading the polarity."""
     device: MAX11617 = get_device()
-    mapped = {
-        True: 0b10000110,
-        False: 0b10000010
-    }
+    mapped = {True: 0b10000110, False: 0b10000010}
     for bipolar, byte in mapped.items():
         device.bipolar = bipolar
         assert device.bipolar == bipolar
@@ -64,12 +54,7 @@ def test_bipolar():
 def test_scan():
     """Test setting and reading the scan value."""
     device: MAX11617 = get_device()
-    mapped = {
-        0: 0b00000001,
-        1: 0b00100001,
-        2: 0b01000001,
-        3: 0b01100001
-    }
+    mapped = {0: 0b00000001, 1: 0b00100001, 2: 0b01000001, 3: 0b01100001}
     for scan, byte in mapped.items():
         device.scan = scan
         assert device.scan == scan
@@ -95,10 +80,7 @@ def test_channel():
 def test_single_ended():
     """Test setting the single-ended and differential measurements."""
     device: MAX11617 = get_device()
-    mapped = {
-        False: 0b00000000,
-        True: 0b00000001
-    }
+    mapped = {False: 0b00000000, True: 0b00000001}
     for single_ended, byte in mapped.items():
         device.single_ended = single_ended
         assert device.single_ended == single_ended

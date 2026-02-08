@@ -75,7 +75,10 @@ class ADS112C04(GenericDevice):
     def mux(self) -> str:
         """The currently selected multiplexer input (analog input)."""
         value: int = self.read_block_data("config0") & self.MUX_MASK
-        combined: dict[str, int] = {**self.SINGLE_ENDED_PIN_MAP, **self.DIFFERENTIAL_PIN_MAP}
+        combined: dict[str, int] = {
+            **self.SINGLE_ENDED_PIN_MAP,
+            **self.DIFFERENTIAL_PIN_MAP,
+        }
         flipped: dict[int, str] = dict((v, k) for k, v in combined.items())
         if value not in flipped:
             raise ValueError(f"Unknown multiplexer value: {value:#010b}")
@@ -124,7 +127,9 @@ class ADS112C04(GenericDevice):
         1, 2, 4, 8, 16, 32, 64, 128.
         """
         if gain not in self.GAIN_MAP:
-            raise ValueError(f"Invalid gain selection: \"{gain}\"\nValid selections: {list(self.GAIN_MAP.keys())}")
+            raise ValueError(
+                f'Invalid gain selection: "{gain}"\nValid selections: {list(self.GAIN_MAP.keys())}'
+            )
         config_register = self.read_block_data("config0")
         config_register &= ~self.GAIN_MASK
         config_register |= self.GAIN_MAP[gain]
@@ -158,7 +163,9 @@ class ADS112C04(GenericDevice):
         Valid values are: 20, 45, 90, 175, 330, 600, 1000
         """
         if rate not in self.SPS_MAP:
-            raise ValueError(f"Invalid data rate: {rate}; valid: {list(self.SPS_MAP.keys())}")
+            raise ValueError(
+                f"Invalid data rate: {rate}; valid: {list(self.SPS_MAP.keys())}"
+            )
         config_register = self.read_block_data("config1")
         config_register &= ~self.SPS_MASK
         config_register |= self.SPS_MAP[rate]
@@ -228,11 +235,13 @@ class ADS112C04(GenericDevice):
 
     def power_down(self):
         """Sends the POWERDOWN command to the device."""
-        self.bus.write_byte(self.address, self.CMD_POWERDOWN)
+        with self.bus() as b:
+            b.write_byte(self.address, self.CMD_POWERDOWN)
 
     def reset(self):
         """Sends the RESET command to the device."""
-        self.bus.write_byte(self.address, self.CMD_RESET)
+        with self.bus() as b:
+            b.write_byte(self.address, self.CMD_RESET)
 
     def start_sync(self):
         """Sends the START/SYNC command to the device.
@@ -240,7 +249,8 @@ class ADS112C04(GenericDevice):
         be called every time an update is desired.
         In continuous mode, this only needs to be called once.
         """
-        self.bus.write_byte(self.address, self.CMD_START_SYNC)
+        with self.bus() as b:
+            b.write_byte(self.address, self.CMD_START_SYNC)
 
     @override
     def read_block_data(self, register: str, timeout: float = 0.01) -> int:
@@ -257,12 +267,15 @@ class ADS112C04(GenericDevice):
         start = time.time()
         while not successful:
             try:
-                self.bus.i2c_rdwr(write, read)
+                with self.bus() as b:
+                    b.i2c_rdwr(write, read)
                 successful = True
             except OSError as e:
                 tries += 1
                 if (time.time() - start) > timeout:
-                    raise IOError(f"I2C transaction timed out; tried {tries} times") from e
+                    raise IOError(
+                        f"I2C transaction timed out; tried {tries} times"
+                    ) from e
                 continue
 
         # read is an i2c_msg, convert to bytes consistently
@@ -276,7 +289,8 @@ class ADS112C04(GenericDevice):
         """
         wreg: int = 0b01000000 | (self.registers[register].address << 2)  # 0100rrXX
         write = smbus2.i2c_msg.write(self.address, [wreg, value])
-        self.bus.i2c_rdwr(write)
+        with self.bus() as b:
+            b.i2c_rdwr(write)
 
     def wait_for_conversion(self, timeout: float = 0.5):
         """Loops until either the conversion is over or timeout
@@ -297,7 +311,8 @@ class ADS112C04(GenericDevice):
             self.wait_for_conversion()
         rdata = smbus2.i2c_msg.write(self.address, [self.CMD_READ_CONVERSION])
         read = smbus2.i2c_msg.read(self.address, 2)
-        self.bus.i2c_rdwr(rdata, read)
+        with self.bus() as b:
+            b.i2c_rdwr(rdata, read)
 
         # Combine and interpret as signed 16-bits big-endian
         return struct.unpack(">h", bytes(list(read)))[0]  # pyright: ignore[reportAny]

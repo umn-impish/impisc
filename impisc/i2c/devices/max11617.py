@@ -4,11 +4,8 @@ converter by Texas Instruments.
 """
 
 import struct
-
 from typing import Literal
-
 import smbus2
-
 from .device import GenericDevice
 
 
@@ -81,7 +78,9 @@ class MAX11617(GenericDevice):
     def external_clock(self, external_clock: bool):
         """Set use of either an external or internal clock."""
         if external_clock not in (True, False):
-            raise ValueError(f"External clock must either be True or False, not {external_clock}.")
+            raise ValueError(
+                f"External clock must either be True or False, not {external_clock}."
+            )
         if external_clock != self._external_clock:
             self._external_clock = external_clock
             self._write_setup_register()
@@ -142,7 +141,9 @@ class MAX11617(GenericDevice):
     def single_ended(self, single_ended: bool):
         """Set either single-ended or differential input measurement."""
         if single_ended not in (True, False):
-            raise ValueError(f"External clock must either be 0 or 1, not {single_ended}.")
+            raise ValueError(
+                f"External clock must either be 0 or 1, not {single_ended}."
+            )
         if single_ended != self._single_ended:
             self._single_ended = single_ended
             self._write_config_register()
@@ -151,15 +152,18 @@ class MAX11617(GenericDevice):
         """Write the setup register to the device based
         on set parameters.
         """
-        self.bus.write_byte(self.address, self.setup_register)
+        with self.bus() as bus:
+            bus.write_byte(self.address, self.setup_register)
 
     def _write_config_register(self):
         """Write the configuration register to the device based on set parameters."""
-        self.bus.write_byte(self.address, self.config_register)
+        with self.bus() as bus:
+            bus.write_byte(self.address, self.config_register)
 
     def reset_registers(self):
         """Resets the setup and configuration registers to their defaults."""
-        self.bus.write_byte(self.address, 0b10000000)
+        with self.bus() as bus:
+            bus.write_byte(self.address, 0b10000000)
         self.reference = "vdd"
         self.external_clock = False
         self.bipolar = False
@@ -188,7 +192,8 @@ class MAX11617(GenericDevice):
             )
         self.channel = which
         read = smbus2.i2c_msg.read(self.address, 2)
-        self.bus.i2c_rdwr(read)
+        with self.bus() as bus:
+            bus.i2c_rdwr(read)
         # Flip first four bits to zero since they're always high
         value: int = 0xFFF & struct.unpack(">h", bytes(list(read)))[0]  # pyright: ignore[reportAny]
 
