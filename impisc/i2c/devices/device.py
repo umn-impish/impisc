@@ -13,9 +13,6 @@ from typing import Literal
 
 import smbus2
 
-from impisc import logging
-
-
 
 def int_to_twos_complement(value: int, bits: int) -> int:
     """Compute the 2's complement of int value.

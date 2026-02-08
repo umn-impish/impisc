@@ -144,9 +144,7 @@ def measure_bubba_output() -> tuple[bool, int]:
     try:
         adc = ads112c04.ADS112C04(0, 0x40)
         adc.continuous_mode = False
-        conversion: float = adc.read_voltage(
-            pin_number="01", force_conversion=True
-        )
+        conversion: float = adc.read_voltage(pin_number="01", force_conversion=True)
         adc.power_down()
 
         # Ignore noise when powered off

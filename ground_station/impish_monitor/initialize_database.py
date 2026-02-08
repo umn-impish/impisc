@@ -14,7 +14,9 @@ def create_table():
     db = connect()
     try:
         cursor: MySQLCursorAbstract = db.cursor()
-        cursor.execute(f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} (id INT AUTO_INCREMENT PRIMARY KEY);")
+        cursor.execute(
+            f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} (id INT AUTO_INCREMENT PRIMARY KEY);"
+        )
         query = """
         SELECT COUNT(*)
         FROM INFORMATION_SCHEMA.COLUMNS
@@ -29,9 +31,13 @@ def create_table():
                 alter_query = f"ALTER TABLE `{TABLE_NAME}` ADD `{col_name}` {type_}"
                 cursor.execute(alter_query)
                 db.commit()
-                print(f"Column '{col_name}' added to table '{TABLE_NAME}' successfully.")
+                print(
+                    f"Column '{col_name}' added to table '{TABLE_NAME}' successfully."
+                )
             else:
-                print(f"Column '{col_name}' already exists in table '{TABLE_NAME}'. No action needed.")
+                print(
+                    f"Column '{col_name}' already exists in table '{TABLE_NAME}'. No action needed."
+                )
     finally:
         _ = cursor.close()
         db.close()

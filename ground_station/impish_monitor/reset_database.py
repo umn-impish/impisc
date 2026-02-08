@@ -8,7 +8,7 @@ def delete_table():
 
 
 def main():
-    if input(f"CONFIRM TABLE RESET ({DB_NAME}/{TABLE_NAME}) [-y|-Y]: ").lower() == '-y':
+    if input(f"CONFIRM TABLE RESET ({DB_NAME}/{TABLE_NAME}) [-y|-Y]: ").lower() == "-y":
         print("Resetting health database")
         delete_table()
         create_table()
