@@ -35,6 +35,7 @@ def insert_packet(
     db: PooledMySQLConnection | MySQLConnectionAbstract,
     data: HealthPacket
 ):
+    """Insert the health packet into the database."""
     # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to packet
     cursor = db.cursor()
     cols = {f[0]: getattr(data, f[0]) for f in data._fields_ if "extra" not in f}
@@ -51,7 +52,7 @@ def insert_packet(
 
 def main():
     logging.log_info("Opening DB connection")
-    db: PooledMySQLConnection | MySQLConnectionAbstract = connect()
+    db = connect()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(ADDR)
     try:

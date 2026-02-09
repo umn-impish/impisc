@@ -4,7 +4,7 @@ from . import DB_NAME, TABLE_NAME, COLUMNS, connect
 
 
 def create_db():
-    db = connect()
+    db = connect(database=None)
     _ = db.cursor().execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
     db.close()
 
