@@ -3,7 +3,7 @@
 # Configure a virtual environment
 # for running programs on the system.
 
-source ~/impisc/.venv/bin/activate
+sudo apt install -y python3-venv
 
 pushd /
 sudo rm -rf python-venv
