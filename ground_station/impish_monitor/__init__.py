@@ -19,10 +19,10 @@ TABLE_NAME = "health"
 ADDR = ("10.42.0.1", 12002)
 
 
-def connect() -> PooledMySQLConnection | MySQLConnectionAbstract:
+def connect(database: str | None = DB_NAME) -> PooledMySQLConnection | MySQLConnectionAbstract:
     """Connect to the impisc_health MySQL database."""
     return mysql.connector.connect(
-        host="localhost", user="impish", password=os.getenv("PASS"), database=DB_NAME
+        host="localhost", user="impish", password=os.environ["PASS"], database=database
     )
 
 
@@ -38,13 +38,13 @@ def _columns() -> OrderedDict[str, str]:
         "power_heater",
         "power_daqbox",
     ]
-    return OrderedDict(
-        {
-            "id": "INT AUTO_INCREMENT PRIMARY KEY",
-            **{f: "INTEGER" for f in fields if "extra" not in f},
-            **{f"missing_{f}": "INTEGER" for f in fields},
-            **{f: "INTEGER" for f in power_names},
-        }
+    return OrderedDict[str, str](
+        [
+            ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
+            *list((f, "INTEGER") for f in fields if "extra" not in f),
+            *list((f"missing_{f}", "INTEGER") for f in fields),
+            *list((f, "INTEGER") for f in power_names)
+        ]
     )
 
 
