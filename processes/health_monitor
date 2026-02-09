@@ -8,7 +8,10 @@ import socket
 import subprocess
 import threading
 import time
+from functools import partial
 from typing import Any, Callable, Literal, TypeAlias
+
+import psutil
 
 from impisc import logging
 from impisc.packets import HealthPacket
@@ -60,6 +63,11 @@ def main():
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("cpu_temperature", measure_cpu_temp),
+        ("cpu0_usage", partial(measure_cpu_usage, 0)),
+        ("cpu1_usage", partial(measure_cpu_usage, 1)),
+        ("cpu2_usage", partial(measure_cpu_usage, 2)),
+        ("cpu3_usage", partial(measure_cpu_usage, 3)),
+        ("ram_usage", measure_ram_usage),
         #                  Lol
         ("unix_timestamp", lambda: (False, int(time.time()))),
         ("extra", fill_extra),
@@ -88,6 +96,7 @@ def main():
                 field = generators[i][0]
                 setattr(packet, field, data)
             packet.missing_fields |= int(missing) << i
+        print(packet)
         sock.sendto(packet, ("localhost", send_port))
         time.sleep(cadence_seconds)
 
@@ -231,6 +240,25 @@ def measure_cpu_temp() -> tuple[bool, int]:
     except Exception as e:
         logging.log_error(f"Problem getting CPU temp: {type(e)} --> {e.args}")
         return True, 0
+
+
+def measure_cpu_usage(core: Literal[0, 1, 2, 3]) -> tuple[bool, int]:
+    """Returns CPU usage in milli-percent."""
+    try:
+        return False, int(psutil.cpu_percent(percpu=True)[core] * 1000)
+    except Exception as e:
+        logging.log_error(f"Problem getting RAM usage: {type(e)} --> {e.args}")
+        return True, -1
+    
+
+def measure_ram_usage() -> tuple[bool, int]:
+    """Returns RAM usage in milli-percent."""
+    try:
+        percent_used: float = 100 - (psutil.virtual_memory().available * 100 / psutil.virtual_memory().total)
+        return False, int(percent_used * 1000)
+    except Exception as e:
+        logging.log_error(f"Problem getting RAM usage: {type(e)} --> {e.args}")
+        return True, -1
 
 
 def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:
