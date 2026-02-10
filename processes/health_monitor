@@ -68,6 +68,7 @@ def main():
         ("cpu2_usage", partial(measure_cpu_usage, 2)),
         ("cpu3_usage", partial(measure_cpu_usage, 3)),
         ("ram_usage", measure_ram_usage),
+        ("swap_usage", measure_swap_usage),
         #                  Lol
         ("unix_timestamp", lambda: (False, int(time.time()))),
         ("extra", fill_extra),
@@ -257,6 +258,16 @@ def measure_ram_usage() -> tuple[bool, int]:
         return False, int(percent_used * 100)
     except Exception as e:
         logging.log_error(f"Problem getting RAM usage: {type(e)} --> {e.args}")
+        return True, -1
+
+
+def measure_swap_usage() -> tuple[bool, int]:
+    """Returns SWAP usage in centi-percent."""
+    try:
+        percent_used: float = 100 - (psutil.swap_memory().available * 100 / psutil.virtual_memory().total)
+        return False, int(percent_used * 100)
+    except Exception as e:
+        logging.log_error(f"Problem getting SWAP usage: {type(e)} --> {e.args}")
         return True, -1
 
 
