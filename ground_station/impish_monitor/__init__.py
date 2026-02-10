@@ -42,8 +42,8 @@ def _columns() -> OrderedDict[str, str]:
         [
             ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
             *list((f, "INTEGER") for f in fields if "extra" not in f),
-            *list((f"missing_{f}", "INTEGER") for f in fields),
-            *list((f, "INTEGER") for f in power_names)
+            *list((f"missing_{f}", "BIT(1)") for f in fields),
+            *list((f, "BIT(1)") for f in power_names)
         ]
     )
 
