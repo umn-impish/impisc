@@ -41,6 +41,7 @@ def _columns() -> OrderedDict[str, str]:
     return OrderedDict[str, str](
         [
             ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
+            ("gs_unix_timestamp", "INTEGER"),
             *list((f, "INTEGER") for f in fields if "extra" not in f),
             *list((f"missing_{f}", "INTEGER") for f in fields),
             *list((f, "INTEGER") for f in power_names)
