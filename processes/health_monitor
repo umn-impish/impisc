@@ -249,12 +249,14 @@ def measure_cpu_usage(core: Literal[0, 1, 2, 3]) -> tuple[bool, int]:
     except Exception as e:
         logging.log_error(f"Problem getting RAM usage: {type(e)} --> {e.args}")
         return True, -1
-    
+
 
 def measure_ram_usage() -> tuple[bool, int]:
     """Returns RAM usage in centi-percent."""
     try:
-        percent_used: float = 100 - (psutil.virtual_memory().available * 100 / psutil.virtual_memory().total)
+        percent_used: float = 100 - (
+            psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
+        )
         return False, int(percent_used * 100)
     except Exception as e:
         logging.log_error(f"Problem getting RAM usage: {type(e)} --> {e.args}")
@@ -264,7 +266,9 @@ def measure_ram_usage() -> tuple[bool, int]:
 def measure_swap_usage() -> tuple[bool, int]:
     """Returns SWAP usage in centi-percent."""
     try:
-        percent_used: float = 100 - (psutil.swap_memory().available * 100 / psutil.virtual_memory().total)
+        percent_used: float = 100 - (
+            psutil.swap_memory().available * 100 / psutil.virtual_memory().total
+        )
         return False, int(percent_used * 100)
     except Exception as e:
         logging.log_error(f"Problem getting SWAP usage: {type(e)} --> {e.args}")
