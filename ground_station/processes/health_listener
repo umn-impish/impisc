@@ -6,6 +6,7 @@ and displayed by Grafana.
 """
 
 import socket
+import time
 
 from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
@@ -37,7 +38,8 @@ def insert_packet(
 ):
     """Insert the health packet into the database."""
     # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to packet
-    cols = {f[0]: getattr(data, f[0]) for f in data._fields_ if "extra" not in f}
+    cols: dict[str, int] = {"gs_unix_timestamp": int(time.time())}
+    cols = {**cols, **{f[0]: getattr(data, f[0]) for f in data._fields_ if "extra" not in f}}
     cols = {**cols, **unpack_power_byte(getattr(data, "power_line_statuses"))}
     cols = {**cols, **unpack_missing_bytes(getattr(data, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"
@@ -45,7 +47,6 @@ def insert_packet(
     sql = f"{header} ({', '.join(cols.keys())}) VALUES ({fmt})"
     val = tuple(cols.values())
     logging.log_info(f"Executing: {header}")
-    logging.log_debug(f"{sql}, {val}")
     cursor = db.cursor()
     _ = cursor.execute(sql, val)
     _ = db.commit()

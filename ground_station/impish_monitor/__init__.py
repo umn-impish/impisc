@@ -19,7 +19,9 @@ TABLE_NAME = "health"
 ADDR = ("10.42.0.1", 12002)
 
 
-def connect(database: str | None = DB_NAME) -> PooledMySQLConnection | MySQLConnectionAbstract:
+def connect(
+    database: str | None = DB_NAME,
+) -> PooledMySQLConnection | MySQLConnectionAbstract:
     """Connect to the impisc_health MySQL database."""
     return mysql.connector.connect(
         host="localhost", user="impish", password=os.environ["PASS"], database=database
@@ -41,6 +43,7 @@ def _columns() -> OrderedDict[str, str]:
     return OrderedDict[str, str](
         [
             ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
+            ("gs_unix_timestamp", "INTEGER"),
             *list((f, "INTEGER") for f in fields if "extra" not in f),
             *list((f"missing_{f}", "BIT(1)") for f in fields),
             *list((f, "BIT(1)") for f in power_names)
