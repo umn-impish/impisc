@@ -247,7 +247,7 @@ def measure_cpu_usage(core: Literal[0, 1, 2, 3]) -> tuple[bool, int]:
     try:
         return False, int(psutil.cpu_percent(percpu=True)[core] * 100)
     except Exception as e:
-        logging.log_error(f"Problem getting RAM usage: {type(e)} --> {e.args}")
+        logging.log_error(f"Problem getting CPU usage: {type(e)} --> {e.args}")
         return True, -1
 
 
