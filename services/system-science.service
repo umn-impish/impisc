@@ -1,0 +1,18 @@
+[Unit]
+Description=Send quicklook packets to a port (udpcapture, probably)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/bin
+EnvironmentFile=/usr/local/bin/variables.env
+ExecStart=health_monitor
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target
