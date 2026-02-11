@@ -1,11 +1,10 @@
 [Unit]
-Description=Turn off toggle power GPIOs at boot
-After=gpiomem-group.service
+Description=Set the correct group ownership for /dev/gpiomem
+After=basic.target
 
 [Service]
 Type=oneshot
-ExecStart=initialize_gpios
-WorkingDirectory=/usr/local/bin
+ExecStart=/home/impish/initialize_gpiomem
 StandardOutput=inherit
 StandardError=inherit
 Restart=no
@@ -13,4 +12,3 @@ User=impish
 
 [Install]
 WantedBy=multi-user.target
-

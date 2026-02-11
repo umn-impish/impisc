@@ -23,6 +23,3 @@ dev = [
     "ruff",
     "pytest"
 ]
-
-[project.scripts]
-set-bias = "scripts:set_bias.main"
