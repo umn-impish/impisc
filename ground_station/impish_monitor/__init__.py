@@ -14,8 +14,8 @@ if TYPE_CHECKING:
     from mysql.connector.abstracts import MySQLConnectionAbstract
 
 
-DB_NAME = "impish_health"
-TABLE_NAME = "health"
+DB_NAME = "impish"
+HEALTH_TABLE_NAME = "health"
 ADDR = ("10.42.0.1", 12002)
 
 
@@ -28,7 +28,7 @@ def connect(
     )
 
 
-def _columns() -> OrderedDict[str, str]:
+def _health_columns() -> OrderedDict[str, str]:
     """The column names mapped to their data type."""
     fields: list[str] = [f[0] for f in HealthPacket._fields_]
     power_names: list[str] = [
@@ -51,4 +51,4 @@ def _columns() -> OrderedDict[str, str]:
     )
 
 
-COLUMNS: OrderedDict[str, str] = _columns()
+HEALTH_COLUMNS: OrderedDict[str, str] = _health_columns()

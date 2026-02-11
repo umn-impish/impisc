@@ -13,12 +13,12 @@ from mysql.connector.abstracts import MySQLConnectionAbstract
 
 from impisc import logging
 from impisc.packets import HealthPacket
-from impish_monitor import TABLE_NAME, ADDR, COLUMNS, connect  # pyright: ignore[reportImplicitRelativeImport]
+from impish_monitor import HEALTH_TABLE_NAME, ADDR, HEALTH_COLUMNS, connect  # pyright: ignore[reportImplicitRelativeImport]
 
 
 def unpack_power_byte(byte: int) -> dict[str, int]:
     """Map the power status bits."""
-    power_cols: list[str] = [c for c in COLUMNS.keys() if c.startswith("power_")]
+    power_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("power_")]
     power_cols.remove("power_line_statuses")
     bools: dict[str, int] = {c: int((byte >> i) & 1) for i, c in enumerate(reversed(power_cols))}
     return bools
@@ -26,7 +26,7 @@ def unpack_power_byte(byte: int) -> dict[str, int]:
 
 def unpack_missing_bytes(bytes: int) -> dict[str, int]:
     """Map the missing status bits."""
-    missing_cols: list[str] = [c for c in COLUMNS.keys() if c.startswith("missing_")]
+    missing_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("missing_")]
     missing_cols.remove("missing_fields")
     bools: dict[str, int] = {c: int((bytes >> i) & 1) for i, c in enumerate(reversed(missing_cols))}
     return bools
@@ -43,7 +43,7 @@ def insert_packet(
     cols = {**cols, **unpack_power_byte(getattr(data, "power_line_statuses"))}
     cols = {**cols, **unpack_missing_bytes(getattr(data, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"
-    header = f"INSERT INTO {TABLE_NAME}"
+    header = f"INSERT INTO {HEALTH_TABLE_NAME}"
     sql = f"{header} ({', '.join(cols.keys())}) VALUES ({fmt})"
     val = tuple(cols.values())
     logging.log_info(f"Executing: {header}")
