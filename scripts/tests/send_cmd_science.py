@@ -1,5 +1,6 @@
 import json
 import time
+import ports
 import socket
 
 fc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -7,13 +8,18 @@ fc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 command = {
     "version": 1,
     "cmd": "set_mode",
-    "mode": "science"
+    "mode": "science",
+    "data_save": True
 }
 
 msg_bytes = json.dumps(command).encode('utf-8')
-daq_box_addr = ("192.168.0.2", 8080)
-fc_sock.sendto(msg_bytes, daq_box_addr)
+receiver = ("localhost", ports.debug_port)
+fc_sock.sendto(msg_bytes, receiver)
 time.sleep(0.2)
 
-# fc_sock.settimeout(2.0)
-# ack, _ = fc_sock.recfrom(1024)
+fc_sock.settimeout(10.0)
+try:
+    ack, _ = fc_sock.recvfrom(1024)
+    print("ACK:", ack.decode())
+except socket.timeout:
+    print("No ACK received")

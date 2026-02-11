@@ -1,5 +1,4 @@
 # execute with python -m scripts.tests.test_daq_control
-import sys
 import time
 import logging
 import datetime

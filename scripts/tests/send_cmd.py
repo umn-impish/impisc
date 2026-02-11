@@ -1,14 +1,19 @@
+import sys
 import json
+import ports
 import socket
 
-# for debug
+# for debug and maybe quicklook ?
 
-fc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+# data_mode = sys.argv[1] if len(sys.argv) > 1 else "debug"
 
 command = {
     "version": 1,
     "cmd": "set_mode",
     "mode": "debug",
+    "data_save": True,
     "params": {
         "n_waveforms": 3000,
         "n_spectra": 320
@@ -16,8 +21,13 @@ command = {
 }
 
 msg_bytes = json.dumps(command).encode('utf-8')
-receiver = ("192.168.0.2", 8080)
-fc_sock.sendto(msg_bytes, receiver)
+receiver = ("localhost", ports.debug_port)
+sock.sendto(msg_bytes, receiver)
+print(f"Sent command to {receiver}: {command}")
 
-# fc_sock.settimeout(2.0)
-# ack, _ = fc_sock.recfrom(1024)
+sock.settimeout(10.0)
+try:
+    ack, _ = sock.recvfrom(1024)
+    print("ACK:", ack.decode())
+except socket.timeout:
+    print("No ACK received")
