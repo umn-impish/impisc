@@ -64,6 +64,6 @@ def send_udp_data(data_array: np.ndarray, tag: str="spectra"):
 
         try:
             sock.sendto(full_packet, science_capture_addr)
-            time.sleep(0.001)
+            time.sleep(0.00005)
         except Exception as e:
             logging.warning(f"UDP send failed on chunk {chunk_idx}/{total_chunks}, transfer id {transfer_id}: {e}")

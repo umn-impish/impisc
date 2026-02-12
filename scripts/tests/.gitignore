@@ -10,3 +10,4 @@ config/waveform_config.json
 cmd_listener.py
 test_daq_control.py
 config/active.json
+daq_control_cont.py

@@ -2,5 +2,5 @@
 
 source variables.env
 udpcapture --port $LOCAL_SCIENCE_FWD_PORT --base-filename '/data/science/impish_science' \
-	--file-lifetime 300 --forward-addrs $GROUNDSTATION_IP -f 127.0.0.1:12346\
+	--file-lifetime 300 -f 127.0.0.1:12346\
 	--post-process-cmd 'xz $out_file'

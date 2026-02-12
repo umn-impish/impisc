@@ -1,0 +1,42 @@
+#!/python-venv/bin/python
+
+import os
+import json
+import socket
+
+
+from impisc import logging
+from impisc.packets import QuicklookPacket
+
+
+my_port = int(os.getenv("QUICKLOOK_MONITOR_PORT"))
+send_port = int(os.getenv("LOCAL_QUICKLOOK_FWD_PORT"))
+
+def main():
+    
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", my_port))
+    
+    while True:
+        packet = QuicklookPacket()
+        
+        data, _ = sock.recvfrom(8192)
+        msg = json.loads(data.decode())
+
+        det1_fields = [
+        "det1_ebin1", "det1_ebin1_counts", "det1_ebin1_cps",
+        "det1_ebin2", "det1_ebin2_counts", "det1_ebin2_cps",
+        "det1_ebin3", "det1_ebin3_counts", "det1_ebin3_cps",
+        "det1_ebin4", "det1_ebin4_counts", "det1_ebin4_cps",
+        "unix_timestamp"
+            ]
+
+        for field in det1_fields:
+            if field in msg:
+                setattr(packet, field, msg[field])
+
+        sock.sendto(bytes(packet), ("localhost", send_port))
+
+
+if __name__ == "__main__":
+    main()

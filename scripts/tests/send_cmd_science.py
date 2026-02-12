@@ -13,7 +13,7 @@ command = {
 }
 
 msg_bytes = json.dumps(command).encode('utf-8')
-receiver = ("localhost", ports.science_udp_port)
+receiver = ("localhost", ports.debug_port)
 fc_sock.sendto(msg_bytes, receiver)
 time.sleep(0.2)
 

@@ -48,8 +48,10 @@ class DAQstate():
 class DataBuffer():
     def __init__(self):
         self.spectra = []
+        self.spectra_times = []
         self.quicklook_spectra = []
         self.waveforms = []
+        self.waveforms_times = []
         self.save_requested = False
         self.last_save = time.time()
 
@@ -60,7 +62,7 @@ def load_active_config() -> dict:
         return json.load(f)
 
 def enter_safe(dbi, state, reason="unknown"):
-    logging.info(f"Entering safe mode, reason: {reason}")
+    logging.info(f"Entering safe mode, reason: {reason} \n")
     try:
         dbi.flush()
         dbi.send(STOP, expect_handshake=False)
@@ -109,7 +111,7 @@ def start_acquisition(dbi: DaqBoxInterface, state, data_mode: str):
         dbi.recalibrate_baseline()
 
     dbi.send(START)
-    time.sleep(1)
+    time.sleep(0.001)
     dbi.flush(128 if data_mode == "waveform" else 64)
 
 ######################################## Data saving ########################################
@@ -127,43 +129,56 @@ def recv_once(dbi, state, buffer):
         decoded = parse_waveform_packet(data)
         if decoded['channel'] == 0:
             buffer.waveforms.append(decoded["data"])
+            buffer.waveforms_times.append(time.time())
+
     else:
         try:
             spec = parse_spectrum_packet(data)
             buffer.spectra.append(spec[0])
-            buffer.quicklook_spectra.append(spec[0]) if state.mode == Mode.SCIENCE else None
+            buffer.quicklook_spectra.append(spec[0])
+            buffer.spectra_times.append(time.time())
         except Exception:
             pass
 
-    # logging.info(f"Buffer sizes: {len(buffer.waveforms)} waveforms, {len(buffer.quicklook_spectra)} spectra")
 
 ##################################### Saving and UDP #####################################
+def format_timerange(t_start, t_end):
+    dt_start = datetime.datetime.fromtimestamp(t_start).strftime("%Y%m%d_%H%M%S")
+    dt_end = datetime.datetime.fromtimestamp(t_end).strftime("%H%M%S")
+    
+    return f"{dt_start}_{dt_end}"
 
 def save_science(buffer: DataBuffer):
     if not buffer.waveforms and not buffer.spectra:
         return
 
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+    # ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # if buffer.spectra_times:
+    #     t_start = buffer.spectra_times[0]
+    #     t_end = buffer.spectra_times[-1]
+    #     ts_s = format_timerange(t_start, t_end)
+
+    # if buffer.waveforms_times:
+    #     t_start = buffer.waveforms_times[0]
+    #     t_end = buffer.waveforms_times[-1]
+    #     ts_w = format_timerange(t_start, t_end)
+
     if buffer.waveforms:
+        print(buffer.waveforms)
         arr = np.array(buffer.waveforms)
-        np.save(LOG_DIR / f'waveforms_{ts}.npy', arr)
-        with open(LOG_DIR/f'waveforms_{ts}.bin', 'wb') as f:
-            f.write(arr.tobytes())
-        np.savez_compressed(LOG_DIR / f'waveforms_{ts}.npz', arr)
+        print(arr)
+        udp_sender.send_udp_data(arr, "waveforms")
+        logging.info(f"Sent {len(buffer.waveforms)} waveforms via UDP \n")
         buffer.waveforms.clear()
 
     if buffer.spectra:
         arr = np.array(buffer.spectra)
-        np.save(LOG_DIR / f'spectra_{ts}.npy', arr)
-        with open(LOG_DIR/f'spectra_{ts}.bin', 'wb') as f:
-            f.write(arr.tobytes())
-        np.savez_compressed(LOG_DIR / f'spectra_{ts}.npz', arr)
+        udp_sender.send_udp_data(arr, "spectra")
+        logging.info(f"Sent {len(buffer.spectra)} spectra via UDP \n")
         buffer.spectra.clear()
 
     buffer.last_save = time.time()
     buffer.save_requested = False
-    logging.info("Science data saved as .npy and .bin \n")      
 
 def send_debug(buffer: DataBuffer):
     if buffer.waveforms:
@@ -220,11 +235,19 @@ def run_science(dbi, state, buffer, quicklook=None):
         for spectrum in buffer.quicklook_spectra:
             result = quicklook.push(spectrum)
             if result:
-                quicklook_cmd.send_quicklook(
-                    result['adc_ranges'],
-                    result['counts_per_range'].tolist(), 
-                    result['count_rate_per_sec'].tolist(), 
-                    result['num_seconds']
+                quicklook_cmd.send_quicklook_ch1(
+                    result['det1_ebin1'],
+                    result['det1_ebin2'],
+                    result['det1_ebin3'],
+                    result['det1_ebin4'],
+                    result['det1_ebin1_counts'],
+                    result['det1_ebin2_counts'],
+                    result['det1_ebin3_counts'],
+                    result['det1_ebin4_counts'],
+                    result['det1_ebin1_cps'],
+                    result['det1_ebin2_cps'],
+                    result['det1_ebin3_cps'],
+                    result['det1_ebin4_cps']
                 )
         buffer.quicklook_spectra.clear()
 

@@ -6,13 +6,25 @@ import socket
 addr = ("127.0.0.1", ports.quicklook_port)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-def send_quicklook(adc_ranges, counts_per_range, count_rate_per_sec, num_seconds:int):
+def send_quicklook_ch1(
+        det1_ebin1, det1_ebin2, det1_ebin3, det1_ebin4,
+        det1_ebin1_counts, det1_ebin2_counts, det1_ebin3_counts, det1_ebin4_counts,
+        det1_ebin1_cps, det1_ebin2_cps, det1_ebin3_cps, det1_ebin4_cps
+        ):
     msg = {
         "type": "quicklook",
-        "t_send": time.time(),
-        "num_seconds": num_seconds,
-        "adc_ranges": adc_ranges,
-        "counts_per_range": counts_per_range,
-        "count_rate_per_sec": count_rate_per_sec,
+        "unix_timestamp": time.time(),
+        "det1_ebin1": det1_ebin1,
+        "det1_ebin2": det1_ebin2,
+        "det1_ebin3": det1_ebin3,
+        "det1_ebin4": det1_ebin4,
+        "det1_ebin1_counts": det1_ebin1_counts,
+        "det1_ebin2_counts": det1_ebin2_counts,
+        "det1_ebin3_counts": det1_ebin3_counts,
+        "det1_ebin4_counts": det1_ebin4_counts,
+        "det1_ebin1_cps": det1_ebin1_cps,
+        "det1_ebin2_cps": det1_ebin2_cps,
+        "det1_ebin3_cps": det1_ebin3_cps,
+        "det1_ebin4_cps": det1_ebin4_cps,
     }
     sock.sendto(json.dumps(msg).encode(), addr)

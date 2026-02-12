@@ -45,6 +45,7 @@ class QuicklookAccumulator:
         spectra shape = (N, adc bins)
         """
         summed_spectrum = spectra.sum(axis=0)
+
         counts_per_range = np.zeros(len(self.adc_ranges), dtype=np.int64)
 
         logging.info(f"Computing counts per range for ADC ranges: {self.adc_ranges}")
@@ -57,9 +58,18 @@ class QuicklookAccumulator:
 
         count_rate_per_second = spectra_trimmed.reshape(num_seconds, self.fps, -1).sum(axis=(1, 2)) # count rate
 
+
         return {
-            "adc_ranges": self.adc_ranges,
-            "counts_per_range": counts_per_range,
-            "count_rate_per_sec": count_rate_per_second,
-            "num_seconds": num_seconds
+            "det1_ebin1": self.adc_ranges[0][1],
+            "det1_ebin2": self.adc_ranges[1][1],
+            "det1_ebin3": self.adc_ranges[2][1],
+            "det1_ebin4": self.adc_ranges[3][1],
+            "det1_ebin1_counts": int(counts_per_range[0]),
+            "det1_ebin2_counts": int(counts_per_range[1]),
+            "det1_ebin3_counts": int(counts_per_range[2]),
+            "det1_ebin4_counts": int(counts_per_range[3]),
+            "det1_ebin1_cps": int(count_rate_per_second[0]),
+            "det1_ebin2_cps": int(count_rate_per_second[1]),
+            "det1_ebin3_cps": int(count_rate_per_second[2]),
+            "det1_ebin4_cps": int(count_rate_per_second[3])
         }

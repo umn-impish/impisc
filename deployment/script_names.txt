@@ -9,4 +9,5 @@ set_bias
 set_pps
 set_rtc_time
 start_health_udpcapture
+start_science_udpcapture
 toggle_power
