@@ -1,2 +1,0 @@
-# TODO: update these!
-GROUND_STATION_ADDR = ("10.131.217.250", 15001)

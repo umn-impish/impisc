@@ -1,0 +1,47 @@
+#!/python-venv/bin/python
+"""
+Constantly listen for data sent by IMPISH.
+This is meant to mock the gondola computer.
+"""
+
+
+import argparse
+import syslog
+import time
+
+from threading import Thread
+from typing import Never
+
+from relay import relay
+
+
+def main() -> Never:
+    """Endlessly loop and listen for data from IMPISH and
+    forward to the specified address.
+    """
+    parser = argparse.ArgumentParser()
+    _ = parser.add_argument("--port", type=int, help="the port to bind the relay to")
+    _ = parser.add_argument("--fwd-addr", type=str, help="the address to forward to (xxx.xxx.xxx.xxx:port)")
+    _ = parser.add_argument("--max-len", default=10000, type=int, help="maximum length of the buffer")
+    _ = parser.add_argument("--log-dir", default="./", type=str, help="directory to store the logs")
+    _ = parser.add_argument("--delay", default=10, type=float, help="delay between forward attempts")
+    arg = parser.parse_args()
+    RELAY_PORT = arg.port
+    a = arg.fwd_addr.split(":")
+    FWD_ADDR = (a[0], int(a[1]))
+    syslog.syslog(syslog.LOG_INFO, f"Relay port: {RELAY_PORT}; forwarding traffic to {arg.fwd_addr}")
+    syslog.syslog(syslog.LOG_INFO, f"Max buffer size {arg.max_len}; log directory {arg.log_dir}")
+    buffer: relay.Buffer = relay.Buffer(maxlen=arg.max_len)
+    recv_thread: Thread = Thread(
+        target=relay.receive_from_impish,
+        args=[buffer, RELAY_PORT],
+        daemon=True
+    )
+    recv_thread.start()
+    while True:
+        relay.tcp_forward_to(buffer, FWD_ADDR)
+        time.sleep(arg.delay)
+
+    
+if __name__ == "__main__":
+    main()
