@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ "$#" -lt 2 ]; then
+    echo "Provide at least two parameters: --port, --forward-addr"
+fi  
+
+impish_relay --port $1 --fwd-addr $2
