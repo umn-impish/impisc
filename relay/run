@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source .venv/bin/activate
+python -m relay.main 15000 :15001
