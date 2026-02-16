@@ -1,4 +1,0 @@
-#!/bin/bash
-
-source .venv/bin/activate
-python -m sender.main 14999 10.42.0.204:15000
