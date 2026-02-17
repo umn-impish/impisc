@@ -1,13 +1,13 @@
-import sys
+import os
 import json
 import ports
 import socket
 
-# for debug and maybe quicklook ?
+# for debug and maybe quicklook
 
+my_port = int(os.getenv("SCIENCE_CMD_PORT"))
+# my_port = ports.cmd_port
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-# data_mode = sys.argv[1] if len(sys.argv) > 1 else "debug"
 
 command = {
     "version": 1,
@@ -21,7 +21,7 @@ command = {
 }
 
 msg_bytes = json.dumps(command).encode('utf-8')
-receiver = ("localhost", ports.debug_port)
+receiver = ("localhost", my_port)
 sock.sendto(msg_bytes, receiver)
 print(f"Sent command to {receiver}: {command}")
 

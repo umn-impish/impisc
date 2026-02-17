@@ -1,9 +1,12 @@
+import os
 import time
 import json
 import ports
 import socket
 
-addr = ("127.0.0.1", ports.quicklook_port)
+my_port = int(os.getenv("QUICKLOOK_MONITOR_PORT"))
+# my_port = ports.quicklook_port
+addr = ("127.0.0.1", my_port)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 def send_quicklook_ch1(

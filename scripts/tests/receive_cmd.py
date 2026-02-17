@@ -1,11 +1,14 @@
+import os
 import json
 import ports
 import socket
 import logging
 
 IP = "0.0.0.0"
+my_port = int(os.getenv("SCIENCE_CMD_PORT"))
+# my_port = ports.cmd_port
 
-def setup_command_socket(port=ports.debug_port):
+def setup_command_socket(port=my_port):
     logging.info(f"Binding to {IP}:{port}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((IP, port))

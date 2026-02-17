@@ -1,8 +1,11 @@
+import os
 import json
 import time
 import ports
 import socket
 
+my_port = int(os.getenv("SCIENCE_CMD_PORT"))
+# my_port = ports.cmd_port
 fc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 command = {
@@ -13,7 +16,7 @@ command = {
 }
 
 msg_bytes = json.dumps(command).encode('utf-8')
-receiver = ("localhost", ports.debug_port)
+receiver = ("localhost", my_port)
 fc_sock.sendto(msg_bytes, receiver)
 time.sleep(0.2)
 

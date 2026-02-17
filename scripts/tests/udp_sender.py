@@ -1,4 +1,5 @@
-# data packet sender
+# science and debug data packet sender
+import os
 import math
 import time
 import ports
@@ -8,7 +9,10 @@ import logging
 import numpy as np
 from protocol import header_format
 
-science_capture_addr = ("127.0.0.1", ports.science_udp_port) # put needed destination instead of localhost
+print('LOCAL_SCIENCE_FWD_PORT', os.getenv("LOCAL_SCIENCE_FWD_PORT"))
+send_port = int(os.getenv("LOCAL_SCIENCE_FWD_PORT"))
+# send_port = ports.science_udp_port
+science_capture_addr = ("localhost", send_port)
 max_chunk_size = 1200
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
