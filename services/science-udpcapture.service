@@ -5,7 +5,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=start_quicklook_udpcapture
+ExecStart=start_science_udpcapture
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure
