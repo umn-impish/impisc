@@ -4,4 +4,3 @@ health-udpcapture.service
 quicklook-udpcapture.service
 science-udpcapture.service
 system-health.service
-system-science.service
