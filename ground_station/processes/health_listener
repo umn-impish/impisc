@@ -1,0 +1,73 @@
+#!/python-venv/bin/python
+"""
+Listens for health packets from the IMPISH flight computer.
+The received packets are put into a MySQL database to be read
+and displayed by Grafana.
+"""
+
+import socket
+import time
+
+from mysql.connector.pooling import PooledMySQLConnection
+from mysql.connector.abstracts import MySQLConnectionAbstract
+
+from impisc import logging
+from impisc.packets import HealthPacket
+from impish_monitor import HEALTH_TABLE_NAME, ADDR, HEALTH_COLUMNS, connect  # pyright: ignore[reportImplicitRelativeImport]
+
+
+def unpack_power_byte(byte: int) -> dict[str, int]:
+    """Map the power status bits."""
+    power_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("power_")]
+    power_cols.remove("power_line_statuses")
+    bools: dict[str, int] = {c: int((byte >> i) & 1) for i, c in enumerate(reversed(power_cols))}
+    return bools
+
+
+def unpack_missing_bytes(bytes: int) -> dict[str, int]:
+    """Map the missing status bits."""
+    missing_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("missing_")]
+    missing_cols.remove("missing_fields")
+    bools: dict[str, int] = {c: int((bytes >> i) & 1) for i, c in enumerate(reversed(missing_cols))}
+    return bools
+
+
+def insert_packet(
+    db: PooledMySQLConnection | MySQLConnectionAbstract,
+    data: HealthPacket
+):
+    """Insert the health packet into the database."""
+    # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to packet
+    cols: dict[str, int] = {"gs_unix_timestamp": int(time.time())}
+    cols = {**cols, **{f[0]: getattr(data, f[0]) for f in data._fields_ if "extra" not in f}}
+    cols = {**cols, **unpack_power_byte(getattr(data, "power_line_statuses"))}
+    cols = {**cols, **unpack_missing_bytes(getattr(data, "missing_fields"))}
+    fmt = "%s, " * (len(cols) - 1) + "%s"
+    header = f"INSERT INTO {HEALTH_TABLE_NAME}"
+    sql = f"{header} ({', '.join(cols.keys())}) VALUES ({fmt})"
+    val = tuple(cols.values())
+    logging.log_info(f"Executing: {header}")
+    cursor = db.cursor()
+    _ = cursor.execute(sql, val)
+    _ = db.commit()
+
+
+def main():
+    logging.log_info("Opening DB connection")
+    db = connect()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(ADDR)
+    try:
+        while True:
+            data, _ = sock.recvfrom(1024)
+            if len(data) > 0:  # For some reason we sometimes get empty packets?
+                packet = HealthPacket.from_buffer_copy(data)
+                insert_packet(db, packet)
+    finally:
+        logging.log_info("Closing DB connection")
+        sock.close()
+        db.close()
+
+
+if __name__ == "__main__":
+    main()

@@ -4,19 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = [
-    'scripts',
-    'impisc',
-    'impisc.et_daqbox',
-    'impisc.i2c',
-    'impisc.i2c.devices',
+    "impish_monitor",
 ]
 
 [project]
 version = "0"
-name = "impisc"
+name = "impish_monitor"
 dependencies = [
-    "psutil>=7.2.2",
-    "smbus2",
+    "mysql-connector-python"
 ]
 
 [project.optional-dependencies]

@@ -8,7 +8,10 @@ import socket
 import subprocess
 import threading
 import time
+from functools import partial
 from typing import Any, Callable, Literal, TypeAlias
+
+import psutil
 
 from impisc import logging
 from impisc.packets import HealthPacket
@@ -60,6 +63,12 @@ def main():
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("cpu_temperature", measure_cpu_temp),
+        ("cpu0_usage", partial(measure_cpu_usage, 0)),
+        ("cpu1_usage", partial(measure_cpu_usage, 1)),
+        ("cpu2_usage", partial(measure_cpu_usage, 2)),
+        ("cpu3_usage", partial(measure_cpu_usage, 3)),
+        ("ram_usage", measure_ram_usage),
+        ("swap_usage", measure_swap_usage),
         #                  Lol
         ("unix_timestamp", lambda: (False, int(time.time()))),
         ("extra", fill_extra),
@@ -79,6 +88,7 @@ def main():
             threads[field] = thread
             thread.start()
         for field, thread in threads.items():
+            logging.log_debug(f"joining thread {thread.name}")
             thread.join(timeout=TIMEOUTS[field])
             if thread.is_alive():
                 logging.log_warning(f"thread {thread.name} did not finish")
@@ -143,9 +153,7 @@ def measure_bubba_output() -> tuple[bool, int]:
     try:
         adc = ads112c04.ADS112C04(0, 0x40)
         adc.continuous_mode = False
-        conversion: float = adc.read_voltage(
-            pin_number="01", force_conversion=True
-        )
+        conversion: float = adc.read_voltage(pin_number="01", force_conversion=True)
         adc.power_down()
 
         # Ignore noise when powered off
@@ -170,7 +178,7 @@ def measure_toggle_byte() -> tuple[bool, int]:
         return False, status_byte
     except Exception as e:
         logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
-    return True, 12345
+    return True, 0
 
 
 def measure_bubba_wiper() -> tuple[bool, int]:
@@ -232,6 +240,39 @@ def measure_cpu_temp() -> tuple[bool, int]:
     except Exception as e:
         logging.log_error(f"Problem getting CPU temp: {type(e)} --> {e.args}")
         return True, 0
+
+
+def measure_cpu_usage(core: Literal[0, 1, 2, 3]) -> tuple[bool, int]:
+    """Returns CPU usage in centi-percent."""
+    try:
+        return False, int(psutil.cpu_percent(percpu=True)[core] * 100)
+    except Exception as e:
+        logging.log_error(f"Problem getting CPU usage: {type(e)} --> {e.args}")
+        return True, -1
+
+
+def measure_ram_usage() -> tuple[bool, int]:
+    """Returns RAM usage in centi-percent."""
+    try:
+        percent_used: float = 100 - (
+            psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
+        )
+        return False, int(percent_used * 100)
+    except Exception as e:
+        logging.log_error(f"Problem getting RAM usage: {type(e)} --> {e.args}")
+        return True, -1
+
+
+def measure_swap_usage() -> tuple[bool, int]:
+    """Returns SWAP usage in centi-percent."""
+    try:
+        percent_used: float = 100 - (
+            psutil.swap_memory().available * 100 / psutil.virtual_memory().total
+        )
+        return False, int(percent_used * 100)
+    except Exception as e:
+        logging.log_error(f"Problem getting SWAP usage: {type(e)} --> {e.args}")
+        return True, -1
 
 
 def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:

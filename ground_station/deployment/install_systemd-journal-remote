@@ -1,0 +1,17 @@
+#!/bin/bash
+
+source /usr/local/bin/variables.env
+
+sudo apt install systemd-journal-remote
+sudo usermod -aG systemd-journal-remote impish
+
+sudo mkdir -p $REMOTE_JOURNAL_DIR
+sudo chown systemd-journal-remote:systemd-journal-remote $REMOTE_JOURNAL_DIR
+sudo chmod g+w $REMOTE_JOURNAL_DIR
+
+sudo cp ../remote_journal/systemd-journal-remote.service /etc/systemd/system
+sudo cp ../remote_journal/systemd-journal-remote.socket $REMOTE_JOURNAL_SOCKET
+
+sudo systemctl daemon-reload
+sudo systemctl enable systemd-journal-remote.service
+sudo systemctl start systemd-journal-remote.service
