@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Disable the journal service,
+# remove the old journal directory,
+# and link it to the one in /data/journal.
+# We don't want the OS disk to have any writes to it once we are done with deployment.
+
+sudo systemctl disable systemd-journald
+
+mkdir -p /data/journal
+# Anyone can read/write/view contents
+sudo chmod 0777 /data/journal
+
+sudo rm -rf /var/log/journal
+sudo ln -s /data/journal /var/log/journal
+
+# Update the journald.conf file
+# - do not log debug messages
+# - do not "seal" the journal (don't care)
+# - limit use to 1 gibibyte
+sudo cp journald.conf /etc/systemd/journald.conf
+
+sudo systemctl daemon-reload
+sudo systemctl enable systemd-journald
+sudo systemctl restart systemd-journald
+sudo journalctl --flush
