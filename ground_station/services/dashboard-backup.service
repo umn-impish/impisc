@@ -1,0 +1,16 @@
+[Unit]
+Description=Download the Grafana dashboard JSON files for backup
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=download_dashboards
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

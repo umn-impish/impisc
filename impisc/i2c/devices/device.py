@@ -14,7 +14,6 @@ from typing import Literal
 import smbus2
 
 
-
 def int_to_twos_complement(value: int, bits: int) -> int:
     """Compute the 2's complement of int value.
     From: https://stackoverflow.com/a/9147327

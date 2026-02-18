@@ -1,0 +1,63 @@
+#!/python-venv/bin/python
+"""
+Listen for journal data sent from the IMPISH flight computer.
+The incoming bytes are output from the journalctl --output=export
+that have been LZMA-compressed.
+"""
+
+import lzma
+import os
+import socket
+import time
+
+from pathlib import Path
+from struct import unpack
+
+from impisc import logging
+
+
+RECV_ADDR: tuple[str, int] = ("", int(os.getenv("JOURNAL_MONITOR_PORT")))  # pyright: ignore[reportArgumentType]
+SEND_ADDR: tuple[str, int] = ("", int(os.getenv("LOCAL_JOURNAL_FWD_PORT")))  # pyright: ignore[reportArgumentType]
+SEND_SOCK_NAME = os.getenv(str("REMOTE_JOURNAL_SOCKET"))
+REMOTE_JOURNAL_DIR = Path(str(os.getenv("REMOTE_JOURNAL_DIR")))
+
+
+def write_file(data: bytes) -> str:
+    """Write the journal data to an xz file. data should be bytes
+    representing an xz-compressed journal file. Returns the full file path.
+    """
+    path: Path = REMOTE_JOURNAL_DIR / f"{int(time.time())}.journal.xz"
+    with open(path, "wb") as outfile:
+        written: int = outfile.write(data)
+    logging.log_info(f"Archiving journal data to {path}")
+    assert len(data) == written, "Number bytes written differs from number received."
+    return str(path)
+
+
+# follows: https://stackoverflow.com/questions/42459499/what-is-the-proper-way-of-sending-a-large-amount-of-data-over-sockets-in-python
+def main():
+    """Indefinitely listen for journal packets from IMPISH."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as recv_sock:
+        recv_sock.bind(RECV_ADDR)
+        recv_sock.listen(1)
+        logging.log_debug(f"My port: {RECV_ADDR[1]}")
+        while True:
+            connection, addr = recv_sock.accept()
+            buff = connection.recv(8)
+            (length,) = unpack(">Q", buff)
+            data = b""
+            while len(data) < length:
+                to_read = length - len(data)
+                data += connection.recv(4096 if to_read > 4096 else to_read)
+            connection.sendall(b"\00")  # send ack
+            logging.log_info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+            _ = write_file(data)
+            uncompressed_data = lzma.decompress(data, format=lzma.FORMAT_XZ)
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as send_sock:
+                send_sock.connect(SEND_ADDR)
+                logging.log_info(f"Sending {len(uncompressed_data)} bytes to port {SEND_ADDR[1]}")
+                _ = send_sock.send(uncompressed_data)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Permanently erases the remote journal archives (.xz files from IMPISH)
+# stored in $REMOTE_JOURNAL_DIR
+
+source variables.env
+sudo rm $REMOTE_JOURNAL_DIR/*.journal.xz

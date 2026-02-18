@@ -1,0 +1,66 @@
+#!/python-venv/bin/python
+"""
+One shot script for writing a journal to a file and the ground station.
+We don't use UPD since these packets can be larger than 65kB.
+"""
+
+import argparse
+import datetime
+import lzma
+import os
+import socket
+import subprocess
+
+from pathlib import Path
+from struct import pack
+
+from impisc import logging
+
+
+# TODO: update IP address once that's finalized
+SEND_ADDR = ("10.42.0.1", int(os.getenv("LOCAL_JOURNAL_FWD_PORT")))
+ARCHIVE_DIR: Path = Path(os.getenv("JOURNAL_ARCHIVE_DIR"))
+ARCHIVE_DIR.mkdir(exist_ok=True)
+# Use the same archive format as udpcapture
+FILENAME_FMT = "impish_journal_%Y-%j-%H-%M-%S_0.journal.xz"
+
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    _ = parser.add_argument("previous", type=int, help="the previous number of seconds' worth of journal to log")
+    _ = parser.add_argument("-t", "--timeout", type=int, default=30, help="timeout, in seconds, for journalctl command")
+    arg = parser.parse_args()
+    # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # sock.bind(("", MY_PORT))
+    cmd: list[str] = ["sudo", "journalctl", "--since", f"-{arg.previous}s", "--output=export"]  # pyright: ignore[reportAny]
+    res = subprocess.run(cmd, capture_output=True, timeout=arg.timeout)
+    uncompressed_data = res.stdout
+    logging.log_info(f"Logging journal: {' '.join(cmd)}")
+    if res.stderr:
+        logging.log_error(
+            f"Problem reading system journal: {res.stderr.decode('utf-8')}."
+        )
+    compressed_data: bytes = lzma.compress(
+        uncompressed_data,
+        format=lzma.FORMAT_XZ,
+        check=lzma.CHECK_CRC64
+    )
+    out_path = ARCHIVE_DIR / datetime.datetime.now().strftime(FILENAME_FMT)
+    with open(out_path, "wb") as outfile:
+        logging.log_info(f"Writing journal archive to {out_path}")
+        outfile.write(compressed_data)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as send_sock:
+        # _ = sock.sendto(compressed_data, SEND_ADDR)
+        logging.log_info(f"Journal -{arg.previous}s compressed from {len(uncompressed_data)} -> {len(compressed_data)} ({len(compressed_data)/len(uncompressed_data)*100:0.1f}%) bytes")
+        logging.log_info(f"Sending {len(compressed_data)} bytes to {SEND_ADDR}")
+        send_sock.connect(SEND_ADDR)
+        length = pack(">Q", len(compressed_data))
+        send_sock.sendall(length)
+        send_sock.sendall(compressed_data)
+        ack = send_sock.recv(1)
+        logging.log_info(f"Received ack from {SEND_ADDR[0]}:{SEND_ADDR[1]} {ack}")
+
+
+if __name__ == "__main__":
+    main()
