@@ -10,3 +10,8 @@ packages = [
 [project]
 version = "0"
 name = "relay"
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+]
