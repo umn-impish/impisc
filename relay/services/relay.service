@@ -1,5 +1,5 @@
 [Unit]
-Description=Relay the health packets from IMPISH to the ground station.
+Description=Relay all packets from IMPISH to the ground station.
 After=network.target
 StartLimitIntervalSec=0
 
@@ -8,7 +8,7 @@ Type=simple
 WorkingDirectory=/usr/local/bin
 EnvironmentFile=/home/relay/fwd.env
 EnvironmentFile=/usr/local/bin/variables.env
-ExecStart=impish_relay --port ${RELAY_PORT} --fwd-addr ${GROUND_STATION_IP}:${HEALTH_FWD_PORT} --delay 2
+ExecStart=impish_relay --port ${RELAY_PORT} --fwd-addr ${GROUND_STATION_IP}:${GROUND_STATION_PORT} --delay 30
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure
