@@ -8,6 +8,8 @@ and displayed by Grafana.
 import socket
 import time
 
+from struct import unpack
+
 from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
 
@@ -55,11 +57,19 @@ def insert_packet(
 def main():
     logging.log_info("Opening DB connection")
     db = connect()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(ADDR)
+    sock.listen(1)
     try:
         while True:
-            data, _ = sock.recvfrom(1024)
+            connection, addr = sock.accept()
+            buff = connection.recv(8)
+            (length,) = unpack(">Q", buff)
+            data = b""
+            while len(data) < length:
+                to_read = length - len(data)
+                data += connection.recv(4096 if to_read > 4096 else to_read)
+            assert length == len(data)
             if len(data) > 0:  # For some reason we sometimes get empty packets?
                 packet = HealthPacket.from_buffer_copy(data)
                 insert_packet(db, packet)

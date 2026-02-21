@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools >= 61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "relay",
+]
+
+[project]
+version = "0"
+name = "relay"
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+]
