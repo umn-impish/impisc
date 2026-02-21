@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Disable the swap file for the Pi
+
+sudo mkdir -p /etc/rpi/swap.conf.d/
+sudo tee /etc/rpi/swap.conf.d/90-disable-swap.conf > /dev/null <<EOF
+[Main]
+Mechanism=none
+EOF
