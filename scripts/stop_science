@@ -1,0 +1,8 @@
+#!/bin/bash
+
+systemctl stop nominal-science.service
+
+chans="1 2 3 4 bias daqbox"
+for ch in $chans; do
+    toggle_power $ch off
+done

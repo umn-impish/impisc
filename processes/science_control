@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+import argparse
+import ctypes
+import time
+import socket
+import os
+import subprocess
+from impisc.et_daqbox import daq_box_api as dba
+from impisc import packets
+
+
+# DAQBOX framerate
+FRAMERATE = 32
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Configure DAQBOX for science data acquisition and begin forwarding packets to "
+            "a UDP endpoint, specified by the destination_port. A configuration file name must be passed "
+            "as an argument."
+        )
+    )
+    parser.add_argument(
+        "-p", "--destination_port",
+        required=True,
+        help="Destination UDP port to forward timestamps and spectrum packets",
+        type=int,
+    )
+    parser.add_argument(
+        "-c", "--config_file",
+        required=True,
+        help="Configuration file path for DAQBOX config",
+        type=str,
+    )
+    return parser.parse_args()
+
+
+def await_pps():
+    PPS_PIN = 29
+    res = subprocess.run(["detect-edge", f"{PPS_PIN}"])
+    if res.returncode != 0:
+        raise ValueError("Cannot detect PPS on requested pin")
+
+
+def init_daqbox(config_file: str) -> dba.DaqBoxInterface:
+    config = dba.DaqBoxConfig.from_file(config_file)
+    # Always use spectrum mode for science data
+    config.acquisition_mode = 'spectrum'
+
+    iface = dba.DaqBoxInterface()
+    iface.send(config.to_packet(), expect_handshake=True)
+    iface.recalibrate_baseline()
+    # Wait 10s after recalibrating the baseline
+    time.sleep(10)
+    return iface
+
+
+def main():
+    args = parse_args()
+    daqbox = init_daqbox(args.config_file)
+
+    # Start up a UDP socket for forwarding data
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    await_pps()
+
+    destination: tuple[str, int] = ("localhost", int(args.destination_port))
+    timestamp = int(time.time())
+    daqbox.send(dba.START, expect_handshake=True)
+
+    # Loop forever, forwarding spectrum packets and timestamps
+    packet_counter = 0
+    while True:
+        if packet_counter == 0:
+            # A full second has passed, or we are
+            # awaiting data acquisition start
+            timestamp += 1
+            sock.sendto(ctypes.c_uint32(timestamp), destination)
+        packet = daqbox.recv()
+        sock.sendto(packet, destination)
+        packet_counter = (packet_counter + 1) % FRAMERATE
+        
+
+if __name__ == '__main__':
+    main()

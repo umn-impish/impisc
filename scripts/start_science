@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set_science_bias
+power_on_science
+setup_daqbox_network enp1s0
+sudo systemctl start nominal-science.service

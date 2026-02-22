@@ -1,4 +1,6 @@
 gpio-init.service
 gpiomem-group.service
-system-health.service
 health-udpcapture.service
+nominal-science.service
+science-udpcapture.service
+system-health.service

@@ -1,0 +1,16 @@
+[Unit]
+Description=Send health packets to a port (udpcapture, probably)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=/usr/local/bin
+EnvironmentFile=/data/config/variables.env
+ExecStart=launch_science_control
+StandardOutput=inherit
+StandardError=journal
+User=impish
+
+[Install]
+WantedBy=multi-user.target

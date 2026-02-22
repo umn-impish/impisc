@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Size per second: 32x 8000B + 4B for the timestamp
+one_second=$((4 + 8000*32))
+# Enough to fit a chunk of science data
+max_size=$((one_second * 30))
+
+source /data/config/variables.env
+# Set the file lifetime as a failsafe
+udpcapture --port $RAW_SCIENCE_RECV_PORT --base-filename '/data/science/raw_science' \
+	--file-lifetime 3000\
+	--max-file-size $max_size\
+	--post-process-cmd 'xz $out_file'
