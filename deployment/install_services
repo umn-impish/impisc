@@ -12,8 +12,10 @@ services=$(cat service_names.txt)
 for s in $services; do
     sudo cp --preserve=mode "../services/$s" "/etc/systemd/system"
 done
-sudo cp '../services/variables.env' '/usr/local/bin'
-sudo cp '../services/variables.env' '/etc/systemd/system'
+
+# Put environment varibles inside of a central directory
+mkdir -p /data/config
+sudo cp '../services/variables.env' '/data/config/variables.env'
 
 sudo systemctl daemon-reload
 for s in $services; do
