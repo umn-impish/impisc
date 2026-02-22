@@ -1,5 +1,5 @@
 #!/bin/bash
 # Permanently erases the journal archives stored in $JOURNAL_ARCHIVE_DIR.
 
-source variables.env
+source /data/config/variables.env
 sudo rm $JOURNAL_ARCHIVE_DIR/*.journal.xz
