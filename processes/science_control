@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/python-venv/bin/python3
 import argparse
 import ctypes
 import time
@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def await_pps():
-    PPS_PIN = 29
+    PPS_PIN = 16
     res = subprocess.run(["detect-edge", f"{PPS_PIN}"])
     if res.returncode != 0:
         raise ValueError("Cannot detect PPS on requested pin")
