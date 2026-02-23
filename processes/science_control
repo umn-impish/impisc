@@ -7,6 +7,7 @@ import os
 import subprocess
 from impisc.et_daqbox import daq_box_api as dba
 from impisc import packets
+from impisc import logging
 
 
 # DAQBOX framerate
@@ -67,6 +68,8 @@ def main():
     destination: tuple[str, int] = ("localhost", int(args.destination_port))
     timestamp = int(time.time())
     daqbox.send(dba.START, expect_handshake=True)
+    # Set the daqbox receive socket to block for data
+    daqbox.sock.setblocking(True)
 
     # Loop forever, forwarding spectrum packets and timestamps
     packet_counter = 0
@@ -75,9 +78,14 @@ def main():
             # A full second has passed, or we are
             # awaiting data acquisition start
             timestamp += 1
-            sock.sendto(ctypes.c_uint32(timestamp), destination)
-        packet = daqbox.recv()
+            logging.log_info(f"new timestamp: {timestamp}")
+        packet = (
+            bytes(ctypes.c_uint32(timestamp)) +
+            bytes(ctypes.c_uint8(packet_counter)) +
+            daqbox.recv()
+        )
         sock.sendto(packet, destination)
+        # logging.log_info(f"counter is {packet_counter}")
         packet_counter = (packet_counter + 1) % FRAMERATE
         
 

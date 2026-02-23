@@ -3,8 +3,8 @@
 power_on_science
 # Wait 10s for power to stabilize
 sleep 10
-
 set_science_bias
+
 setup_daqbox_network enp1s0
 # Wait 10s for network to come up
 sleep 10
