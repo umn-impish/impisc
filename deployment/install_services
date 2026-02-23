@@ -8,10 +8,14 @@ for s in $processes; do
 done
 
 # Install all .service files and enable them
-services=$(cat service_names.txt)
+services=$(ls ../services/*.service)
 for s in $services; do
     sudo cp --preserve=mode "../services/$s" "/etc/systemd/system"
 done
+
+# Do this separately--don't start it immediately
+sudo cp --preserve=mode "../services/nominal-science.service" "/etc/systemd/system"
+sudo systemctl disable nominal-science
 
 # Put environment varibles inside of a central directory
 mkdir -p /data/config
@@ -19,5 +23,6 @@ sudo cp '../services/variables.env' '/data/config/variables.env'
 
 sudo systemctl daemon-reload
 for s in $services; do
+    sudo systemctl enable "$s"
     sudo systemctl restart "$s"
 done

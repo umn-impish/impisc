@@ -1,5 +1,5 @@
 gpio_toggles
-initialize_gpiomem
+initialize_gpio_ownership
 initialize_gpios
 journal_flush
 journal_send
