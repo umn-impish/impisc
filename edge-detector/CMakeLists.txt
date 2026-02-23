@@ -13,3 +13,5 @@ target_link_libraries(
     PUBLIC
         PkgConfig::GPIOD
 )
+
+install(TARGETS detect-edge DESTINATION /usr/local/bin)
