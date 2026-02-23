@@ -26,11 +26,11 @@ def unpack_power_byte(byte: int) -> dict[str, int]:
     return bools
 
 
-def unpack_missing_bytes(bytes: int) -> dict[str, int]:
+def unpack_missing_bytes(mbytes: int) -> dict[str, int]:
     """Map the missing status bits."""
     missing_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("missing_")]
     missing_cols.remove("missing_fields")
-    bools: dict[str, int] = {c: int((bytes >> i) & 1) for i, c in enumerate(reversed(missing_cols))}
+    bools: dict[str, int] = {c: int((mbytes >> i) & 1) for i, c in enumerate(missing_cols)}
     return bools
 
 
