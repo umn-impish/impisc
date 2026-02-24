@@ -33,15 +33,20 @@ def main() -> Never:
         "--max-len", default=10000, type=int, help="maximum length of the buffer"
     )
     _ = parser.add_argument(
+        "--archive-dir", default="./", type=str, help="directory to archive the received data"
+    )
+    _ = parser.add_argument(
         "--delay", default=10, type=float, help="delay between forward attempts"
     )
     arg = parser.parse_args()
     RELAY_PORT = arg.port
     a = arg.fwd_addr.split(":")
     FWD_ADDR = (a[0], int(a[1]))
+    ARCHIVE_DIR = Path(arg.archive_dir)
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     syslog.syslog(
         syslog.LOG_INFO,
-        f"Relay port: {RELAY_PORT} "
+        f"Relay port: {RELAY_PORT} [logging to {ARCHIVE_DIR}]"
         f"(max buffer size {arg.max_len}); forwarding traffic to {arg.fwd_addr}",
     )
     buffer: relay.Buffer = relay.Buffer(maxlen=arg.max_len)
