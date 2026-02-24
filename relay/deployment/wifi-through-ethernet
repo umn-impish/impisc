@@ -1,0 +1,4 @@
+#!/bin/bash
+# For a fresh install, Wired connection 1 is going to be what we want to share...
+
+sudo nmcli con modify "Wired connection 1" ipv4.method shared
