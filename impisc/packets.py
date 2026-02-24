@@ -53,3 +53,18 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # Missing fields: one bit per field missing, in order
         ("missing_fields", ctypes.c_uint16),
     ]
+
+
+NUM_QLOOK_BINS = 4
+class QuicklookEntry(ctypes.LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = (
+        ("counts", NUM_QLOOK_BINS * ctypes.c_uint32),
+    )
+
+
+class QuicklookPacket(ctypes.LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = (
+        ("channels", 4 * QuicklookEntry),
+    )

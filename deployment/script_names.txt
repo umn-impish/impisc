@@ -14,6 +14,8 @@ set_rtc_time
 set_science_bias
 setup_daqbox_network
 start_health_udpcapture
+start_quicklook
+start_quicklook_udpcapture
 start_science
 start_science_udpcapture
 stop_science

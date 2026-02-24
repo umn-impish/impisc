@@ -3,10 +3,8 @@ import argparse
 import ctypes
 import time
 import socket
-import os
 import subprocess
 from impisc.et_daqbox import daq_box_api as dba
-from impisc import packets
 from impisc import logging
 
 
@@ -23,13 +21,15 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
-        "-p", "--destination_port",
+        "-p",
+        "--destination_port",
         required=True,
         help="Destination UDP port to forward timestamps and spectrum packets",
         type=int,
     )
     parser.add_argument(
-        "-c", "--config_file",
+        "-c",
+        "--config_file",
         required=True,
         help="Configuration file path for DAQBOX config",
         type=str,
@@ -47,7 +47,7 @@ def await_pps():
 def init_daqbox(config_file: str) -> dba.DaqBoxInterface:
     config = dba.DaqBoxConfig.from_file(config_file)
     # Always use spectrum mode for science data
-    config.acquisition_mode = 'spectrum'
+    config.acquisition_mode = "spectrum"
 
     iface = dba.DaqBoxInterface()
     iface.send(config.to_packet(), expect_handshake=True)
@@ -78,16 +78,15 @@ def main():
             # A full second has passed, or we are
             # awaiting data acquisition start
             timestamp += 1
-            logging.log_info(f"new timestamp: {timestamp}")
         packet = (
-            bytes(ctypes.c_uint32(timestamp)) +
-            bytes(ctypes.c_uint8(packet_counter)) +
-            daqbox.recv()
+            bytes(ctypes.c_uint32(timestamp))
+            + bytes(ctypes.c_uint8(packet_counter))
+            + daqbox.recv()
         )
         sock.sendto(packet, destination)
         # logging.log_info(f"counter is {packet_counter}")
         packet_counter = (packet_counter + 1) % FRAMERATE
-        
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

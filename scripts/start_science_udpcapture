@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Size per second: 32x 8000B + 4B for the timestamp
-one_second=$((4 + 8000*32))
+# Size per second: 32x 8000B + 4B for the timestamp + 1B for the channel number
+one_second=$((4 + 1 + 8000*32))
 # Enough to fit a chunk of science data
 lifetime=30
 max_size=$((one_second * lifetime))
@@ -10,5 +10,6 @@ source /data/config/variables.env
 # Set the file lifetime as a failsafe
 udpcapture --port $RAW_SCIENCE_RECV_PORT --base-filename '/data/science/raw_science' \
     --file-lifetime $(( 2 * lifetime ))\
+    --forward-addrs "127.0.0.1:$QUICKLOOK_RECV_PORT"
 	--max-file-size $max_size\
 	--post-process-cmd 'bzip2 $out_file'

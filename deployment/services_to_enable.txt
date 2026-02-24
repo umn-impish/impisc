@@ -1,5 +1,7 @@
 gpio-init.service
 gpio-ownership-init.service
 health-udpcapture.service
+quicklook.service
+quicklook-udpcapture.service
 science-udpcapture.service
 system-health.service
