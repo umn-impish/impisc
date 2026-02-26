@@ -1,16 +1,15 @@
 import time
 import json
+import queue
 import shutil
 import logging
-import datetime
-import numpy as np
 from pathlib import Path
 from enum import Enum, auto
+from multiprocessing import Process, Queue
 
 from impisc.et_daqbox.daq_box_api import DaqBoxConfig, DaqBoxInterface, START, STOP, WAVEFORM_HEADER, parse_spectrum_packet, parse_waveform_packet
 
-import udp_sender
-import quicklook_cmd
+import udp_sender as udp_sender
 import receive_cmd as rcmd
 from quicklook_acc import QuicklookAccumulator
 
@@ -48,12 +47,17 @@ class DAQstate():
 class DataBuffer():
     def __init__(self):
         self.spectra = []
-        self.spectra_times = []
+        self.spectra1, self.spectra2 = [], []
+        self.spectra3, self.spectra4 = [], []
         self.quicklook_spectra = []
-        self.waveforms = []
-        self.waveforms_times = []
+        self.waveforms = {}
+        self.waveforms1, self.waveforms2 = [], []
+        self.waveforms3, self.waveforms4 = [], []
         self.save_requested = False
         self.last_save = time.time()
+        self.last_packet_time = None
+        self.total_deadtime = 0.0
+        self.last_acq_time = None  # for livetime
 
 ##################################### functions ####################################
 
@@ -81,7 +85,7 @@ def configure_daq(dbi, state, data_mode: str):
     merged = cfg_dict['global'].copy()
     merged.update(cfg_dict['modes'][data_mode])
 
-    enter_safe(dbi, state, reason="reconfiguring DAQ") # check if this can be removed
+    enter_safe(dbi, state, reason="reconfiguring DAQ")
 
     cfg = DaqBoxConfig()
 
@@ -114,82 +118,128 @@ def start_acquisition(dbi: DaqBoxInterface, state, data_mode: str):
     time.sleep(0.001)
     dbi.flush(128 if data_mode == "waveform" else 64)
 
-######################################## Data saving ########################################
+######################################## Data receive/send ########################################
 
-def recv_once(dbi, state, buffer):
+science_queue = Queue(maxsize=10000)
+quicklook_queue = Queue(maxsize=10000)
+
+def recv_science(dbi):
     """
-    Receive and classify one data packet
+    Receive and queue multidimensional spectra for science + quicklook
     """
     try:
         data = dbi.recv()
     except BlockingIOError:
-        return
+        return False
+    
+    if data[:2] != WAVEFORM_HEADER: # waveform not needed for science mode
+        try:
+            spec = parse_spectrum_packet(data)
+            try:
+                science_queue.put_nowait(spec)
+            except queue.Full:
+                logging.warning("Science queue full, dropping packet")
 
+            try:
+                quicklook_queue.put_nowait(spec)
+            except queue.Full:
+                logging.warning("Quicklook queue full, dropping packet")
+        except Exception:
+            logging.exception("Failed to parse spectrum packet")
+
+    return True
+
+def recv_debug(dbi, state, buffer: DataBuffer):
+    """
+    Receive, classify one data packet and buffer for debug
+    """
+    try:
+        data = dbi.recv()
+    except BlockingIOError:
+        return False
+    
     if data[:2] == WAVEFORM_HEADER:
-        decoded = parse_waveform_packet(data)
-        if decoded['channel'] == 0:
-            buffer.waveforms.append(decoded["data"])
-            buffer.waveforms_times.append(time.time())
+        try:
+            decoded = parse_waveform_packet(data)
+            ch = decoded["channel"] + 1
+            buffer.waveforms.setdefault(ch, []).append(decoded["data"])
+
+            # target_list = getattr(buffer, f"waveforms{ch}")
+            # target_list.append(decoded["data"])
+        except Exception as e:
+            logging.exception("Failed to parse waveform packet")
 
     else:
         try:
             spec = parse_spectrum_packet(data)
-            buffer.spectra.append(spec[0])
-            buffer.quicklook_spectra.append(spec[0])
-            buffer.spectra_times.append(time.time())
+            buffer.spectra.append(spec)
+            # buffer.spectra1.append(spec[0])
+            # buffer.spectra2.append(spec[1])
+            # buffer.spectra3.append(spec[2])
+            # buffer.spectra4.append(spec[3])
         except Exception:
             pass
 
-
-##################################### Saving and UDP #####################################
-def format_timerange(t_start, t_end):
-    dt_start = datetime.datetime.fromtimestamp(t_start).strftime("%Y%m%d_%H%M%S")
-    dt_end = datetime.datetime.fromtimestamp(t_end).strftime("%H%M%S")
+    return True
     
-    return f"{dt_start}_{dt_end}"
-
-def save_science(buffer: DataBuffer):
-    if not buffer.waveforms and not buffer.spectra:
-        return
-
-    # ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    # if buffer.spectra_times:
-    #     t_start = buffer.spectra_times[0]
-    #     t_end = buffer.spectra_times[-1]
-    #     ts_s = format_timerange(t_start, t_end)
-
-    # if buffer.waveforms_times:
-    #     t_start = buffer.waveforms_times[0]
-    #     t_end = buffer.waveforms_times[-1]
-    #     ts_w = format_timerange(t_start, t_end)
-
+def send_debug(buffer: DataBuffer):
+    n_w, n_s = 0, 0 
+    
     if buffer.waveforms:
-        print(buffer.waveforms)
-        arr = np.array(buffer.waveforms)
-        print(arr)
-        udp_sender.send_udp_data(arr, "waveforms")
-        logging.info(f"Sent {len(buffer.waveforms)} waveforms via UDP \n")
+        # n_w = len(buffer.waveforms)
+        n_w = sum(len(wf) for wf in buffer.waveforms.values())
+        udp_sender.send_udp_data(buffer.waveforms, "waveforms", dtype_code="f")
         buffer.waveforms.clear()
+        time.sleep(0.005)
 
     if buffer.spectra:
-        arr = np.array(buffer.spectra)
-        udp_sender.send_udp_data(arr, "spectra")
-        logging.info(f"Sent {len(buffer.spectra)} spectra via UDP \n")
+        n_s = len(buffer.spectra)
+        udp_sender.send_udp_data(buffer.spectra, "spectra", dtype_code="I")
         buffer.spectra.clear()
 
-    buffer.last_save = time.time()
-    buffer.save_requested = False
-
-def send_debug(buffer: DataBuffer):
-    if buffer.waveforms:
-        udp_sender.send_udp_data(np.array(buffer.waveforms), "waveforms")
-        time.sleep(0.1)
-
-    if buffer.spectra:
-        udp_sender.send_udp_data(np.array(buffer.spectra), "spectra")
+    logging.info(f"Sent {n_w} waveforms and {n_s} spectra via UDP\n")
 
 
 ############################### Acquisition modes ##################################
+
+science_block = 2*60*32 # accummulates for 2 mins
+quicklook_block = 4*32 # accumulates for 4 secs
+
+def science_send(science_queue):
+    buffers = []
+    while True:
+        try:
+            try:
+                data = science_queue.get(timeout=10.0)
+                buffers.append(data)
+            except queue.Empty:
+                continue
+
+            if len(buffers) >= science_block:
+                udp_sender.send_udp_data(buffers, f"spectra", dtype_code="I")
+                logging.info(f"Sent {len(buffers)} spectra via UDP and saved to file\n")
+                buffers.clear()
+        except Exception as e:
+            logging.exception("Science sender crashed")
+
+def quicklook_send(quicklook_queue):
+    import quicklook_cmd
+
+    accumulators = QuicklookAccumulator(n_spectra_per_quicklook=128, fps=32)
+
+    while True:
+        
+        try:
+            try:
+                data = quicklook_queue.get(timeout=10.0)
+                packet = accumulators.push(data)
+            except queue.Empty:
+                continue
+
+            if packet is not None:
+                quicklook_cmd.send_quicklook(packet)
+        except Exception as e:
+            logging.exception("Quicklook sender crashed")
 
 
 def run_debug(dbi, state, buffer, n_waveform: int, n_spectrum: int):
@@ -199,61 +249,44 @@ def run_debug(dbi, state, buffer, n_waveform: int, n_spectrum: int):
     t_last_packet = time.time()
     
     start_acquisition(dbi, state, "waveform")
-    while len(buffer.waveforms) < n_waveform:
+    while not buffer.waveforms or any(len(wf) < n_waveform for wf in buffer.waveforms.values()):
+        # check ot see if the channels are complete depending on active number of channels
         if time.time() - t_last_packet > timeout:
             enter_safe(dbi, state, reason="DAQ timeout")
             break
-        recv_once(dbi, state, buffer)
-        t_last_packet = time.time()
-    enter_safe(dbi, state, reason="waveform acquisition complete \n")
+        received = recv_debug(dbi, state, buffer)
+        if received:
+            t_last_packet = time.time()
+    enter_safe(dbi, state, 
+               reason=f"{n_waveform} waveforms acquisition complete from {len(list(buffer.waveforms.keys()))} channels\n")
 
     start_acquisition(dbi, state, "spectrum")
     while len(buffer.spectra) < n_spectrum:
         if time.time() - t_last_packet > timeout:
             enter_safe(dbi, state, reason="DAQ timeout")
             break
-        recv_once(dbi, state, buffer)
-        t_last_packet = time.time()
-    enter_safe(dbi, state, reason='spectra acquisition complete \n')
-
+        receivedd = recv_debug(dbi, state, buffer)
+        if receivedd:
+            t_last_packet = time.time()
+    enter_safe(dbi, state, reason=f"{n_spectrum} spectra acquisition complete \n")
 
     send_debug(buffer)
 
-    save_science(buffer)
+def run_science_step(dbi):
+    recv_science(dbi)
 
-def run_science(dbi, state, buffer, quicklook=None):
+def run_science(dbi, state):
     """
     To be called continuously/repeatedly in science mode
-    Receives and save data (under given conditions)
-    Also sends quicklook data
     """
     assert state.mode == Mode.SCIENCE
 
-    recv_once(dbi, state, buffer)
+    while state.mode == Mode.SCIENCE:
+        if not recv_science(dbi):
+            time.sleep(0.005)
 
-    if quicklook and buffer.quicklook_spectra:
-        for spectrum in buffer.quicklook_spectra:
-            result = quicklook.push(spectrum)
-            if result:
-                quicklook_cmd.send_quicklook_ch1(
-                    result['det1_ebin1'],
-                    result['det1_ebin2'],
-                    result['det1_ebin3'],
-                    result['det1_ebin4'],
-                    result['det1_ebin1_counts'],
-                    result['det1_ebin2_counts'],
-                    result['det1_ebin3_counts'],
-                    result['det1_ebin4_counts'],
-                    result['det1_ebin1_cps'],
-                    result['det1_ebin2_cps'],
-                    result['det1_ebin3_cps'],
-                    result['det1_ebin4_cps']
-                )
-        buffer.quicklook_spectra.clear()
 
-    if buffer.save_requested or (time.time() - buffer.last_save > 60):
-        save_science(buffer)
-
+    
 
 ############################### Main ########################################
 
@@ -263,9 +296,9 @@ def main():
     dbi = DaqBoxInterface()
     state = DAQstate()
     buffer = DataBuffer()
-    quicklook = QuicklookAccumulator(n_spectra_per_quicklook=128, fps=32)
     
     state.mode = Mode.SAFE
+    logging.info("Initial mode: SAFE")
 
     cmd_sock = rcmd.setup_command_socket()
 
@@ -294,11 +327,18 @@ def main():
 
         if state.mode == Mode.SCIENCE:
             try:
-                run_science(dbi, state, buffer, quicklook=quicklook)
+                run_science_step(dbi)
             except Exception as e:
                 enter_safe(dbi, state, f"Science failure: {e}")
 
-        time.sleep(0.05)
+        time.sleep(0.001)
 
 if __name__ == "__main__":
+
+    science_proc = Process(target=science_send, args=(science_queue,), daemon=True)
+    quicklook_proc = Process(target=quicklook_send, args=(quicklook_queue,), daemon=True)
+    
+    science_proc.start()
+    quicklook_proc.start()
+
     main()

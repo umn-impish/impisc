@@ -5,8 +5,8 @@ import socket
 import logging
 
 IP = "0.0.0.0"
-my_port = int(os.getenv("SCIENCE_CMD_PORT"))
-# my_port = ports.cmd_port
+# my_port = int(os.getenv("SCIENCE_CMD_PORT"))
+my_port = ports.cmd_port
 
 def setup_command_socket(port=my_port):
     logging.info(f"Binding to {IP}:{port}")

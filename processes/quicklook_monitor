@@ -3,40 +3,60 @@
 import os
 import json
 import socket
+import logging
 
 
-from impisc import logging
 from impisc.packets import QuicklookPacket
 
 
 my_port = int(os.getenv("QUICKLOOK_MONITOR_PORT"))
 send_port = int(os.getenv("LOCAL_QUICKLOOK_FWD_PORT"))
 
+
 def main():
-    
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("", my_port))
-    
+
     while True:
-        packet = QuicklookPacket()
+        try:
+            packet = QuicklookPacket()
+
+            data, _ = sock.recvfrom(8192)
+            msg = json.loads(data.decode())
+            channel = msg.get("channel")
+            if channel is None:
+                logging.warning("Quicklook message missing channel field")
+                continue
+
+            det_fields = {
+                f"det{channel}_ebin1": "det_ebin1",
+                f"det{channel}_ebin1_counts": "det_ebin1_counts",
+                f"det{channel}_ebin1_cps": "det_ebin1_cps",
+                f"det{channel}_ebin2": "det_ebin2",
+                f"det{channel}_ebin2_counts": "det_ebin2_counts",
+                f"det{channel}_ebin2_cps": "det_ebin2_cps",
+                f"det{channel}_ebin3": "det_ebin3",
+                f"det{channel}_ebin3_counts": "det_ebin3_counts",
+                f"det{channel}_ebin3_cps": "det_ebin3_cps",
+                f"det{channel}_ebin4": "det_ebin4",
+                f"det{channel}_ebin4_counts": "det_ebin4_counts",
+                f"det{channel}_ebin4_cps": "det_ebin4_cps",
+                f"unix_timestamp": "unix_timestamp",
+            }
+
+            for target, field in det_fields.items():
+                if field in msg:
+                    setattr(packet, target, msg[field])
+
+            sock.sendto(bytes(packet), ("localhost", send_port))
         
-        data, _ = sock.recvfrom(8192)
-        msg = json.loads(data.decode())
-
-        det1_fields = [
-        "det1_ebin1", "det1_ebin1_counts", "det1_ebin1_cps",
-        "det1_ebin2", "det1_ebin2_counts", "det1_ebin2_cps",
-        "det1_ebin3", "det1_ebin3_counts", "det1_ebin3_cps",
-        "det1_ebin4", "det1_ebin4_counts", "det1_ebin4_cps",
-        "unix_timestamp"
-            ]
-
-        for field in det1_fields:
-            if field in msg:
-                setattr(packet, field, msg[field])
-
-        sock.sendto(bytes(packet), ("localhost", send_port))
+        except Exception:
+            logging.exception("Quicklook monitor crashed")
 
 
 if __name__ == "__main__":
     main()
+
+
+# deadtime includes
+# 1. sipm recharge time
