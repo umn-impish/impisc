@@ -6,9 +6,10 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 WorkingDirectory=/usr/local/bin
-EnvironmentFile=/home/relay/gs.env
+EnvironmentFile=/home/relay/gs-ip.env
+EnvironmentFile=/usr/local/bin/relay-variables.env
 EnvironmentFile=/usr/local/bin/variables.env
-ExecStart=impish_relay --port ${ENDPOINT_PORT} --fwd-addr ${GROUND_STATION_IP}:${GROUND_STATION_PORT} --delay 0.5
+ExecStart=udpcapture --port ${ENDPOINT_PORT} -f "${GROUNDSTATION_IP}:${GROUNDSTATION_PORT}"
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure
