@@ -1,0 +1,61 @@
+#!/python-venv/bin/python
+"""
+Listens for quicklook packets from IMPISH.
+The received packets are put into a MySQL database to be read
+and displayed by Grafana.
+"""
+
+import os
+import socket
+import time
+
+from mysql.connector.pooling import PooledMySQLConnection
+from mysql.connector.abstracts import MySQLConnectionAbstract
+
+from impisc import logging
+from impisc.packets import QuicklookPacket, QuicklookEntry
+from impish_monitor import QUICKLOOK_TABLE_NAME, connect  # pyright: ignore[reportImplicitRelativeImport]
+
+
+def insert_packet(
+    db: PooledMySQLConnection | MySQLConnectionAbstract,
+    data: QuicklookPacket
+):
+    """Insert the health packet into the database."""
+    # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to packet
+    cols: dict[str, int] = {"gs_unix_timestamp": int(time.time())}
+    channels = getattr(data, "channels")
+    for c, channel in enumerate(channels, start=1):
+        counts = QuicklookEntry.from_buffer_copy(channel).counts
+        for e, bin_val in enumerate(counts, start=1):
+            cols[f"chan{c}_ebin{e}"] = bin_val
+    fmt = "%s, " * (len(cols) - 1) + "%s"
+    header = f"INSERT INTO {QUICKLOOK_TABLE_NAME}"
+    sql = f"{header} ({', '.join(cols.keys())}) VALUES ({fmt})"
+    val = tuple(cols.values())
+    # logging.log_info(f"Executing: {header}")
+    # logging.log_debug(f"sql: {sql}\n\tval:\n\t{val}")
+    cursor = db.cursor()
+    _ = cursor.execute(sql, val)
+    _ = db.commit()
+
+
+def main():
+    logging.log_info("Opening DB connection")
+    db = connect()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"])))
+    try:
+        while True:
+            data, addr = sock.recvfrom(1024)
+            logging.log_debug(f"{len(data)} bytes recevied from {addr[0]}:{addr[1]}")
+            packet = QuicklookPacket.from_buffer_copy(data)
+            insert_packet(db, packet)
+    finally:
+        logging.log_info("Closing DB connection")
+        sock.close()
+        db.close()
+
+
+if __name__ == "__main__":
+    main()
