@@ -1,0 +1,54 @@
+#!/python-venv/bin/python
+"""
+Listens for all packets from IMPISH and sorts them, sending them to their respective
+process for handling.
+"""
+
+import ctypes
+import os
+import socket
+
+from struct import unpack
+
+from impisc import logging
+from impisc.packets import HealthPacket, QuicklookPacket
+
+
+PACKET_MAP = {
+    ctypes.sizeof(HealthPacket): int(os.environ["LOCAL_HEALTH_FWD_PORT"]),
+    ctypes.sizeof(QuicklookPacket): int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"])
+}
+LISTEN_ADDR = ("", 12100)  # The address the relay is sending to, TODO: update this to use environ
+SORT_PORT = int(os.environ["SORT_PORT"])
+
+
+def recv_sock() -> socket.socket:
+    """The socket the relay is sending to."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(LISTEN_ADDR)
+    return sock
+
+
+def main():
+    # Program can only end if killed, and sockets will be released by OS
+    # Don't bother closing them
+    sock = recv_sock()
+    send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # We don't actually need to bind to anything
+    # the system will just assign a random port - WS
+    send_sock.bind(("", SORT_PORT))
+    logging.log_debug(f"Binding sorter send socket to port {SORT_PORT}")
+
+    while True:
+        data = sock.recv(8192)
+        if len(data) > 0:  # For some reason we sometimes get empty packets?
+            port = PACKET_MAP[len(data)]
+            logging.log_debug(f"Sending {len(data)} bytes to local port {port}")
+            send_sock.sendto(data, ("", port))
+        else:
+            logging.log_warning(f"Recevied zero length packet on {LISTEN_ADDR[0]}:{LISTEN_ADDR[1]}")
+
+
+if __name__ == "__main__":
+    main()

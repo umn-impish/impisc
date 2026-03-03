@@ -1,0 +1,17 @@
+[Unit]
+Description=Receive all packets from IMPISH and send them to their respective process
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=packet_sorter
+EnvironmentFile=/usr/local/bin/gs-variables.env
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target
