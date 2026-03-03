@@ -1,0 +1,20 @@
+[Unit]
+Description=Log the number of bytes per forwarded packet
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/bin
+EnvironmentFile=/home/relay/gs-ip.env
+EnvironmentFile=/usr/local/bin/relay-variables.env
+EnvironmentFile=/usr/local/bin/variables.env
+ExecStart=relay_logger
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=relay
+
+[Install]
+WantedBy=multi-user.target

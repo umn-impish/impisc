@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 DB_NAME = "impish"
 HEALTH_TABLE_NAME = "health"
-ADDR = ("10.42.0.1", 12002)
+ADDR = ("", 12004)
 
 
 def connect(
