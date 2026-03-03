@@ -7,7 +7,10 @@ from typing import TYPE_CHECKING
 
 import mysql.connector
 
-from impisc.packets import HealthPacket, NUM_QLOOK_BINS
+from impisc.packets import HealthPacket
+
+# TODO: update this to use definitions within impisc once settled:
+NUM_QLOOK_BINS = 4
 
 if TYPE_CHECKING:
     from mysql.connector.pooling import PooledMySQLConnection
