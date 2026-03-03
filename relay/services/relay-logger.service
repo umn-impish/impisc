@@ -1,14 +1,15 @@
 [Unit]
-Description=Relay all packets from IMPISH to the ground station.
+Description=Log the number of bytes per forwarded packet
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 WorkingDirectory=/usr/local/bin
-EnvironmentFile=/home/relay/gs.env
+EnvironmentFile=/home/relay/gs-ip.env
+EnvironmentFile=/usr/local/bin/relay-variables.env
 EnvironmentFile=/usr/local/bin/variables.env
-ExecStart=udpcapture --port ${ENDPOINT_PORT} -f "${GROUNDSTATION_IP}:${GROUNDSTATION_PORT}" -f "127.0.0.1:${LOGGER_PORT}"
+ExecStart=relay_logger
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure
