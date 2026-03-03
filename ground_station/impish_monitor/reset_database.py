@@ -1,19 +1,31 @@
-from . import DB_NAME, HEALTH_TABLE_NAME, connect
-from .initialize_database import create_health_table
+"""
+Allows deletion of tables from the SQL database.
+"""
 
 
-def delete_table():
+from . import DB_NAME, HEALTH_TABLE_NAME, QUICKLOOK_TABLE_NAME, connect
+from .initialize_database import create_health_table, create_quicklook_table
+
+
+CREATE = {
+    HEALTH_TABLE_NAME: create_health_table,
+    QUICKLOOK_TABLE_NAME: create_quicklook_table
+}
+
+
+def delete_table(table_name: str):
     db = connect()
-    db.cursor().execute(f"DROP TABLE {HEALTH_TABLE_NAME};")
+    db.cursor().execute(f"DROP TABLE {table_name};")
 
 
 def main():
-    if input(f"CONFIRM TABLE RESET ({DB_NAME}/{HEALTH_TABLE_NAME}) [-y|-Y]: ").lower() == "-y":
-        print("Resetting health table")
-        delete_table()
-        create_health_table()
-    else:
-        print("Invalid input. Doing nothing.")
+    for table in [HEALTH_TABLE_NAME, QUICKLOOK_TABLE_NAME]:
+        if input(f"CONFIRM TABLE RESET ({DB_NAME}/{table}) [-y|-Y]: ").lower() == "-y":
+            print("Resetting health table")
+            delete_table(table)
+            CREATE[table]()
+        else:
+            print(f"Invalid input. Doing nothing to {DB_NAME}/{table}.")
 
 
 if __name__ == "__main__":

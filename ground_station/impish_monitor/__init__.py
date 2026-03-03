@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import mysql.connector
 
-from impisc.packets import HealthPacket
+from impisc.packets import HealthPacket, NUM_QLOOK_BINS
 
 if TYPE_CHECKING:
     from mysql.connector.pooling import PooledMySQLConnection
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 DB_NAME = "impish"
 HEALTH_TABLE_NAME = "health"
+QUICKLOOK_TABLE_NAME = "quicklook"
 ADDR = ("", 12004)
 
 
@@ -29,7 +30,7 @@ def connect(
 
 
 def _health_columns() -> OrderedDict[str, str]:
-    """The column names mapped to their data type."""
+    """The health column names mapped to their data type."""
     fields: list[str] = [f[0] for f in HealthPacket._fields_]
     power_names: list[str] = [
         "power_det1",
@@ -51,4 +52,20 @@ def _health_columns() -> OrderedDict[str, str]:
     )
 
 
+def _quicklook_columns() -> OrderedDict[str, str]:
+    """The quicklook column names mapped to their data type."""
+    cols: list[tuple[str, str]] = []
+    for c in range(1, 5):
+        for b in range(1, NUM_QLOOK_BINS+1):
+            cols.append((f"chan{c}_ebin{b}", "INTEGER"))
+    return OrderedDict[str, str](
+        [
+            ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
+            ("gs_unix_timestamp", "INTEGER"),
+            *cols
+        ]
+    )
+
+
 HEALTH_COLUMNS: OrderedDict[str, str] = _health_columns()
+QUICKLOOK_COLUMNS: OrderedDict[str, str] = _quicklook_columns()
