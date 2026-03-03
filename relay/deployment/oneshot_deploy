@@ -1,6 +1,6 @@
 #!/bin/bash
 
-scripts="wifi-through-ethernet install_scripts install_services"
+scripts="wifi-through-ethernet install_services"
 for s in $scripts; do
     echo "executing $s"
     ./"$s"

@@ -8,14 +8,15 @@ for s in $processes; do
 done
 
 # Install all .service files and enable them
-services=$(find ../services/ -maxdepth 1 -type f -name "*.service" -printf "%f  ")
+services=$(ls ../services/*.service)
 for s in $services; do
     echo $s
     sudo cp "../services/$s" "/etc/systemd/system"
 done
+sudo cp "../services/relay-variables.env" "/usr/local/bin"
 sudo cp "../../services/variables.env" "/usr/local/bin"
 
 sudo systemctl daemon-reload
 for s in $services; do
-    sudo systemctl restart "$s"
+    sudo systemctl restart "$(basename $s)"
 done
