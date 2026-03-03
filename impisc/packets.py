@@ -53,3 +53,38 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # Missing fields: one bit per field missing, in order
         ("missing_fields", ctypes.c_uint16),
     ]
+
+
+class TelemetryPacketHeader(ctypes.LittleEndianStructure):
+    """
+    A packet header only has two fields:
+        - and identifier number (id)
+        - a sequence number
+
+    The packet size is contained in the UDP header,
+        so we don't need to save its size.
+    """
+
+    _pack_ = 1
+    _fields_ = (
+        ("id", ctypes.c_uint8),
+        ("sequence_number", ctypes.c_uint16),
+    )
+
+
+# A command response packet is just a blob of bytes.
+# They can be used however deemed fit.
+class CommandResponse(ctypes.LittleEndianStructure):
+    NUM_RESP_CHARS = 512
+    _pack_ = 1
+    _fields_ = (
+        ("response", ctypes.c_char * NUM_RESP_CHARS),
+        ("sequence", ctypes.c_uint16),
+    )
+
+    def add_response(self, msg: str):
+        # Reset with empty bytes
+        self.response = (ctypes.c_char * CommandResponse.NUM_RESP_CHARS)()
+        # Set the maximum number of bytes we can
+        lim = min(CommandResponse.NUM_RESP_CHARS, len(msg))
+        self.response[:lim] = msg[:lim].encode("utf-8")
