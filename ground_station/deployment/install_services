@@ -14,9 +14,10 @@ for s in $services; do
     echo $s
     sudo cp "../services/$s" "/etc/systemd/system"
 done
-sudo cp "../services/variables.env" "/usr/local/bin"
+sudo cp "../services/gs-variables.env" "/usr/local/bin"
 
 sudo systemctl daemon-reload
 for s in $services; do
+    sudo systemctl enable "$s"
     sudo systemctl restart "$s"
 done

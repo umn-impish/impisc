@@ -6,7 +6,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 ExecStart=journal_listener
-EnvironmentFile=/usr/local/bin/variables.env
+EnvironmentFile=/usr/local/bin/gs-variables.env
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure
