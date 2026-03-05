@@ -21,9 +21,9 @@ def main():
         error = None
         match cmd_type:
             case "canned":
-                error = execute_canned_command(command, args.arbitrary_endpoint)
+                error = execute_canned_command(command, args.executor_port)
             case "arbitrary":
-                error = execute_arbitrary_command(command, args.arbitrary_endpoint)
+                error = execute_arbitrary_command(command, args.executor_port)
             case _:
                 error = f"unknown command type {cmd_type}"
 
