@@ -3,3 +3,4 @@ gpiomem-group.service
 system-health.service
 health-udpcapture.service
 command-executor.service
+command-router.service
