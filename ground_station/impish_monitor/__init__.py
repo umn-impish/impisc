@@ -7,10 +7,7 @@ from typing import TYPE_CHECKING
 
 import mysql.connector
 
-from impisc.packets import HealthPacket
-
-# TODO: update this to use definitions within impisc once settled:
-NUM_QLOOK_BINS = 4
+from impisc.packets import HealthPacket, NUM_DET_CHANNELS, NUM_QUICKLOOK_BINS
 
 if TYPE_CHECKING:
     from mysql.connector.pooling import PooledMySQLConnection
@@ -58,13 +55,13 @@ def _health_columns() -> OrderedDict[str, str]:
 def _quicklook_columns() -> OrderedDict[str, str]:
     """The quicklook column names mapped to their data type."""
     cols: list[tuple[str, str]] = []
-    for c in range(1, 5):
-        for b in range(1, NUM_QLOOK_BINS+1):
+    for c in range(NUM_DET_CHANNELS):
+        for b in range(NUM_QUICKLOOK_BINS):
             cols.append((f"chan{c}_ebin{b}", "INTEGER"))
     return OrderedDict[str, str](
         [
             ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
-            ("gs_unix_timestamp", "INTEGER"),
+            ("unix_timestamp", "INTEGER"),
             *cols
         ]
     )
