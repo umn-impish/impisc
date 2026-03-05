@@ -44,9 +44,12 @@ def insert_packet(
     cols = {**cols, **unpack_power_byte(getattr(data, "power_line_statuses"))}
     cols = {**cols, **unpack_missing_bytes(getattr(data, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"
+
+    # Save the keys to ensure they remain ordered the same as the values
+    keys = list(cols.keys())
     header = f"INSERT INTO {HEALTH_TABLE_NAME}"
-    sql = f"{header} ({', '.join(cols.keys())}) VALUES ({fmt})"
-    val = tuple(cols.values())
+    sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
+    val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
     cursor = db.cursor()
     _ = cursor.execute(sql, val)
