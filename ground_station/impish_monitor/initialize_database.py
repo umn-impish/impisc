@@ -3,12 +3,18 @@ Some functions for initializing the ground station database and associated
 tables: system health and science quicklook.
 """
 
-
 from collections import OrderedDict
 
 from mysql.connector.abstracts import MySQLCursorAbstract
 
-from . import DB_NAME, HEALTH_TABLE_NAME, HEALTH_COLUMNS, QUICKLOOK_TABLE_NAME, QUICKLOOK_COLUMNS, connect
+from . import (
+    DB_NAME,
+    HEALTH_TABLE_NAME,
+    HEALTH_COLUMNS,
+    QUICKLOOK_TABLE_NAME,
+    QUICKLOOK_COLUMNS,
+    connect,
+)
 
 
 def create_db():
@@ -22,7 +28,7 @@ def create_db():
 
 def add_table_cols(table_name: str, cols: OrderedDict[str, str]):
     """Create a new table, if it doesn't exist. Checks if the column
-    already exists and adds a new column if it doesn't. 
+    already exists and adds a new column if it doesn't.
     """
     db = connect()
     try:
@@ -58,7 +64,7 @@ def add_table_cols(table_name: str, cols: OrderedDict[str, str]):
 
 def create_health_table():
     add_table_cols(HEALTH_TABLE_NAME, HEALTH_COLUMNS)
-    
+
 
 def create_quicklook_table():
     add_table_cols(QUICKLOOK_TABLE_NAME, QUICKLOOK_COLUMNS)

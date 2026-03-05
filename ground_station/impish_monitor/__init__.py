@@ -47,7 +47,7 @@ def _health_columns() -> OrderedDict[str, str]:
             ("gs_unix_timestamp", "INTEGER"),
             *list((f, "INTEGER") for f in fields if "extra" not in f),
             *list((f"missing_{f}", "BIT(1)") for f in fields),
-            *list((f, "BIT(1)") for f in power_names)
+            *list((f, "BIT(1)") for f in power_names),
         ]
     )
 
@@ -59,11 +59,7 @@ def _quicklook_columns() -> OrderedDict[str, str]:
         for b in range(NUM_QUICKLOOK_BINS):
             cols.append((f"chan{c}_ebin{b}", "INTEGER"))
     return OrderedDict[str, str](
-        [
-            ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
-            ("unix_timestamp", "INTEGER"),
-            *cols
-        ]
+        [("id", "INT AUTO_INCREMENT PRIMARY KEY"), ("unix_timestamp", "INTEGER"), *cols]
     )
 
 

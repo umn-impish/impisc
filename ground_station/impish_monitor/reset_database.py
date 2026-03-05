@@ -2,14 +2,13 @@
 Allows deletion of tables from the SQL database.
 """
 
-
 from . import DB_NAME, HEALTH_TABLE_NAME, QUICKLOOK_TABLE_NAME, connect
 from .initialize_database import create_health_table, create_quicklook_table
 
 
 CREATE = {
     HEALTH_TABLE_NAME: create_health_table,
-    QUICKLOOK_TABLE_NAME: create_quicklook_table
+    QUICKLOOK_TABLE_NAME: create_quicklook_table,
 }
 
 
