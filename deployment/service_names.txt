@@ -2,3 +2,4 @@ gpio-init.service
 gpiomem-group.service
 system-health.service
 health-udpcapture.service
+command-executor.service
