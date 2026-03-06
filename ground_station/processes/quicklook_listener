@@ -19,14 +19,13 @@ from impisc.packets import QuicklookPacket, NUM_DET_CHANNELS
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract,
-    data: QuicklookPacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract, data: QuicklookPacket
 ):
     """Insert the health packet into the database."""
     logging.log_debug(str(data.timestamp))
     cols: dict[str, int] = {"unix_timestamp": data.timestamp}
-    for i in range(1, NUM_DET_CHANNELS+1):
-        quicklook_bins = data.channels[i-1]
+    for i in range(1, NUM_DET_CHANNELS + 1):
+        quicklook_bins = data.channels[i - 1]
         for bin, cts in enumerate(quicklook_bins, start=1):
             cols[f"chan{i}_ebin{bin}"] = cts
     fmt = "%s, " * (len(cols) - 1) + "%s"
