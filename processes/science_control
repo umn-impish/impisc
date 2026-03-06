@@ -84,7 +84,6 @@ def main():
             + daqbox.recv()
         )
         sock.sendto(packet, destination)
-        # logging.log_info(f"counter is {packet_counter}")
         packet_counter = (packet_counter + 1) % FRAMERATE
 
 
