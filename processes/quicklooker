@@ -12,7 +12,7 @@ The number of seconds to integrate,
 
 import argparse
 import socket
-from impisc import logging
+import time
 from impisc.et_daqbox import daq_box_api as dba
 from impisc import packets
 
@@ -88,10 +88,11 @@ def main():
                 # Iterate over the rebin edges, and use the same index
                 # to index the bin in the output array
                 a, b = rebin_edges[edge_idx], rebin_edges[edge_idx + 1]
-                qpack.channels[chan].counts[edge_idx] += sum(parsed[chan][a:b])
+                qpack.channels[chan][edge_idx] += sum(parsed[chan][a:b])
 
         accumulated = (accumulated + 1) % spectra_per_packet
         if accumulated == 0:
+            qpack.timestamp = int(time.time())
             my_socket.sendto(qpack, destination)
             qpack = packets.QuicklookPacket()
 
