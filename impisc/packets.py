@@ -55,16 +55,13 @@ class HealthPacket(ctypes.LittleEndianStructure):
     ]
 
 
-NUM_QLOOK_BINS = 4
-class QuicklookEntry(ctypes.LittleEndianStructure):
-    _pack_ = 1
-    _fields_ = (
-        ("counts", NUM_QLOOK_BINS * ctypes.c_uint32),
-    )
 
-
+NUM_QUICKLOOK_BINS = 4
+NUM_DET_CHANNELS = 4
 class QuicklookPacket(ctypes.LittleEndianStructure):
     _pack_ = 1
     _fields_ = (
-        ("channels", 4 * QuicklookEntry),
+        ("timestamp", ctypes.c_uint32),
+        # 2D array: each channel gets a number of quicklook bins
+        ("channels", NUM_DET_CHANNELS * (NUM_QUICKLOOK_BINS * ctypes.c_uint32)),
     )

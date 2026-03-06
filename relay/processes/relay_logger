@@ -1,0 +1,12 @@
+#!/usr/bin/python3
+
+import os
+import socket
+import sys
+
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.bind(("", int(os.getenv("LOGGER_PORT"))))
+
+while True:
+    data = s.recv(8192)
+    print(f"Forwarded {len(data)}B to ground station", file=sys.stderr)
