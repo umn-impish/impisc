@@ -55,9 +55,10 @@ class HealthPacket(ctypes.LittleEndianStructure):
     ]
 
 
-
 NUM_QUICKLOOK_BINS = 4
 NUM_DET_CHANNELS = 4
+
+
 class QuicklookPacket(ctypes.LittleEndianStructure):
     _pack_ = 1
     _fields_ = (
