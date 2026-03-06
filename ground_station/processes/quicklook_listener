@@ -9,9 +9,6 @@ Uses an assumed packet structure for now until a QL packet is added to impisc.
 
 import os
 import socket
-import time
-
-from struct import unpack
 
 from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
@@ -26,10 +23,11 @@ def insert_packet(
     data: QuicklookPacket
 ):
     """Insert the health packet into the database."""
+    logging.log_debug(str(data.timestamp))
     cols: dict[str, int] = {"unix_timestamp": data.timestamp}
-    for i in range(NUM_DET_CHANNELS):
-        quicklook_bins = data.channels[i]
-        for bin, cts in enumerate(quicklook_bins):
+    for i in range(1, NUM_DET_CHANNELS+1):
+        quicklook_bins = data.channels[i-1]
+        for bin, cts in enumerate(quicklook_bins, start=1):
             cols[f"chan{i}_ebin{bin}"] = cts
     fmt = "%s, " * (len(cols) - 1) + "%s"
     header = f"INSERT INTO {QUICKLOOK_TABLE_NAME}"

@@ -55,8 +55,8 @@ def _health_columns() -> OrderedDict[str, str]:
 def _quicklook_columns() -> OrderedDict[str, str]:
     """The quicklook column names mapped to their data type."""
     cols: list[tuple[str, str]] = []
-    for c in range(NUM_DET_CHANNELS):
-        for b in range(NUM_QUICKLOOK_BINS):
+    for c in range(1, NUM_DET_CHANNELS+1):
+        for b in range(1, NUM_QUICKLOOK_BINS+1):
             cols.append((f"chan{c}_ebin{b}", "INTEGER"))
     return OrderedDict[str, str](
         [("id", "INT AUTO_INCREMENT PRIMARY KEY"), ("unix_timestamp", "INTEGER"), *cols]

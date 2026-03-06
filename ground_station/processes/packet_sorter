@@ -8,8 +8,6 @@ import ctypes
 import os
 import socket
 
-from struct import unpack
-
 from impisc import logging
 from impisc.packets import HealthPacket, QuicklookPacket
 
