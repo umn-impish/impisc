@@ -1,12 +1,13 @@
 [Unit]
-Description=Receive journal packets from IMPISH and write them to files
+Description=Receive quicklook packets from IMPISH and write them to the database
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=journal_listener
+ExecStart=quicklook_listener
 EnvironmentFile=/usr/local/bin/gs-variables.env
+EnvironmentFile=/usr/local/bin/grafana.env
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure

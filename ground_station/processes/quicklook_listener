@@ -1,0 +1,63 @@
+#!/python-venv/bin/python
+"""
+Listens for quicklook packets from IMPISH.
+The received packets are put into a MySQL database to be read
+and displayed by Grafana.
+
+Uses an assumed packet structure for now until a QL packet is added to impisc.
+"""
+
+import os
+import socket
+
+from mysql.connector.pooling import PooledMySQLConnection
+from mysql.connector.abstracts import MySQLConnectionAbstract
+
+from impisc import logging
+from impish_monitor import QUICKLOOK_TABLE_NAME, connect  # pyright: ignore[reportImplicitRelativeImport]
+from impisc.packets import QuicklookPacket, NUM_DET_CHANNELS
+
+
+def insert_packet(
+    db: PooledMySQLConnection | MySQLConnectionAbstract, data: QuicklookPacket
+):
+    """Insert the health packet into the database."""
+    logging.log_debug(str(data.timestamp))
+    cols: dict[str, int] = {"unix_timestamp": data.timestamp}
+    for i in range(1, NUM_DET_CHANNELS + 1):
+        quicklook_bins = data.channels[i - 1]
+        for bin, cts in enumerate(quicklook_bins, start=1):
+            cols[f"chan{i}_ebin{bin}"] = cts
+    fmt = "%s, " * (len(cols) - 1) + "%s"
+    header = f"INSERT INTO {QUICKLOOK_TABLE_NAME}"
+
+    # Save the keys to ensure they remain ordered the same as the values
+    keys = list(cols.keys())
+    sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
+    vals = tuple(cols[k] for k in keys)
+    logging.log_info(f"Executing: {header}")
+    logging.log_debug(f"sql: {sql}")
+    logging.log_debug(f"val: {vals}")
+    cursor = db.cursor()
+    _ = cursor.execute(sql, vals)
+    _ = db.commit()
+
+
+def main():
+    logging.log_info("Opening DB connection")
+    db = connect()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"])))
+    try:
+        while True:
+            data, addr = sock.recvfrom(1024)
+            logging.log_debug(f"{len(data)} bytes recevied from {addr[0]}:{addr[1]}")
+            insert_packet(db, QuicklookPacket.from_buffer_copy(data))
+    finally:
+        logging.log_info("Closing DB connection")
+        sock.close()
+        db.close()
+
+
+if __name__ == "__main__":
+    main()

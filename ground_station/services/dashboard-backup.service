@@ -5,6 +5,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
+WorkingDirectory=/home/impish/
 ExecStart=download_dashboards
 StandardOutput=journal
 StandardError=journal

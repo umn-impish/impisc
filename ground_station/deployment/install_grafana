@@ -1,7 +1,7 @@
 #!/bin/bash
 
-sudo apt-get update
-sudo apt-get upgrade
+sudo apt-get update -y
+sudo apt-get upgrade -y
 
 
 # Grafana base
@@ -31,5 +31,5 @@ sudo apt-get install loki promtail
 
 # Alloy config
 sudo cp ../remote_journal/config.alloy /etc/alloy/config.alloy
-sudo systemctl restart alloy
-sudo systemctl restart loki
+sudo systemctl stop alloy
+sudo systemctl stop loki
