@@ -1,7 +1,7 @@
 sudo mkdir -p /data/health
-sudo mkdir -p /data/raw_science
+sudo mkdir -p /data/science
 sudo mkdir -p /data/config
 
 sudo chmod 777 /data/health
-sudo chmod 777 /data/raw_science
+sudo chmod 777 /data/science
 sudo chmod 777 /data/config
