@@ -63,7 +63,7 @@ fn main() {
 
         // DAQBOX packet plus header
         if received != 8005 {
-            eprintln!("Wrong packet size on quicklook; ignoring");
+            // Ignore malformed packets
             continue;
         }
 
