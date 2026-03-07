@@ -24,8 +24,9 @@ fn parse_daqbox_spectrum(data: &[u8]) -> [[u16; 1000]; 4] {
     let mut ret: [[u16; 1000]; NUM_CHAN] = [[0; 1000]; NUM_CHAN];
     for i in (0..data.len()).step_by(8) {
         for chan in 0..4 {
-            let start = chan * 2;
-            ret[chan][i] = (data[start] as u16) * 256 + (data[start + 1] as u16);
+            let start = i + chan * 2;
+            // 2B per channel
+            ret[chan][i / (2 * NUM_CHAN)] = (data[start] as u16) * 256 + (data[start + 1] as u16);
         }
     }
     ret
@@ -53,7 +54,7 @@ fn main() {
     let mut accumulated: u32 = 0;
     loop {
         // Accept data
-        const BUF_SZ: usize = 8010;
+        const BUF_SZ: usize = 8005;
         let mut buf: [u8; BUF_SZ] = [0; BUF_SZ];
         let received = match my_sock.recv(&mut buf) {
             Ok(v) => v,
@@ -94,6 +95,7 @@ fn main() {
                 }
             }
 
+            let packet_size = packet.len();
             match my_sock.send_to(&packet, dest) {
                 Ok(_) => {},
                 Err(e) => eprintln!("Error sending packet: {e:?}")
