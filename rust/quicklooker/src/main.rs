@@ -95,7 +95,6 @@ fn main() {
                 }
             }
 
-            let packet_size = packet.len();
             match my_sock.send_to(&packet, dest) {
                 Ok(_) => {},
                 Err(e) => eprintln!("Error sending packet: {e:?}")
