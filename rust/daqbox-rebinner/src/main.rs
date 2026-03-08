@@ -80,7 +80,11 @@ fn main() {
                 .expect("System time must be after unix epoch")
                 .as_secs() as u32;
 
-            let mut packet: Vec<u8> = tstamp.to_le_bytes().iter().map(|&x| x as u8).collect();
+            // Enough space for timestamp plus QL bins
+            let mut packet: Vec<u8> = Vec::with_capacity(
+                4 + cleared_bins.len() * cleared_bins[0].len()
+            );
+            packet.extend(tstamp.to_le_bytes());
             for spec in sum_bins {
                 for bin in spec {
                     packet.extend(bin.to_le_bytes());
