@@ -4,7 +4,7 @@ After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=start_quicklook
 StandardOutput=inherit
 StandardError=journal

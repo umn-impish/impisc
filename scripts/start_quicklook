@@ -1,7 +1,4 @@
 #!/bin/bash
 
 source /data/config/variables.env
-quicklooker -l $QUICKLOOK_RECV_PORT\
-    -d $QUICKLOOK_UDPCAP_PORT\
-    -e "$QUICKLOOK_EDGES"\
-    -s $QUICKLOOK_SUM_SECONDS
+daqbox-rebinner $QUICKLOOK_RECV_PORT $QUICKLOOK_UDPCAP_PORT $QUICKLOOK_FRAMES "$QUICKLOOK_EDGES"
