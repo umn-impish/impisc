@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd ../rust
+cargo build --release
+execs=$(find ./target/release -maxdepth 1 -perm -111 -type f)
+sudo cp $execs /usr/local/bin
