@@ -1,4 +1,4 @@
-use clap::{Parser, ArgGroup};
+use clap::{ArgGroup, Parser};
 use std::net::SocketAddr;
 use std::option::Option;
 
@@ -28,32 +28,50 @@ use std::option::Option;
     long_about=None
 )]
 pub struct ProgramArgs {
-    #[arg(short='p', long, help="UDP port to listen on, in native endian representation")]
+    #[arg(
+        short = 'p',
+        long,
+        help = "UDP port to listen on, in native endian representation"
+    )]
     pub port: u16,
 
-    #[arg(short='s', long,
-          group="fileopts",
-          help="Maximum file size before close (bytes)")]
+    #[arg(
+        short = 's',
+        long,
+        group = "fileopts",
+        help = "Maximum file size before close (bytes)"
+    )]
     pub max_file_size: Option<u64>,
 
-    #[arg(short='l', long,
-          group="fileopts",
-          help="Maximum file lifetime before close (seconds)")]
+    #[arg(
+        short = 'l',
+        long,
+        group = "fileopts",
+        help = "Maximum file lifetime before close (seconds)"
+    )]
     pub file_lifetime: Option<u16>,
 
-    #[arg(short='b', long,
-          help="Initial part of output file name.",
-          group="outputs",
-          requires="fileopts")]
+    #[arg(
+        short = 'b',
+        long,
+        help = "Initial part of output file name.",
+        group = "outputs",
+        requires = "fileopts"
+    )]
     pub base_filename: Option<String>,
 
-    #[arg(short='c', long,
-          help="Command to run on $out_file after it is closed.")]
+    #[arg(
+        short = 'c',
+        long,
+        help = "Command to run on $out_file after it is closed."
+    )]
     pub post_process_cmd: Option<String>,
 
-    #[arg(short='f', long,
-          help="Many IPv4 address to forward data to, in the format addr:port",
-          group="outputs")]
-    pub forward_addrs: Option<Vec<SocketAddr> >
+    #[arg(
+        short = 'f',
+        long,
+        help = "Many IPv4 address to forward data to, in the format addr:port",
+        group = "outputs"
+    )]
+    pub forward_addrs: Option<Vec<SocketAddr>>,
 }
-
