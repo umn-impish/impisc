@@ -54,13 +54,15 @@ fn main() {
         };
 
         // DAQBOX packet plus header
-        if received != 8005 {
+        const TIME_INFO_SZ: usize = 5;
+        const DAQBOX_PACKET_SZ: usize = 8000;
+        if received != (TIME_INFO_SZ + DAQBOX_PACKET_SZ) {
             // Ignore malformed packets
             continue;
         }
 
         // Discard the timing info and parse the spectrum packet
-        let spectra = parse_daqbox_spectrum(&buf[5..]);
+        let spectra = parse_daqbox_spectrum(&buf[TIME_INFO_SZ..]);
 
         // Sum it up
         for spec_idx in 0..spectra.len() {
@@ -75,16 +77,13 @@ fn main() {
         // Forward it
         accumulated = (accumulated + 1) % spectra_per_packet;
         if accumulated == 0 {
-            let tstamp = std::time::SystemTime::now()
-                .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                .expect("System time must be after unix epoch")
-                .as_secs() as u32;
-
             // Enough space for timestamp plus QL bins
             let mut packet: Vec<u8> = Vec::with_capacity(
-                4 + cleared_bins.len() * cleared_bins[0].len()
+                TIME_INFO_SZ + NUM_CHAN * cleared_bins[0].len()
             );
-            packet.extend(tstamp.to_le_bytes());
+            // The first 5 bytes are the most recent timestamp
+            // and DAQBOX frame number
+            packet.extend(&buf[..TIME_INFO_SZ]);
             for spec in sum_bins {
                 for bin in spec {
                     packet.extend(bin.to_le_bytes());
