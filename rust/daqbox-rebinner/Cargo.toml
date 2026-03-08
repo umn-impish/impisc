@@ -1,0 +1,10 @@
+[package]
+name = "daqbox-rebinner"
+version = "1.0.0"
+edition = "2024"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

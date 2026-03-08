@@ -1,22 +1,12 @@
 use std::net::{SocketAddr, UdpSocket};
 
-const NUM_QLOOK: usize = 4;
 const NUM_CHAN: usize = 4;
 
-fn parse_rebin_edges(envar_name: &str) -> Vec<u16> {
-    std::env::var(envar_name)
-        .expect(format!("{envar_name} needs to be set").as_str())
-        .split("-")
+fn parse_rebin_edges(bins: &String) -> Vec<u16> {
+    bins.split("-")
         .into_iter()
         .map(|b| b.parse::<u16>().expect("Must be able to parse QL bin edge"))
         .collect()
-}
-
-fn parse_envar(varname: &str) -> u16 {
-    std::env::var(varname)
-        .expect(format!("{varname} must be set").as_str())
-        .parse::<u16>()
-        .expect(format!("{varname} must be a valid u16").as_str())
 }
 
 fn parse_daqbox_spectrum(data: &[u8]) -> [[u16; 1000]; 4] {
@@ -33,25 +23,27 @@ fn parse_daqbox_spectrum(data: &[u8]) -> [[u16; 1000]; 4] {
 }
 
 fn main() {
-    let listen_port = parse_envar("QUICKLOOK_RECV_PORT");
-    let dest_port = parse_envar("QUICKLOOK_UDPCAP_PORT");
-    let sum_seconds = parse_envar("QUICKLOOK_SUM_SECONDS") as u8;
-
-    let rebin_edges = parse_rebin_edges("QUICKLOOK_EDGES");
-    const NUM_EXPECTED: usize = NUM_QLOOK + 1;
-    if rebin_edges.len() != NUM_EXPECTED {
-        std::panic::panic_any(format!("Need to provide {NUM_EXPECTED} bin edges"));
+    let args: Vec<_> = std::env::args().collect();
+    if args.len() != (1 + 4) {
+        let name = &args[0];
+        std::panic::panic_any(format!("Usage: {name} <recv_port> <dest_port> <num frames to sum over> <ADC edges for rebinning>"))
     }
 
+    let parse_u16 = |v: &String, msg: &str| v.parse::<u16>().expect(msg);
+    let spectra_per_packet = parse_u16(&args[3], "Number of frames to sum must be valid u16");
+
+    let dest_port = parse_u16(&args[2], "Destination port must be u16");
     let dest = SocketAddr::from(([127, 0, 0, 1], dest_port));
+
+    let listen_port = parse_u16(&args[1], "Listen port must be u16");
     let my_sock = UdpSocket::bind(format!("0.0.0.0:{listen_port}"))
         .expect("Need to be able to bind UDP listen socket");
 
-    const FRAMERATE: u8 = 32;
-    let spectra_per_packet: u32 = (sum_seconds as u32) * (FRAMERATE as u32);
+    let rebin_edges = parse_rebin_edges(&args[4]);
 
-    let mut sum_bins: [[u32; NUM_CHAN]; NUM_QLOOK] = [[0; NUM_CHAN]; NUM_QLOOK];
-    let mut accumulated: u32 = 0;
+    let cleared_bins: Vec<Vec<u32>> = vec![vec![0; rebin_edges.len() - 1]; NUM_CHAN];
+    let mut sum_bins = cleared_bins.clone();
+    let mut accumulated: u16 = 0;
     loop {
         // Accept data
         const BUF_SZ: usize = 8005;
@@ -83,7 +75,7 @@ fn main() {
         // Forward it
         accumulated = (accumulated + 1) % spectra_per_packet;
         if accumulated == 0 {
-            let tstamp= std::time::SystemTime::now()
+            let tstamp = std::time::SystemTime::now()
                 .duration_since(std::time::SystemTime::UNIX_EPOCH)
                 .expect("System time must be after unix epoch")
                 .as_secs() as u32;
@@ -96,11 +88,12 @@ fn main() {
             }
 
             match my_sock.send_to(&packet, dest) {
-                Ok(_) => {},
-                Err(e) => eprintln!("Error sending packet: {e:?}")
+                Ok(_) => {}
+                Err(e) => eprintln!("Error sending packet: {e:?}"),
             };
 
-            sum_bins = [[0; 4]; 4];
+            // Clear the quicklook packet data
+            sum_bins = cleared_bins.clone();
         }
     }
 }
