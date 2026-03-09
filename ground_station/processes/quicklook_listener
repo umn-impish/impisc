@@ -23,6 +23,7 @@ def insert_packet(
 ):
     """Insert the health packet into the database."""
     logging.log_debug(str(data.timestamp))
+    # Don't insert the DAQBOX frame number into the database (don't care)
     cols: dict[str, int] = {"unix_timestamp": data.timestamp}
     for i in range(1, NUM_DET_CHANNELS + 1):
         quicklook_bins = data.channels[i - 1]
