@@ -5,7 +5,10 @@ const NUM_CHAN: usize = 4;
 fn parse_rebin_edges(bins: &String) -> Vec<u16> {
     bins.split("-")
         .into_iter()
-        .map(|b| b.parse::<u16>().expect("Must be able to parse QL bin edge"))
+        .map(|b| {
+            b.parse::<u16>()
+                .expect("Must be able to parse energy bin edge")
+        })
         .collect()
 }
 
@@ -50,7 +53,7 @@ fn main() {
         let mut buf: [u8; BUF_SZ] = [0; BUF_SZ];
         let received = match my_sock.recv(&mut buf) {
             Ok(v) => v,
-            Err(e) => std::panic::panic_any(format!("Problem with receiving on quicklook: {e:?}")),
+            Err(e) => std::panic::panic_any(format!("Problem with receiving on rebinner: {e:?}")),
         };
 
         // DAQBOX packet plus header
@@ -65,11 +68,11 @@ fn main() {
         let spectra = parse_daqbox_spectrum(&buf[TIME_INFO_SZ..]);
 
         // Sum it up
-        for spec_idx in 0..spectra.len() {
+        for (spec_idx, this_spec) in spectra.iter().enumerate() {
             for bin_idx in 0..(rebin_edges.len() - 1) {
                 let a = rebin_edges[bin_idx] as usize;
                 let b = rebin_edges[bin_idx + 1] as usize;
-                let this_bin: u32 = spectra[spec_idx][a..b].iter().map(|&x| x as u32).sum();
+                let this_bin: u32 = this_spec[a..b].iter().map(|&x| x as u32).sum();
                 sum_bins[spec_idx][bin_idx] += this_bin;
             }
         }
@@ -77,7 +80,7 @@ fn main() {
         // Forward it
         accumulated = (accumulated + 1) % spectra_per_packet;
         if accumulated == 0 {
-            // Enough space for timestamp plus QL bins
+            // Enough space for timestamp plus summed bins
             let mut packet: Vec<u8> =
                 Vec::with_capacity(TIME_INFO_SZ + NUM_CHAN * cleared_bins[0].len());
             // The first 5 bytes are the most recent timestamp
@@ -94,7 +97,7 @@ fn main() {
                 Err(e) => eprintln!("Error sending packet: {e:?}"),
             };
 
-            // Clear the quicklook packet data
+            // Clear the accumulated packet data
             sum_bins = cleared_bins.clone();
         }
     }
