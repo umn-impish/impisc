@@ -1,3 +1,5 @@
+debug-spectrum-udpcapture.service
+debug-waveform-udpcapture.service
 gpio-init.service
 gpio-ownership-init.service
 health-udpcapture.service

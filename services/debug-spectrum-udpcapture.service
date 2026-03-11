@@ -1,0 +1,17 @@
+[Unit]
+Description=Capture DAQBOX debug spectra to files
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+EnvironmentFile=/data/config/variables.env
+ExecStart=udpcapture -p ${DEBUG_SPECTRUM_PORT} -b "/data/debug/debug-spectrum" -l 10
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

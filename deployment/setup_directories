@@ -1,7 +1,9 @@
+sudo mkdir -p /data/config
+sudo mkdir -p /data/debug
 sudo mkdir -p /data/health
 sudo mkdir -p /data/science
-sudo mkdir -p /data/config
 
+sudo chmod 777 /data/config
+sudo chmod 777 /data/debug
 sudo chmod 777 /data/health
 sudo chmod 777 /data/science
-sudo chmod 777 /data/config
