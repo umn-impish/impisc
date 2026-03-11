@@ -1,11 +1,11 @@
 [Unit]
-Description=Receive rebinned science packets and save them to files
+Description=Rebin science data and send elsewhere.
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=exec
-ExecStart=start_science_udpcapture
+ExecStart=start_science_rebinner
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

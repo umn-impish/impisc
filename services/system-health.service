@@ -1,5 +1,5 @@
 [Unit]
-Description=Send health packets to a port (udpcapture, probably)
+Description=Collect system health information into a packet and send it elsewhere
 After=network.target
 StartLimitIntervalSec=0
 

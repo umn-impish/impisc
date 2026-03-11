@@ -1,5 +1,5 @@
 [Unit]
-Description=Receive packets and forward them elsewhere (to files or other IPs)
+Description=Receive health packets, save them to files, and forward them elsewhere.
 After=network.target
 StartLimitIntervalSec=0
 

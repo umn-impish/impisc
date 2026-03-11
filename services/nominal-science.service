@@ -1,5 +1,5 @@
 [Unit]
-Description=Send health packets to a port (udpcapture, probably)
+Description=Configure the detector systems, then start acquiring DAQBOX packets and route them elsewhere.
 After=network.target
 StartLimitIntervalSec=0
 
