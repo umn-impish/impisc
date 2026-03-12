@@ -1,17 +1,15 @@
 [Unit]
-Description=Collect system health information into a packet and send it elsewhere
+Description=Configure the detector systems, then start acquiring DAQBOX packets and route them elsewhere.
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
+Type=exec
 WorkingDirectory=/usr/local/bin
 EnvironmentFile=/data/config/variables.env
-ExecStart=health_monitor
+ExecStart=launch_science_control
 StandardOutput=inherit
 StandardError=journal
-Restart=on-failure
-RestartSec=5
 User=impish
 
 [Install]

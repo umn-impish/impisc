@@ -88,3 +88,17 @@ class CommandResponse(ctypes.LittleEndianStructure):
         # Set the maximum number of bytes we can
         lim = min(CommandResponse.NUM_RESP_CHARS, len(msg))
         self.response[:lim] = msg[:lim].encode("utf-8")
+
+
+NUM_QUICKLOOK_BINS = 4
+NUM_DET_CHANNELS = 4
+
+
+class QuicklookPacket(ctypes.LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = (
+        ("timestamp", ctypes.c_uint32),
+        ("daqbox_frame_counter", ctypes.c_uint8),
+        # 2D array: each channel gets a number of quicklook bins
+        ("channels", NUM_DET_CHANNELS * (NUM_QUICKLOOK_BINS * ctypes.c_uint32)),
+    )

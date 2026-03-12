@@ -1,11 +1,11 @@
 [Unit]
-Description=Receive journal packets from IMPISH and write them to files
+Description=Receive all packets from IMPISH and send them to their respective process
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=journal_listener
+ExecStart=packet_sorter
 EnvironmentFile=/usr/local/bin/gs-variables.env
 StandardOutput=journal
 StandardError=journal

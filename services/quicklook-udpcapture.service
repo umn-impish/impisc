@@ -1,13 +1,12 @@
 [Unit]
-Description=Download the Grafana dashboard JSON files for backup
+Description=Save/forward quicklook packets
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
-WorkingDirectory=/home/impish/
-ExecStart=download_dashboards
-StandardOutput=journal
+Type=exec
+ExecStart=start_quicklook_udpcapture
+StandardOutput=inherit
 StandardError=journal
 Restart=on-failure
 RestartSec=5

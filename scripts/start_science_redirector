@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Rebinned data: 4000 bins at 2B down to 400 at 4B
+one_second=$(( (4 + 1 + 400*4) * 32 ))
+# Enough to fit a chunk of science data
+lifetime=30
+max_size=$((one_second * lifetime))
+
+source /data/config/variables.env
+udpcapture --port $RAW_SCIENCE_RECV_PORT\
+    --forward-addrs "127.0.0.1:$QUICKLOOK_RECV_PORT"\
+    --forward-addrs "127.0.0.1:$SCIENCE_REBINNER_PORT"

@@ -1,13 +1,12 @@
 [Unit]
-Description=Download the Grafana dashboard JSON files for backup
+Description=Receive raw science packets and forward them elsewhere
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
-WorkingDirectory=/home/impish/
-ExecStart=download_dashboards
-StandardOutput=journal
+Type=exec
+ExecStart=start_science_redirector
+StandardOutput=inherit
 StandardError=journal
 Restart=on-failure
 RestartSec=5

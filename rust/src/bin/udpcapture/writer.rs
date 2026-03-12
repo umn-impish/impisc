@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use std::fs::File;
-use std::io::{Write, BufWriter};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 pub struct FileWriter {
@@ -8,13 +8,13 @@ pub struct FileWriter {
      * the conditional args from UDP capture-like programs
      * */
     base_filename: Option<String>,
-    open_time: Option<DateTime<Utc> >,
+    open_time: Option<DateTime<Utc>>,
     lifetime: u16,
-    file: Option<BufWriter<File> >,
+    file: Option<BufWriter<File>>,
     max_file_size: Option<u64>,
     filename: String,
     file_inc: u32,
-    data_written: usize
+    data_written: usize,
 }
 
 impl FileWriter {
@@ -27,7 +27,7 @@ impl FileWriter {
             max_file_size: max_size,
             filename: String::new(),
             file_inc: 0,
-            data_written: 0
+            data_written: 0,
         }
     }
 
@@ -54,16 +54,16 @@ impl FileWriter {
         if !data.is_empty() && self.file.is_none() {
             self.open_time = Some(Utc::now());
             self.filename = self.make_file_name();
-            self.file = Some(
-                BufWriter::new(
-                    File::create(&self.filename)
-                        .expect("Need to be able to write to given base file location")
+            self.file = Some(BufWriter::new(
+                File::create(&self.filename)
+                    .expect("Need to be able to write to given base file location"),
             ));
         }
 
         if let Some(dafile) = &mut self.file {
-            dafile.write_all(data)
-                  .expect("Data should be writable to a binary file");
+            dafile
+                .write_all(data)
+                .expect("Data should be writable to a binary file");
             // Manually track how much data we write because calling `stream_position` on
             // a buffered writer causes the buffer to be flushed.
             self.data_written += data.len();
@@ -88,7 +88,7 @@ impl FileWriter {
     fn make_file_name(&mut self) -> String {
         /* Given the "base" file name stored in the struct,
          * construct a .bin filename for output which contains
-         * the date, as well as a repeat number (in case the 
+         * the date, as well as a repeat number (in case the
          * same timestamp contains more than one file).
          * */
         let time_str = format!("{}", self.open_time.unwrap().format("%Y-%j-%H-%M-%S"));
@@ -97,20 +97,16 @@ impl FileWriter {
         // we want to not overwrite that one!
         // So, keeping the loop and the Path::exists call is a good idea.
         loop {
-            let fn_start = format!(
-                "{}_{}",
-                &self.base_filename.clone().unwrap(),
-                &time_str);
+            let fn_start = format!("{}_{}", &self.base_filename.clone().unwrap(), &time_str);
 
             // If we are creating a file at the same time as a prior one,
             // increment the counter regardless of whether or not the _N
             // version exists
-            if (self.filename.len() >= fn_start.len()) && 
-               (fn_start == self.filename[..fn_start.len()])
+            if (self.filename.len() >= fn_start.len())
+                && (fn_start == self.filename[..fn_start.len()])
             {
                 self.file_inc += 1;
-            }
-            else {
+            } else {
                 self.file_inc = 0;
             }
             let maybe_filename = format!("{}_{}.bin", &fn_start, self.file_inc);

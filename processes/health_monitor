@@ -180,7 +180,7 @@ def measure_toggle_byte() -> tuple[bool, int]:
         logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
     return True, 0
 
-
+wiper_issues = 0
 def measure_bubba_wiper() -> tuple[bool, int]:
     """Measure the wiper value from the ISL22317 that sets the bias voltage."""
     try:
@@ -191,7 +191,10 @@ def measure_bubba_wiper() -> tuple[bool, int]:
         ISL22317.awake = initial_status
         return False, value
     except IOError as e:
-        logging.log_warning(f"Cannot contact ISL22317; is it on?\n{e}")
+        global wiper_issues
+        if wiper_issues % 100 == 0:
+            logging.log_warning(f"Cannot contact ISL22317; is it on?\n{e}")
+        wiper_issues += 1
     return True, -1
 
 

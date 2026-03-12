@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source /data/config/variables.env
+export DEBUG_SPECTRUM_PORT
+debug_daqbox spectrum $1
