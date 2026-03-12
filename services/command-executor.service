@@ -1,13 +1,13 @@
 [Unit]
-Description=Collect system health information into a packet and send it elsewhere
+Description=Receive Linux commands on a socket, execute them, format and send off stdout/stderr/retcode.
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
+Type=exec
 WorkingDirectory=/usr/local/bin
 EnvironmentFile=/data/config/variables.env
-ExecStart=health_monitor
+ExecStart=command_executor
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

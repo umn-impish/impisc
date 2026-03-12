@@ -1,6 +1,6 @@
 [Unit]
 Description=Turn off toggle power GPIOs at boot
-After=gpiomem-group.service
+After=gpio-ownership-init.service
 
 [Service]
 Type=oneshot

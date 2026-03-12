@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Sets the correct group ownership of /dev/gpiomem
-# since it resets every boot.
-
-sudo chown root:gpio /dev/gpiomem
-sudo chmod g+rw /dev/gpiomem

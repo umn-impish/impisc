@@ -1,13 +1,13 @@
 [Unit]
-Description=Collect system health information into a packet and send it elsewhere
+Description=Handle command routing with some conditional logic.
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
+Type=exec
 WorkingDirectory=/usr/local/bin
 EnvironmentFile=/data/config/variables.env
-ExecStart=health_monitor
+ExecStart=command_router -p ${COMMAND_ROUTER_PORT} -e ${TELEMETER_PORT} -x ${COMMAND_EXECUTOR_PORT}
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

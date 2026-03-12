@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source /data/config/variables.env
+science_control -p $RAW_SCIENCE_RECV_PORT -c "/data/config/daqbox_config.json"

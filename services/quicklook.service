@@ -1,11 +1,11 @@
 [Unit]
-Description=Receive health packets, save them to files, and forward them elsewhere.
+Description=Monitor science packets and compress them, a lot
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
-ExecStart=start_health_udpcapture
+Type=exec
+ExecStart=start_quicklook
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

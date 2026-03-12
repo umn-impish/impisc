@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Sets the correct group ownership of /dev/gpio devices
+# since it resets every boot.
+
+sudo chgrp gpio /dev/gpio*
+sudo chmod g+rw /dev/gpio*

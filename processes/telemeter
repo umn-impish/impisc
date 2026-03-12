@@ -1,0 +1,5 @@
+#!/python-venv/bin/python3
+
+import os
+my_port = int(os.getenv("TELEMETER_PORT"))
+...

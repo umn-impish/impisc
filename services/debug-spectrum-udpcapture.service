@@ -1,13 +1,12 @@
 [Unit]
-Description=Collect system health information into a packet and send it elsewhere
+Description=Capture DAQBOX debug spectra to files
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
-WorkingDirectory=/usr/local/bin
+Type=exec
 EnvironmentFile=/data/config/variables.env
-ExecStart=health_monitor
+ExecStart=udpcapture -p ${DEBUG_SPECTRUM_PORT} -b "/data/debug/debug-spectrum" -l 10
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

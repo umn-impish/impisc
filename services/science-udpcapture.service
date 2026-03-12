@@ -1,11 +1,11 @@
 [Unit]
-Description=Receive health packets, save them to files, and forward them elsewhere.
+Description=Receive rebinned science packets and save them to files
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
-ExecStart=start_health_udpcapture
+Type=exec
+ExecStart=start_science_udpcapture
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

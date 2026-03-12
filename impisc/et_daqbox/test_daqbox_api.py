@@ -1,7 +1,12 @@
 from impisc.et_daqbox import daq_box_api as dbapi
-import time
 import tempfile
 import pathlib
+import pytest
+
+
+@pytest.fixture
+def dbox_iface():
+    return dbapi.DaqBoxInterface()
 
 
 def test_config_to_from_file():
@@ -17,51 +22,39 @@ def test_config_to_from_file():
             assert getattr(other, k) == getattr(cfg, k)
 
 
-def test_waveform_acquisition():
-    return
-    # Configure the DAQ Box to take waveform data
-    iface = dbapi.DaqBoxInterface()
+def test_waveform_acquisition(dbox_iface):
     cfg = dbapi.DaqBoxConfig()
+    cfg.polarities = 0
+    cfg.enabled = 1
+    cfg.zoom_division = 4
     cfg.acquisition_mode = "waveform"
-    cfg.enabled = 0b0001
-    cfg.thresholds[0] = 100
-    cfg.polarities = 0b0000
-    cfg.acquisition_mode = "waveform"
-    cfg.enable_pileup_rejection = False
+
+    iface = dbox_iface
     iface.send(cfg.to_packet())
 
-    # Start taking waveform data
-    iface.send(dbapi.STOP)
-    iface.recalibrate_baseline()
+    # Clear some of the waveforms
+    iface.flush(max_iterations=10)
+
     iface.send(dbapi.START)
-
-    # Flush out the first ~100 waveforms in case any are erroneous
-    iface.flush(max_iterations=128)
-
-    waveforms = list()
-    while len(waveforms) < 1000:
-        try:
-            pkt = iface.recv()
-        except BlockingIOError:
-            time.sleep(0.1)
-            continue
-        if pkt[:2] == dbapi.WAVEFORM_HEADER:
-            waveforms.append(dbapi.parse_waveform_packet(pkt))
-
-    # Looks like it worked
-    iface.send(dbapi.STOP)
+    iface.sock.setblocking(True)
+    out = list()
+    for i in range(200):
+        wf = dbapi.parse_waveform_packet(iface.recv())
+        out.append(wf["data"])
+    iface.sock.setblocking(False)
+    iface.send(dbapi.STOP, expect_handshake=False)
 
 
-def test_spectrum_acquisition():
+def test_spectrum_acquisition(dbox_iface):
     cfg = dbapi.DaqBoxConfig()
     # Configure the DAQ Box to take waveform data
     cfg.acquisition_mode = "spectrum"
     # Only enable channel 1
-    cfg.enabled = 0b0001
+    cfg.enabled = 0b1111
     # Expect positive polarities on every channel
     cfg.polarities = 0b0000
 
-    iface = dbapi.DaqBoxInterface()
+    iface = dbox_iface
     iface.send(cfg.to_packet())
 
     per_second = 32
@@ -70,14 +63,9 @@ def test_spectrum_acquisition():
     spectra = list()
     iface.flush()
     iface.send(dbapi.START)
+    iface.sock.setblocking(True)
     while len(spectra) < total_spectra:
-        try:
-            packet = iface.recv()
-            if len(packet) == dbapi.DaqBoxInterface.HANDSHAKE_PACKET_SIZE:
-                raise ValueError("captured a handshake?")
-            spectra.append(packet)
-        except BlockingIOError:
-            time.sleep(1 / 32)
-
-    # Looks like it worked
-    iface.send(dbapi.STOP, expect_handshake=False)
+        packet = iface.recv()
+        if len(packet) == dbapi.DaqBoxInterface.HANDSHAKE_PACKET_SIZE:
+            raise ValueError("captured a handshake?")
+        spectra.append(packet)
