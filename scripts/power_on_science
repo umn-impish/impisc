@@ -1,0 +1,6 @@
+#!/bin/bash
+
+turn_me_on="1 2 3 4 daqbox bias"
+for ch in $turn_me_on; do
+    toggle_power $ch on
+done

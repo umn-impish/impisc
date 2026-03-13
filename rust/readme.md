@@ -51,3 +51,98 @@ To build a project using `cross` for the RPi CM4:
 ```bash
 cross build --release --target=aarch64-unknown-linux-gnu
 ```
+
+
+# `command_executor` program
+Accepts a Linux command via a UDP packet,
+runs it,
+and sends the stdout and stderr back in a one or more packets.
+
+The port it listens on by default is 35000.
+
+## Format of command response
+- Sections are separated by newlines '\n'
+- The total message arrives in chunks of up to 1024 bytes.
+- The first line is `ack-ok` if the command executed successfully, else `error`
+- The second line is the return code
+- The third line is the string literal `stdout`
+- The next segment is whatever was on `stdout`
+- After the `stdout` segment, the literal `stderr` is printed.
+- The next segment is whatever was printed to `stderr`
+
+Once the last packet is sent, the message "finished" is sent,
+indicating end of transmission.
+
+## How to build
+```bash
+cargo build --release
+```
+
+## How to run with `cargo`
+```bash
+cargo run --release
+```
+
+## How to install, once you are happy
+To install per-user:
+```bash
+cargo install --path .
+```
+To install system-wide: IDK google it
+
+
+# `daqbox-rebinner`
+Accepts DAQBOX packets (plus 5B header) and sums them across energy and time
+    to form a "quicklook" data product, a la [STIX]().
+The original data is 8000B every 32ms; the quicklook is more like 64B every 4s.
+
+## How to build
+```bash
+cargo build --release
+```
+
+## How to run with `cargo`
+```bash
+cargo run --release
+```
+
+## How to install, once you are happy
+To install per-user:
+```bash
+cargo install --path .
+```
+
+
+# `udpcapture`
+Captures UDP packets to files, and/or forwards them to other addresses.
+Run `udpcapture --help` for more info
+
+## How to build
+Make sure you have the Rust dependencies installed.
+Then, run
+```bash
+cargo build --release
+```
+
+## How to run with `cargo`
+Once you've built the project, you may do
+```bash
+cargo run --release -- [ program args ]
+```
+Where the `[ program args ]` are defined by `udpcapture --help`.
+
+## How to install, once you are happy
+To install per-user:
+```bash
+cargo install --path .
+```
+To install system-wide: IDK google it
+
+## Examples
+### UDP capture to a file and forward to two addresses
+```bash
+udpcapture -p 12345 -b test -l 600 -s 32768 -f 127.0.0.1:61000 -f 127.0.0.1:62000
+```
+
+If you want to silence error/debug messages,
+    redirect `stderr` to `/dev/null` with `2>/dev/null`.

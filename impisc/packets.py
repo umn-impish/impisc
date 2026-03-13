@@ -63,6 +63,7 @@ class QuicklookPacket(ctypes.LittleEndianStructure):
     _pack_ = 1
     _fields_ = (
         ("timestamp", ctypes.c_uint32),
+        ("daqbox_frame_counter", ctypes.c_uint8),
         # 2D array: each channel gets a number of quicklook bins
         ("channels", NUM_DET_CHANNELS * (NUM_QUICKLOOK_BINS * ctypes.c_uint32)),
     )
