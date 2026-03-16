@@ -19,8 +19,6 @@ use std::process::{Command, Output, Stdio};
 // Impl's needed for writing onto stdio of process
 use std::io::Write;
 
-const PORT: u16 = 35000;
-
 /* OutputWrapper wraps a process result
   into a nice struct. Its stderr field
   can also capture the _shell_ stderr in case
@@ -65,15 +63,29 @@ impl OutputWrapper {
 }
 
 fn main() {
+    // Where do we send output?
+    let dest_port = std::env::var("TELEMETER_PORT")
+        .expect("Need TELEMETER_PORT to be set")
+        .parse::<u16>()
+        .expect("Need TELEMETER_PORT to be a parsable u16");
+    let send_to_me = format!("127.0.0.1:{dest_port}");
+
+    // Where do we receive commands?
+    let listen_port = std::env::var("COMMAND_EXECUTOR_PORT")
+        .expect("Need COMMAND_EXECUTOR_PORT to be set")
+        .parse::<u16>()
+        .expect("Need COMMAND_EXECUTOR_PORT to be a parsable u16");
+
     loop {
         // Special address 0000 is like INADDR_ANY.
         // The socket needs to get re-created each time
         // so that we can stay bound to 0.0.0.0
-        let sock = UdpSocket::bind(format!("0.0.0.0:{PORT}")).expect("Couldn't bind socket!");
+        let sock = UdpSocket::bind(format!("0.0.0.0:{listen_port}"))
+            .expect("Need to be able to bind socket to given listen port.");
         sock.set_read_timeout(None)
-            .expect("Couldn't set socket timeout");
+            .expect("Need to be able to set socket timeout");
 
-        let Some((cmd, sender)) = receive_command(&sock) else {
+        let Some((cmd, _)) = receive_command(&sock) else {
             eprintln!("Failed to parse command from UDP packet.");
             continue;
         };
@@ -90,8 +102,8 @@ fn main() {
 
         // we're using UDP so it doesn't actually
         // "connect" but this is syntactic sugar
-        sock.connect(sender)
-            .expect("cannot connect to sender socket");
+        sock.connect(&send_to_me)
+            .expect("Must be able to forward to specified destination address");
         reply_with(&res, &sock);
     }
 }
@@ -105,7 +117,7 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
 
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
-    const STEP: usize = 128;
+    const STEP: usize = 512;
     for i in (0..res_bytes.len()).step_by(STEP) {
         let max_idx = std::cmp::min(res_bytes.len(), i + STEP);
 
@@ -132,9 +144,9 @@ fn receive_command(sock: &UdpSocket) -> Option<(Vec<u8>, SocketAddr)> {
       Returns a tuple (cmd, sender address)
     */
 
-    // The command can be up to 1024 bytes long
+    // The command can be up to 8192 bytes long
     // Any longer gets dropped
-    let mut buf = [0; 1024];
+    let mut buf = [0; 8192];
     let (num_recv, sender) = sock.recv_from(&mut buf).ok()?;
 
     // Drop empty bytes from the buffer
