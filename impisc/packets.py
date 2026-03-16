@@ -20,15 +20,18 @@ class HealthPacket(ctypes.LittleEndianStructure):
 
     # Update fields
     _fields_ = [
+        # Voltages on the power lines; measured in centivolts
         ("cm4_volts", ctypes.c_uint8),
+        # heater volts
+        ("heater_volts", ctypes.c_uint8),
+        # DAQBOX volts
+        ("daqbox_volts", ctypes.c_uint8),
         # +- SiPM preamp input voltages
         ("sipm_preamp_pos_volts", ctypes.c_uint8),
         ("sipm_preamp_neg_volts", ctypes.c_uint8),
-        # should the heater turn on, track its voltage
-        ("heater_volts", ctypes.c_uint8),
         # +- bubba input voltages
-        ("bubba_input_pos_volts", ctypes.c_uint16),
-        ("bubba_input_neg_volts", ctypes.c_uint16),
+        ("bubba_input_pos_volts", ctypes.c_uint8),
+        ("bubba_input_neg_volts", ctypes.c_uint8),
         # bubba output bias voltage (~30V to ~50V)
         ("bubba_output_volts", ctypes.c_uint16),
         ("bubba_wiper", ctypes.c_uint8),
@@ -37,6 +40,17 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # Disk usages in 10 MiB units
         ("os_disk_usage", ctypes.c_uint16),
         ("data_disk_usage", ctypes.c_uint16),
+        # Temperatures from RTDs; measured in Celsius to integer precision
+        # Rename once we assign them locations within the payload
+        ("temperature_rtd1", ctypes.c_int8),
+        ("temperature_rtd2", ctypes.c_int8),
+        ("temperature_rtd3", ctypes.c_int8),
+        ("temperature_rtd4", ctypes.c_int8),
+        ("temperature_rtd5", ctypes.c_int8),
+        ("temperature_rtd6", ctypes.c_int8),
+        ("temperature_rtd7", ctypes.c_int8),
+        ("temperature_rtd8", ctypes.c_int8),
+        ("temperature_rtd9", ctypes.c_int8),
         # In units of centikelvin
         ("cpu_temperature", ctypes.c_uint16),
         ("cpu0_usage", ctypes.c_uint16),
