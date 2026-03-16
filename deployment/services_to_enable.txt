@@ -8,4 +8,5 @@ quicklook-udpcapture.service
 science-rebinner.service
 science-redirector.service
 science-udpcapture.service
+starspec-forwarder.service
 system-health.service
