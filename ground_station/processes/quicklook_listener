@@ -19,7 +19,8 @@ from impisc.packets import QuicklookPacket, NUM_DET_CHANNELS
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract, data: QuicklookPacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract,
+    data: QuicklookPacket
 ):
     """Insert the health packet into the database."""
     logging.log_debug(str(data.timestamp))
@@ -39,9 +40,12 @@ def insert_packet(
     logging.log_info(f"Executing: {header}")
     logging.log_debug(f"sql: {sql}")
     logging.log_debug(f"val: {vals}")
-    cursor = db.cursor()
-    _ = cursor.execute(sql, vals)
-    _ = db.commit()
+    try:
+        _ = cursor.execute(sql, val)
+        _ = db.commit()
+    except IntegrityError as e:
+        logging.log_debug(f"Duplicate timestamp received; skipping\n{e}")
+        pass
 
 
 def main():

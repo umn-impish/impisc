@@ -11,6 +11,7 @@ import time
 
 from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.errors import IntegrityError
 
 from impisc import logging
 from impisc.packets import HealthPacket
@@ -52,8 +53,12 @@ def insert_packet(
     val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
     cursor = db.cursor()
-    _ = cursor.execute(sql, val)
-    _ = db.commit()
+    try:
+        _ = cursor.execute(sql, val)
+        _ = db.commit()
+    except IntegrityError as e:
+        logging.log_debug(f"Duplicate timestamp received; skipping\n{e}")
+        pass
 
 
 def main():
