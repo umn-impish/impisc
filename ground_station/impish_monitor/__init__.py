@@ -46,7 +46,7 @@ def _health_columns() -> OrderedDict[str, str]:
     ]
     return OrderedDict[str, str](
         [
-            ("unix_timestamp", "INT PRIMARY KEY"),
+            ("unix_timestamp", "INTEGER PRIMARY KEY"),
             ("gs_unix_timestamp", "INTEGER"),
             *list((f, "INTEGER") for f in fields),
             *list((f"missing_{f}", "BIT(1)") for f in fields),
@@ -66,7 +66,7 @@ def _quicklook_columns() -> OrderedDict[str, str]:
             cols.append((f"chan{c}_ebin{b}", "INTEGER"))
     return OrderedDict[str, str](
         [
-            ("unix_timestamp", "INTEGER"),
+            ("unix_timestamp", "INTEGER PRIMARY KEY"),
             *list((f, "INTEGER") for f in fields),
             *cols,
         ]
