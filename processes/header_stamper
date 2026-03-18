@@ -1,0 +1,48 @@
+#!/python-venv/bin/python
+
+import ctypes
+import os
+import socket
+
+from impisc import logging, packets
+
+
+TELE_PORT = int(os.getenv("TELEMETER_PORT"))
+SS_FWD_PORT = int(os.getenv("ENDPOINT_PORT"))
+SEQUENCE_IDS = {
+    packets.HealthPacket: 0,
+    packets.QuicklookPacket: 0,
+    packets.CommandResponsePacket: 0
+}
+PACKET_SIZES = {
+    ctypes.sizeof(p) : p for p in SEQUENCE_IDS.keys()
+}
+
+
+def main():
+    """Endlessly loop and listen for incoming packets.
+    Stamps the header onto each packet and increments a sequence
+    ID for each type of packet.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind(("", TELE_PORT))
+        logging.log_info(f"Listening on port {TELE_PORT}")
+        while True:
+            data, addr = sock.recvfrom(8192)
+            if len(data) == 0:
+                logging.log_warning(f"Received zero-length packet from {addr[0]}:{addr[1]}; discarding")
+                continue
+            logging.log_info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+            PacketClass = PACKET_SIZES[len(data)]
+            header = packets.PacketHeader()
+            header.id = packets.PACKET_IDS[PacketClass]
+            header.sequence_number = SEQUENCE_IDS[PacketClass]
+            header.packet_size = len(data)
+            logging.log_info(f"Received packet type {PacketClass} (ID: {header.id})\tSEQ: {header.sequence_number:>6}\tSIZE: {header.packet_size:>5}")
+            SEQUENCE_IDS[PacketClass] = (SEQUENCE_IDS[PacketClass] + 1) % (packets.MAX_SEQUENCE_NUMBER + 1)
+            num_sent = sock.sendto(bytes(header) + data, ("", SS_FWD_PORT))
+            logging.log_info(f"Sent {num_sent} bytes to StarSpec forwarder, port {SS_FWD_PORT}")
+
+
+if __name__ == "__main__":
+    main()
