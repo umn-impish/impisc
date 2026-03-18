@@ -1,0 +1,18 @@
+#!/python-venv/bin/python
+
+"""
+Just recalibrate the DAQBOX baseline
+"""
+
+import os
+import socket
+import sys
+import time
+
+from impisc.et_daqbox import daq_box_api as dbapi
+from impisc import logging
+
+iface = dbapi.DaqBoxInterface()
+logging.log_warning("recalibrate baseline (wait)")
+iface.recalibrate_baseline()
+time.sleep(10)
