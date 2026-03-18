@@ -33,7 +33,6 @@ def _health_columns() -> OrderedDict[str, str]:
     """The health column names mapped to their data type."""
     fields: list[str] = [f[0] for f in HealthPacket._fields_]
     fields.remove("unix_timestamp")
-    fields.remove("extra")
     # power_names is for the toggle bits
     power_names: list[str] = [
         "power_det1",
@@ -48,8 +47,9 @@ def _health_columns() -> OrderedDict[str, str]:
         [
             ("unix_timestamp", "INTEGER PRIMARY KEY"),
             ("gs_unix_timestamp", "INTEGER"),
-            *list((f, "INTEGER") for f in fields),
+            *list((f, "INTEGER") for f in fields if "extra" not in f),
             *list((f"missing_{f}", "BIT(1)") for f in fields),
+	    ("missing_unix_timestamp", "BIT(1)"),
             *list((f, "BIT(1)") for f in power_names),
         ]
     )
