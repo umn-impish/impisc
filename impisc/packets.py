@@ -55,38 +55,36 @@ class HealthPacket(ctypes.LittleEndianStructure):
     ]
 
 
-class TelemetryPacketHeader(ctypes.LittleEndianStructure):
-    """
-    A packet header only has two fields:
-        - and identifier number (id)
+class PacketHeader(ctypes.LittleEndianStructure):
+    """ A packet header has three fields:
+        - an identifier number (id) specifying packet type
         - a sequence number
-
-    The packet size is contained in the UDP header,
-        so we don't need to save its size.
+        - packet size in bytes, as a sanity check
     """
 
     _pack_ = 1
     _fields_ = (
         ("id", ctypes.c_uint8),
         ("sequence_number", ctypes.c_uint16),
+        ("packet_size", ctypes.c_uint16),  # EXCLUDING header size
     )
 
 
 # A command response packet is just a blob of bytes.
 # They can be used however deemed fit.
-class CommandResponse(ctypes.LittleEndianStructure):
+class CommandResponsePacket(ctypes.LittleEndianStructure):
     NUM_RESP_CHARS = 512
     _pack_ = 1
     _fields_ = (
         ("response", ctypes.c_char * NUM_RESP_CHARS),
-        ("sequence", ctypes.c_uint16),
+        ("sequence", ctypes.c_uint16),  # What is this?
     )
 
     def add_response(self, msg: str):
         # Reset with empty bytes
-        self.response = (ctypes.c_char * CommandResponse.NUM_RESP_CHARS)()
+        self.response = (ctypes.c_char * CommandResponsePacket.NUM_RESP_CHARS)()
         # Set the maximum number of bytes we can
-        lim = min(CommandResponse.NUM_RESP_CHARS, len(msg))
+        lim = min(CommandResponsePacket.NUM_RESP_CHARS, len(msg))
         self.response[:lim] = msg[:lim].encode("utf-8")
 
 
@@ -102,3 +100,11 @@ class QuicklookPacket(ctypes.LittleEndianStructure):
         # 2D array: each channel gets a number of quicklook bins
         ("channels", NUM_DET_CHANNELS * (NUM_QUICKLOOK_BINS * ctypes.c_uint32)),
     )
+
+
+# Define a unique ID for each packet type
+PACKET_IDS = {
+    HealthPacket: 0,
+    QuicklookPacket: 1,
+    CommandResponsePacket: 2
+}
