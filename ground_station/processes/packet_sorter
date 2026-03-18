@@ -15,30 +15,30 @@ from impisc.packets import HealthPacket, QuicklookPacket, PacketHeader
 HEADER_SIZE = ctypes.sizeof(PacketHeader)
 PACKET_MAP = {
     HEADER_SIZE + ctypes.sizeof(HealthPacket): int(os.environ["LOCAL_HEALTH_FWD_PORT"]),
-    HEADER_SIZE + ctypes.sizeof(QuicklookPacket): int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"])
+    HEADER_SIZE + ctypes.sizeof(QuicklookPacket): int(
+        os.environ["LOCAL_QUICKLOOK_FWD_PORT"]
+    ),
 }
-LISTEN_ADDR = ("", 12100)  # The address the relay is sending to, TODO: update this to use environ
 SORT_PORT = int(os.environ["SORT_PORT"])
 
 
 def main():
     # Program can only end if killed, and sockets will be released by OS
     # Don't bother closing them
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(LISTEN_ADDR)
-
-    send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    send_sock.bind(("", SORT_PORT))
-    logging.log_debug(f"Binding sorter send socket to port {SORT_PORT}")
-
-    while True:
-        data = sock.recv(8192)
-        if len(data) > 0:  # For some reason we sometimes get empty packets?
-            port = PACKET_MAP[len(data)]
-            logging.log_debug(f"Sending {len(data)} bytes to local port {port}")
-            send_sock.sendto(data, ("", port))
-        else:
-            logging.log_warning(f"Recevied zero length packet on {LISTEN_ADDR[0]}:{LISTEN_ADDR[1]}")
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind(("", SORT_PORT))
+        logging.log_debug(f"Binding port {SORT_PORT}")
+        while True:
+            data, addr = sock.recvfrom(8192)
+            logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+            if len(data) > 0:  # For some reason we sometimes get empty packets?
+                port = PACKET_MAP[len(data)]
+                logging.log_debug(f"Sending {len(data)} bytes to local port {port}")
+                sock.sendto(data, ("", port))
+            else:
+                logging.log_warning(
+                    f"Recevied zero length packet on port {SORT_PORT} from {addr[0]}:{addr[1]}; discarding"
+                )
 
 
 if __name__ == "__main__":
