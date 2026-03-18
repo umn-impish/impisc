@@ -55,6 +55,7 @@ class HealthPacket(ctypes.LittleEndianStructure):
     ]
 
 
+MAX_SEQUENCE_NUMBER = int(2**16) - 1  # packet header uses uint16
 class PacketHeader(ctypes.LittleEndianStructure):
     """ A packet header has three fields:
         - an identifier number (id) specifying packet type
