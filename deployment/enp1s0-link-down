@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# If the DAQBOX network interface goes down,
+# we need to stop science acquisition.
+
+if [[ "$IFACE" != "enp1s0" ]]; then
+    exit 0
+fi
+
+echo "stopping science: link lost on $IFACE" | systemd-cat -t $0 -p err
+stop_science

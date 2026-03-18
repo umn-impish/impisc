@@ -1,7 +1,9 @@
 #!/bin/bash
 
-scripts="configure_sd1 setup_directories setup_timesyncd configure_configtxt configure_network remove_bloat
-install_scripts configure_system_python_env configure_journal disable_swap install_rust_progs install_services"
+scripts="configure_sd1 setup_directories setup_timesyncd configure_configtxt
+install_required_programs configure_network install_networkd_hooks remove_bloat
+install_scripts configure_system_python_env
+configure_journal disable_swap install_rust_progs install_services"
 for s in $scripts; do
     echo "executing $s"
     ./"$s"
