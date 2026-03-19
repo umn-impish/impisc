@@ -31,7 +31,7 @@ def make_header(num_bytes: int) -> packets.PacketHeader:
     """
     PacketClass = PACKET_SIZES[num_bytes]
     header: PacketHeader = packets.PacketHeader()
-    header.id = packets.PACKET_IDS[PacketClass]
+    header.id = packets.PACKET_IDS.index(PacketClass)
     header.sequence_number = SEQUENCE_IDS[PacketClass]
     header.packet_size = num_bytes
     logging.log_info(f"Packet type {PacketClass}\n\tID: {header.id}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}")
