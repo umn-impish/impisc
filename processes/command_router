@@ -1,34 +1,59 @@
 #!/python-venv/bin/python3
 
-from impisc import packets
+import argparse
 import os
 import socket
-import argparse
+
+from collections.abc import Iterator
+from pathlib import Path
+
+from impisc import logging, packets
+
+SAFE_COMMANDS: Iterator[Path] = Path("/usr/local/bin").glob("*")
+SAFE_COMMANDS: list[str] = [str(p) for p in SAFE_COMMANDS if p.is_file()]
+try:
+    SAFE_COMMANDS.remove("variables.env")
+except ValueError:
+    pass
+SAFE_COMMANDS += [
+    # other commands we want to define
+]
+UNLOCK_TIMEOUT = 5  # seconds
 
 
 def main():
     args = parse_args()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("", args.listen_port))
-
     # The maximum transmission unit defined by the Gondola network
     MTU = 9100
     while True:
         # Assume the commands are whitespace-delimited ascii
-        command = sock.recv(MTU).decode("utf-8")
-        cmd_type, command = command.split(maxsplit=1)
-
-        error = None
-        match cmd_type:
-            case "canned":
-                error = execute_canned_command(command, args.executor_port)
-            case "arbitrary":
-                error = execute_arbitrary_command(command, args.executor_port)
+        command: str = sock.recv(MTU).decode("utf-8")
+        error: str | None = None
+        match command:
+            case x if x in SAFE_COMMANDS:
+                logging.log_info(f"Executing safe command {command}")
+                error = execute_command(command, args.executor_port)
+            case "unlock":
+                sock.settimeout(UNLOCK_TIMEOUT)
+                try:
+                    command = sock.recv(MTU).decode("utf-8")
+                    logging.log_info(f"Executing UNSAFE command {command}")
+                    error = execute_command(command, args.executor_port)
+                except socket.timeout as e:
+                    logging.log_warning(f"Socket timed out while waiting for unsafe command, relocking\n{e}")
+                finally:
+                    sock.settimeout(None)
             case _:
-                error = f"unknown command type {cmd_type}"
-
+                logging.log_warning(f"Received command \"{command}\" either unknown or unsafe without unlocking; doing nothing")
         if error:
             send_error(sock, args.endpoint_port, error)
+
+
+def execute_command(cmd: str, port: int):
+    logging.log_info(f"Executing command {cmd} on port {port}")
+    return "error!"
 
 
 def execute_canned_command(cmd: str, endpoint: int) -> str | None:
@@ -69,29 +94,30 @@ def execute_arbitrary_command(cmd: str, endpoint: int) -> None:
 
 
 def send_error(s: socket.socket, dest: int, msg: str) -> None:
-    packet = packets.CommandResponse()
+    packet = packets.CommandResponsePacket()
     packet.add_response(msg)
-    s.sendto(packet, ("127.0.0.1", dest))
+    len_sent = s.sendto(packet, ("127.0.0.1", dest))
+    logging.log_info(f"Sending error message (len: {len_sent}) to port {dest}")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Route commands appropriately for IMPISH"
     )
-    parser.add_argument(
+    _= parser.add_argument(
         "-p",
         "--listen_port",
         help="UDP port to listen on (bind to)",
         type=int,
         required=True,
     )
-    parser.add_argument(
+    _= parser.add_argument(
         "-e",
         "--endpoint_port",
         help="Local UDP port to forward any data, like a command reply or error message.",
         type=int,
     )
-    parser.add_argument(
+    _= parser.add_argument(
         "-x",
         "--executor_port",
         help="Which port to send arbitrary command execution requests",
