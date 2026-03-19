@@ -55,7 +55,6 @@ class HealthPacket(ctypes.LittleEndianStructure):
     ]
 
 
-MAX_SEQUENCE_NUMBER = int(2**16) - 1  # packet header uses uint16
 class PacketHeader(ctypes.LittleEndianStructure):
     """ A packet header has three fields:
         - an identifier number (id) specifying packet type
@@ -69,6 +68,8 @@ class PacketHeader(ctypes.LittleEndianStructure):
         ("sequence_number", ctypes.c_uint16),
         ("packet_size", ctypes.c_uint16),  # EXCLUDING header size
     )
+HEADER_SIZE = ctypes.sizeof(PacketHeader)
+MAX_SEQUENCE_NUMBER = int(2**16) - 1  # packet header uses uint16
 
 
 # A command response packet is just a blob of bytes.
