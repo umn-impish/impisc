@@ -1,5 +1,7 @@
 import ctypes
 
+from typing import TypeAlias
+
 
 class HealthPacket(ctypes.LittleEndianStructure):
     """
@@ -56,7 +58,7 @@ class HealthPacket(ctypes.LittleEndianStructure):
 
 
 class PacketHeader(ctypes.LittleEndianStructure):
-    """ A packet header has three fields:
+    """A packet header has three fields:
         - an identifier number (id) specifying packet type
         - a sequence number
         - packet size in bytes, as a sanity check
@@ -104,9 +106,20 @@ class QuicklookPacket(ctypes.LittleEndianStructure):
     )
 
 
-# Define a unique ID for each packet type
-PACKET_IDS = {
-    HealthPacket: 0,
-    QuicklookPacket: 1,
-    CommandResponsePacket: 2
-}
+# Packet: TypeAlias = type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
+Packet: TypeAlias = HealthPacket | QuicklookPacket | CommandResponsePacket
+# Define a unique ID for each packet type; their index in their ID value
+PACKET_IDS = [
+    HealthPacket,
+    QuicklookPacket,
+    CommandResponsePacket
+]
+
+
+def split(data: bytes) -> tuple[PacketHeader, Packet]:
+    """Split a full packet's bytes into a header and payload."""
+    header = PacketHeader.from_buffer_copy(data[:HEADER_SIZE])
+    PacketClass: Packet = PACKET_IDS[header.id]
+    packet = PacketClass.from_buffer_copy(data[HEADER_SIZE:])
+    
+    return header, packet
