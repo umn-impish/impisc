@@ -13,24 +13,24 @@ import socket
 from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
 
-from impisc import logging
-from impish_monitor import QUICKLOOK_TABLE_NAME, connect  # pyright: ignore[reportImplicitRelativeImport]
-from impisc.packets import QuicklookPacket, NUM_DET_CHANNELS
+from impisc import logging, packets
+import impish_monitor as monitor
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract, data: QuicklookPacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract,
+    packet: packets.QuicklookPacket
 ):
     """Insert the health packet into the database."""
-    logging.log_debug(str(data.timestamp))
+    logging.log_debug(str(packet.timestamp))
     # Don't insert the DAQBOX frame number into the database (don't care)
-    cols: dict[str, int] = {"unix_timestamp": data.timestamp}
-    for i in range(1, NUM_DET_CHANNELS + 1):
-        quicklook_bins = data.channels[i - 1]
+    cols: dict[str, int] = {"unix_timestamp": packet.timestamp}
+    for i in range(1, packets.NUM_DET_CHANNELS + 1):
+        quicklook_bins = packet.channels[i - 1]
         for bin, cts in enumerate(quicklook_bins, start=1):
             cols[f"chan{i}_ebin{bin}"] = cts
     fmt = "%s, " * (len(cols) - 1) + "%s"
-    header = f"INSERT INTO {QUICKLOOK_TABLE_NAME}"
+    header = f"INSERT INTO {monitor.QUICKLOOK_TABLE_NAME}"
 
     # Save the keys to ensure they remain ordered the same as the values
     keys = list(cols.keys())
@@ -46,18 +46,22 @@ def insert_packet(
 
 def main():
     logging.log_info("Opening DB connection")
-    db = connect()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("", int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"])))
-    try:
-        while True:
-            data, addr = sock.recvfrom(1024)
-            logging.log_debug(f"{len(data)} bytes recevied from {addr[0]}:{addr[1]}")
-            insert_packet(db, QuicklookPacket.from_buffer_copy(data))
-    finally:
-        logging.log_info("Closing DB connection")
-        sock.close()
-        db.close()
+    db = monitor.connect()
+    expected_seqnum = 0
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind(("", int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"])))
+        try:
+            while True:
+                data, addr = sock.recvfrom(1024)
+                logging.log_debug(f"{len(data)} bytes recevied from {addr[0]}:{addr[1]}")
+                if monitor.validate_packet(data, packets.QuicklookPacket):
+                    header, packet = packets.split(data)
+                    expected_seqnum = monitor.process_sequence_number(header, seq_num=expected_seqnum)
+                    insert_packet(db, packet)
+        finally:
+            logging.log_info("Closing DB connection")
+            sock.close()
+            db.close()
 
 
 if __name__ == "__main__":

@@ -5,7 +5,6 @@ The received packets are put into a MySQL database to be read
 and displayed by Grafana.
 """
 
-import ctypes
 import os
 import socket
 import time
@@ -13,9 +12,9 @@ import time
 from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
 
-from impisc import logging
-from impisc.packets import HealthPacket, PacketHeader, MAX_SEQUENCE_NUMBER, PACKET_IDS
-from impish_monitor import HEALTH_TABLE_NAME, HEALTH_COLUMNS, connect  # pyright: ignore[reportImplicitRelativeImport]
+import impish_monitor as monitor
+
+from impisc import logging, packets
 
 
 PORT = int(os.environ["LOCAL_HEALTH_FWD_PORT"])
@@ -23,7 +22,7 @@ PORT = int(os.environ["LOCAL_HEALTH_FWD_PORT"])
 
 def unpack_power_byte(byte: int) -> dict[str, int]:
     """Map the power status bits."""
-    power_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("power_")]
+    power_cols: list[str] = [c for c in monitor.HEALTH_COLUMNS.keys() if c.startswith("power_")]
     power_cols.remove("power_line_statuses")
     bools: dict[str, int] = {
         c: int((byte >> i) & 1) for i, c in enumerate(reversed(power_cols))
@@ -34,7 +33,7 @@ def unpack_power_byte(byte: int) -> dict[str, int]:
 def unpack_missing_bytes(mbytes: int) -> dict[str, int]:
     """Map the missing status bits."""
     missing_cols: list[str] = [
-        c for c in HEALTH_COLUMNS.keys() if c.startswith("missing_")
+        c for c in monitor.HEALTH_COLUMNS.keys() if c.startswith("missing_")
     ]
     missing_cols.remove("missing_fields")
     bools: dict[str, int] = {
@@ -44,22 +43,23 @@ def unpack_missing_bytes(mbytes: int) -> dict[str, int]:
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract, data: HealthPacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract,
+    packet: packets.HealthPacket
 ):
     """Insert the health packet into the database."""
-    # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to packet
+    # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to db
     cols: dict[str, int] = {"gs_unix_timestamp": int(time.time())}
     cols = {
         **cols,
-        **{f[0]: getattr(data, f[0]) for f in data._fields_ if "extra" not in f},
+        **{f[0]: getattr(packet, f[0]) for f in packet._fields_ if "extra" not in f},
     }
-    cols = {**cols, **unpack_power_byte(getattr(data, "power_line_statuses"))}
-    cols = {**cols, **unpack_missing_bytes(getattr(data, "missing_fields"))}
+    cols = {**cols, **unpack_power_byte(getattr(packet, "power_line_statuses"))}
+    cols = {**cols, **unpack_missing_bytes(getattr(packet, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"
 
     # Save the keys to ensure they remain ordered the same as the values
     keys = list(cols.keys())
-    header = f"INSERT INTO {HEALTH_TABLE_NAME}"
+    header = f"INSERT INTO {monitor.HEALTH_TABLE_NAME}"
     sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
     val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
@@ -70,45 +70,21 @@ def insert_packet(
 
 def main():
     logging.log_debug("Opening DB connection")
-    db = connect()
-    expected_sequence_number = 0
+    db = monitor.connect()
+    expected_seqnum = 0
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         logging.log_debug(f"Binding to port {PORT}")
         sock.bind(("", PORT))
         try:
             while True:
                 data, addr = sock.recvfrom(1024)
-                # header logic
-                header_data = data[: ctypes.sizeof(PacketHeader)]
-                header = PacketHeader.from_buffer_copy(header_data)
-                logging.log_debug(
-                    f"Header: {header.id} {header.sequence_number} {header.packet_size}"
-                )
-                if header.id != PACKET_IDS[HealthPacket]:
-                    logging.log_error(
-                        f"Received unexpected packet (ID {header.id}; SEQ {header.sequence_number}; "
-                        + f"{len(header)} bytes and {len(data) - len(header)} bytes)"
-                    )
-                    continue
-                if header.sequence_number != expected_sequence_number:
-                    logging.log_warning(
-                        f"Unexpected packet sequence number; received {header.sequence_number}, expected {expected_sequence_number}"
-                    )
-                    expected_sequence_number = (
-                        header.sequence_number + 1
-                    )  # Realign number
-                elif expected_sequence_number < MAX_SEQUENCE_NUMBER:
-                    expected_sequence_number += 1
-                else:
-                    expected_sequence_number = 0
-                health_data = data[ctypes.sizeof(PacketHeader) :]
-                logging.log_debug(
-                    f"{len(data)} bytes ({len(header_data)} header + {len(health_data)} data) recevied from {addr[0]}:{addr[1]}"
-                )
-                packet = HealthPacket.from_buffer_copy(health_data)
-                insert_packet(db, packet)
+                logging.log_debug(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
+                if monitor.validate_packet(data, packets.HealthPacket):
+                    header, packet = packets.split(data)
+                    expected_seqnum = monitor.process_sequence_number(header, expected_seqnum)
+                    insert_packet(db, packet=packet)
         finally:
-            logging.log_info("Closing DB connection")
+            logging.log_debug("Closing DB connection")
             sock.close()
             db.close()
 
