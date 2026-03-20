@@ -80,10 +80,11 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
     NUM_RESP_CHARS = 512
     _pack_ = 1
     _fields_ = (
+        ("timestamp", ctypes.c_uint32),
         ("response", ctypes.c_char * NUM_RESP_CHARS),
         ("sequence", ctypes.c_uint16),  # What is this?
     )
-
+    
     def add_response(self, msg: str):
         # Reset with empty bytes
         self.response = (ctypes.c_char * CommandResponsePacket.NUM_RESP_CHARS)()
