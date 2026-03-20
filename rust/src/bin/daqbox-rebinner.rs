@@ -27,9 +27,9 @@ fn parse_daqbox_spectrum(data: &[u8]) -> [[u16; 1000]; 4] {
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    if args.len() != (1 + 4) {
+    if args.len() != (1 + 3) {
         let name = &args[0];
-        std::panic::panic_any(format!("Usage: {name} <recv_port> <dest_port> <num frames to sum over> <ADC edges for rebinning>"))
+        std::panic::panic_any(format!("Usage: {name} <recv_port> <dest_port> <num frames to sum over> <optional ADC edges for rebinning>"))
     }
 
     let parse_u16 = |v: &String, msg: &str| v.parse::<u16>().expect(msg);
@@ -42,9 +42,20 @@ fn main() {
     let my_sock = UdpSocket::bind(format!("0.0.0.0:{listen_port}"))
         .expect("Need to be able to bind UDP listen socket");
 
-    let rebin_edges = parse_rebin_edges(&args[4]);
+    let rebin_edges: Option<Vec<u16>>;
+    if args.len() > 4 {
+        rebin_edges = Some(parse_rebin_edges(&args[4]));
+    } else {
+        rebin_edges = None;
+    }
 
-    let cleared_bins: Vec<Vec<u32>> = vec![vec![0; rebin_edges.len() - 1]; NUM_CHAN];
+    let num_bins = if let Some(e) = &rebin_edges {
+        e.len() - 1
+    } else {
+        const DEFAULT_DAQBOX_BINS_PER_CHANNEL: usize = 1000;
+        DEFAULT_DAQBOX_BINS_PER_CHANNEL
+    };
+    let cleared_bins: Vec<Vec<u32>> = vec![vec![0; num_bins]; NUM_CHAN];
     let mut sum_bins = cleared_bins.clone();
     let mut accumulated: u16 = 0;
     loop {
@@ -68,12 +79,20 @@ fn main() {
         let spectra = parse_daqbox_spectrum(&buf[TIME_INFO_SZ..]);
 
         // Sum it up
-        for (spec_idx, this_spec) in spectra.iter().enumerate() {
-            for bin_idx in 0..(rebin_edges.len() - 1) {
-                let a = rebin_edges[bin_idx] as usize;
-                let b = rebin_edges[bin_idx + 1] as usize;
-                let this_bin: u32 = this_spec[a..b].iter().map(|&x| x as u32).sum();
-                sum_bins[spec_idx][bin_idx] += this_bin;
+        if let Some(re) = &rebin_edges {
+            for spec_idx in 0..spectra.len() {
+                for bin_idx in 0..(re.len() - 1) {
+                    let a = re[bin_idx] as usize;
+                    let b = re[bin_idx + 1] as usize;
+                    let this_bin: u32 = spectra[spec_idx][a..b].iter().map(|&x| x as u32).sum();
+                    sum_bins[spec_idx][bin_idx] += this_bin;
+                }
+            }
+        } else {
+            for (i, s) in spectra.iter().enumerate() {
+                for (j, e) in s.iter().enumerate() {
+                    sum_bins[i][j] += *e as u32;
+                }
             }
         }
 
@@ -82,7 +101,7 @@ fn main() {
         if accumulated == 0 {
             // Enough space for timestamp plus summed bins
             let mut packet: Vec<u8> =
-                Vec::with_capacity(TIME_INFO_SZ + NUM_CHAN * cleared_bins[0].len());
+                Vec::with_capacity(TIME_INFO_SZ + NUM_CHAN * num_bins);
             // The first 5 bytes are the most recent timestamp
             // and DAQBOX frame number
             packet.extend(&buf[..TIME_INFO_SZ]);
