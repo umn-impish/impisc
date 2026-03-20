@@ -71,10 +71,10 @@ impl OutputWrapper {
 
 fn main() {
     // Where do we send output?
-    let dest_port = std::env::var("TEST_PORT")
-        .expect("Need TEST_PORT to be set")
+    let dest_port = std::env::var("HEADER_STAMPER_PORT")
+        .expect("Need HEADER_STAMPER_PORT to be set")
         .parse::<u16>()
-        .expect("Need TEST_PORT to be a parsable u16");
+        .expect("Need HEADER_STAMPER_PORT to be a parsable u16");
     let send_to_me = format!("127.0.0.1:{dest_port}");
 
     // Where do we receive commands?
