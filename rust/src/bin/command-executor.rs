@@ -15,6 +15,7 @@ use std::ffi::{OsStr, OsString};
 // Unix-specific byte string decoding
 use std::net::{SocketAddr, UdpSocket};
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::OsStringExt;
 use std::process::{Command, Output, Stdio};
 // Impl's needed for writing onto stdio of process
 use std::io::Write;
@@ -26,14 +27,16 @@ use std::io::Write;
   or during execution.
 */
 struct OutputWrapper {
+    cmd: OsString,
     stdout: OsString,
     stderr: OsString,
     status_code: i32,
 }
 
 impl OutputWrapper {
-    fn from(proc_out: &Output) -> OutputWrapper {
+    fn from(cmd: &Vec<u8>, proc_out: &Output) -> OutputWrapper {
         return OutputWrapper {
+            cmd: OsString::from_vec((&cmd).to_vec()).into(),
             stdout: OsStr::from_bytes(&proc_out.stdout).into(),
             stderr: OsStr::from_bytes(&proc_out.stderr).into(),
             status_code: proc_out.status.code().unwrap_or(0),
@@ -52,6 +55,10 @@ impl OutputWrapper {
         response.push(sc_str);
         response.push("\n");
 
+        response.push("command\n");
+        response.push(&self.cmd);
+        response.push("\n");
+
         response.push("arb-cmd-stdout\n");
         response.push(&self.stdout);
         response.push("\n");
@@ -64,10 +71,10 @@ impl OutputWrapper {
 
 fn main() {
     // Where do we send output?
-    let dest_port = std::env::var("TELEMETER_PORT")
-        .expect("Need TELEMETER_PORT to be set")
+    let dest_port = std::env::var("TEST_PORT")
+        .expect("Need TEST_PORT to be set")
         .parse::<u16>()
-        .expect("Need TELEMETER_PORT to be a parsable u16");
+        .expect("Need TEST_PORT to be a parsable u16");
     let send_to_me = format!("127.0.0.1:{dest_port}");
 
     // Where do we receive commands?
@@ -94,6 +101,7 @@ fn main() {
         let res = match execute(&cmd) {
             Ok(r) => r,
             Err(e) => OutputWrapper {
+                cmd: OsString::from_vec(cmd),
                 stdout: OsString::from(""),
                 stderr: OsString::from(&format!("{e:?}")),
                 status_code: -1,
@@ -177,5 +185,5 @@ fn execute(cmd: &Vec<u8>) -> std::io::Result<OutputWrapper> {
 
     let out = command.wait_with_output()?;
 
-    return Ok(OutputWrapper::from(&out));
+    return Ok(OutputWrapper::from(&cmd, &out));
 }

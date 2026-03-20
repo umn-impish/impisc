@@ -13,7 +13,7 @@ from impisc import logging, packets
 from impisc.packets import PacketHeader
 
 
-TELE_PORT = int(os.getenv("TELEMETER_PORT"))
+TELE_PORT = int(os.getenv("HEADER_STAMPER_PORT"))
 SS_FWD_PORT = int(os.getenv("ENDPOINT_PORT"))
 SEQUENCE_IDS = {
     packets.HealthPacket: 0,
@@ -45,19 +45,19 @@ def main():
     Stamps the header onto each packet and increments a sequence
     ID for each type of packet.
     """
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.bind(("", TELE_PORT))
-        logging.log_info(f"Listening on port {TELE_PORT}")
-        while True:
-            data, addr = sock.recvfrom(8192)
-            if len(data) == 0:
-                logging.log_warning(f"Received zero-length packet from {addr[0]}:{addr[1]}; discarding")
-                continue
-            logging.log_info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
-            header: PacketHeader = make_header(num_bytes=len(data))
-            payload: bytes = bytes(header) + data
-            num_sent = sock.sendto(payload, ("", SS_FWD_PORT))
-            logging.log_info(f"Sent {num_sent} out of {len(payload)} bytes to StarSpec forwarder (port {SS_FWD_PORT})")
+    sock =socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", TELE_PORT))
+    logging.log_info(f"Listening on port {TELE_PORT}")
+    while True:
+        data, addr = sock.recvfrom(8192)
+        if len(data) == 0:
+            logging.log_warning(f"Received zero-length packet from {addr[0]}:{addr[1]}; discarding")
+            continue
+        logging.log_info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+        header: PacketHeader = make_header(num_bytes=len(data))
+        payload: bytes = bytes(header) + data
+        num_sent = sock.sendto(payload, ("", SS_FWD_PORT))
+        logging.log_info(f"Sent {num_sent} out of {len(payload)} bytes to StarSpec forwarder (port {SS_FWD_PORT})")
 
 
 if __name__ == "__main__":
