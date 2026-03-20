@@ -64,7 +64,12 @@ def insert_packet(
     val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
     cursor = db.cursor()
-    _ = cursor.execute(sql, val)
+    try:
+        _ = cursor.execute(sql, val)
+    except mysql.connector.errors.IntegrityError as e:
+        # Ignore duplicate key
+        logging.log_warning(f"Ignoring integrity error: {e}")
+        return
     _ = db.commit()
 
 
