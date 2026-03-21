@@ -17,6 +17,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::ffi::OsStringExt;
 use std::process::{Command, Output, Stdio};
+use std::time::{SystemTime, UNIX_EPOCH};
 // Impl's needed for writing onto stdio of process
 use std::io::Write;
 
@@ -126,6 +127,10 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
     const STEP: usize = 512;
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time should go forward")
+        .as_secs();
     for i in (0..res_bytes.len()).step_by(STEP) {
         let max_idx = std::cmp::min(res_bytes.len(), i + STEP);
 
@@ -134,7 +139,13 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
             let padding: usize = STEP - send_bytes.len();
             send_bytes.append(&mut vec![0u8; padding]);
         }
-
+        
+        // timestamp
+        send_bytes.insert(0, ((ts >> 24) & 0xff) as u8);
+        send_bytes.insert(0, ((ts >> 16) & 0xff) as u8);
+        send_bytes.insert(0, ((ts >> 8) & 0xff) as u8);
+        send_bytes.insert(0, (ts & 0xff) as u8);
+        
         let packet_ordering = (i / STEP) as u16;
         send_bytes.push((packet_ordering & 0xff) as u8);
         send_bytes.push(((packet_ordering >> 8) & 0xff) as u8);
