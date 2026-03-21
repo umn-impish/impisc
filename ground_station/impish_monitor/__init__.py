@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 DB_NAME = "impish"
 HEALTH_TABLE_NAME = "health"
 QUICKLOOK_TABLE_NAME = "quicklook"
+COMMAND_TABLE_NAME = "commands"
 ADDR = ("", 12004)
 
 
