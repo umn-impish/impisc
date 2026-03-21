@@ -9,20 +9,26 @@ from pathlib import Path
 
 from impisc import logging, packets
 
-SAFE_COMMANDS: Iterator[Path] = Path("/usr/local/bin").glob("*")
-SAFE_COMMANDS: list[str] = [str(p) for p in SAFE_COMMANDS if p.is_file()]
-try:
-    SAFE_COMMANDS.remove("variables.env")
-except ValueError:
-    pass
-SAFE_COMMANDS += [
-    # other commands we want to define
+# Currently, all scripts in /usr/local/bin should be safe...
+globbed: Iterator[Path] = Path("/usr/local/bin").glob("*")
+SAFE_COMMANDS: list[str] = [str(p.name) for p in globbed if p.is_file() and os.access(p, os.X_OK)] + [
+    # other commands we want to define as safe
 ]
-UNLOCK_TIMEOUT = 5  # seconds
+# Special commands that are executed within this process
+# rather than getting passed of the command-executor.
+SPECIAL_COMMANDS: list[str] = [
+    "restart-executor",
+    "reboot",
+    "poweroff"
+]
+logging.log_info(f"Safe commands: {SAFE_COMMANDS}")
+logging.log_info(f"Special commands: {SPECIAL_COMMANDS}")
+UNLOCK_TIMEOUT = 10  # seconds
 
 
 def main():
     args = parse_args()
+    logging.log_info(f"Binding to port {args.listen_port}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("", args.listen_port))
     # The maximum transmission unit defined by the Gondola network
@@ -32,17 +38,21 @@ def main():
         command: str = sock.recv(MTU).decode("utf-8")
         error: str | None = None
         match command:
+            case x if x in SPECIAL_COMMANDS:
+                logging.log_critical(f"Received special command {command}; executing")
+                exit_code = os.system(f"sudo {command}")
+                logging.log_info(f"Special command exitted with code {exit_code}")
             case x if x in SAFE_COMMANDS:
-                logging.log_info(f"Executing safe command {command}")
+                logging.log_info(f"Received safe command {command}")
                 error = execute_command(command, args.executor_port)
             case "unlock":
                 sock.settimeout(UNLOCK_TIMEOUT)
                 try:
-                    command = sock.recv(MTU).decode("utf-8")
-                    logging.log_info(f"Executing UNSAFE command {command}")
+                    command = sock.recv(MTU)#.decode("utf-8")
+                    logging.log_info(f"Received UNSAFE command {command}")
                     error = execute_command(command, args.executor_port)
-                except socket.timeout as e:
-                    logging.log_warning(f"Socket timed out while waiting for unsafe command, relocking\n{e}")
+                except socket.timeout:
+                    logging.log_warning(f"Socket timed out while waiting for unsafe command, relocking")
                 finally:
                     sock.settimeout(None)
             case _:
@@ -52,8 +62,16 @@ def main():
 
 
 def execute_command(cmd: str, port: int):
-    logging.log_info(f"Executing command {cmd} on port {port}")
-    return "error!"
+    """The executor is an external program,
+    so let it deal with any issues.
+    If it gets stuck... we will need to issue the "reset" special
+    command.
+    """
+    logging.log_critical(f"Executing command \"{cmd}\" on port {port}")
+    len_sent: int = socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
+        bytes(cmd, encoding="utf-8"), ("localhost", port)
+    )
+    logging.log_info(f"Sent {len_sent} out of {len(cmd)} bytes")
 
 
 def execute_canned_command(cmd: str, endpoint: int) -> str | None:
