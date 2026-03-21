@@ -53,6 +53,9 @@ def main():
         if len(data) == 0:
             logging.log_warning(f"Received zero-length packet from {addr[0]}:{addr[1]}; discarding")
             continue
+        elif len(data) not in PACKET_SIZES:
+            logging.log_critical(f"Unknown packet received ({len(data)} bytes); discarding\n{data}")
+            continue
         logging.log_info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
         header: PacketHeader = make_header(num_bytes=len(data))
         payload: bytes = bytes(header) + data
