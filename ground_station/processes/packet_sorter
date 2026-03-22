@@ -11,7 +11,7 @@ from ctypes import sizeof
 from impisc import logging
 from impisc.packets import HealthPacket, QuicklookPacket, CommandResponsePacket, PacketHeader
 
-# TODO: update this to use definitions within impisc once settled:
+
 HEADER_SIZE = sizeof(PacketHeader)
 PACKET_MAP = {
     HEADER_SIZE + sizeof(HealthPacket): int(os.environ["LOCAL_HEALTH_FWD_PORT"]),
@@ -19,23 +19,26 @@ PACKET_MAP = {
     HEADER_SIZE + sizeof(CommandResponsePacket): int(os.environ["LOCAL_COMMAND_FWD_PORT"]),
 }
 SORT_PORT = int(os.environ["SORT_PORT"])
-LISTEN_ADDR = ("", SORT_PORT)  # The address the relay is sending to, TODO: update this to use environ
+logging.log_debug(f"Header size: {HEADER_SIZE}\nPacket sizes: {PACKET_MAP.keys()}")
 
 
 def main():
-    # Program can only end if killed, and sockets will be released by OS
-    # Don't bother closing them
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(LISTEN_ADDR)
+    sock.bind(("", SORT_PORT))
     while True:
-        data, addr = sock.recvfrom(8192)
-        if len(data) > 0:  # For some reason we sometimes get empty packets?
-            port = PACKET_MAP[len(data)]
+        data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
+        if len(data) in PACKET_MAP:
             logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
-            logging.log_debug(f"Sending {len(data)} bytes to local port {port}")
-            sock.sendto(data, ("", port))
+            port = PACKET_MAP[len(data)]
+            num_sent = sock.sendto(data, ("", port))
+            logging.log_info(f"Sent {num_sent} out of {len(data)} bytes to port {port}")
+            if num_sent != len(data):
+                logging.log_warning(f"Byte loss when sending previous packet to port {port}")
         else:
-            logging.log_warning(f"Received zero length packet on {LISTEN_ADDR[0]}:{LISTEN_ADDR[1]}")
+            logging.log_warning(
+                f"Unknown packet ({len(data)} bytes) received "
+                + f"on port {SORT_PORT} from {addr[0]}:{addr[1]}; discarding;\n{data}"
+            )
 
 
 if __name__ == "__main__":
