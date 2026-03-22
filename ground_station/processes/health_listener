@@ -76,6 +76,8 @@ def insert_packet(
 
 
 def main():
+    header: packets.PacketHeader
+    packet: packets.HealthPacket
     logging.log_debug("Opening DB connection")
     db = monitor.connect()
     expected_seqnum = 0
@@ -84,12 +86,12 @@ def main():
     sock.bind(("", LISTEN_PORT))
     try:
         while True:
-            data, addr = sock.recvfrom(1024)
-            logging.log_debug(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
+            data, addr = sock.recvfrom(1024)  # pyright: ignore[reportAny]
+            logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
             if monitor.validate_packet(data, packets.HealthPacket):
                 header, packet = packets.split(data)
                 expected_seqnum = monitor.process_sequence_number(header, expected_seqnum)
-                insert_packet(db, packet=packet)
+                insert_packet(db, packet)
     finally:
         logging.log_debug("Closing DB connection")
         sock.close()
