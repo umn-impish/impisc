@@ -1,8 +1,26 @@
 #!/python-venv/bin/python3
+"""
+Listens for commands on a TCP socket and handles logic.
+Executed commands are passed on to the command-executor service,
+which sends the stdout and stderr to the header stamper.
+Three groups of commands are defined:
+    - Special: very limited number of commands that 
+        don't get passed to command-executor; uses os.system
+    - Safe: all commands defined in /usr/local/bin; these
+        do not need a prior `unlock` command
+    - Unsafe: includes anything not defined in the other two
+        command groups; these commands require an `unlock`
+        command to be sent prior to being executed. If an
+        unsafe command is sent without unlocking, it is
+        ignored.
+A short window of time is defined by an environment variable
+after which the system relocks and prohibits use of unsafe commands.
+"""
 
 import argparse
 import os
 import socket
+import struct
 import time
 
 from collections.abc import Iterator
@@ -12,55 +30,80 @@ from impisc import logging, packets
 
 # Currently, all scripts in /usr/local/bin should be safe...
 globbed: Iterator[Path] = Path("/usr/local/bin").glob("*")
-SAFE_COMMANDS: list[str] = [str(p.name) for p in globbed if p.is_file() and os.access(p, os.X_OK)] + [
-    # other commands we want to define as safe
-]
+SAFE_COMMANDS: list[str] = (
+    [str(p.name) for p in globbed if p.is_file() and os.access(p, os.X_OK)]
+    + [
+        # other commands we want to define as safe
+    ]
+)
 # Special commands that are executed within this process
-# rather than getting passed of the command-executor.
-SPECIAL_COMMANDS: list[str] = [
-    "restart-executor",
-    "reboot",
-    "poweroff"
-]
-logging.log_info(f"Safe commands: {SAFE_COMMANDS}")
-logging.log_info(f"Special commands: {SPECIAL_COMMANDS}")
-UNLOCK_TIMEOUT = 10  # seconds
+# rather than getting passed to command-executor
+SPECIAL_COMMANDS: list[str] = ["restart-executor", "reboot", "poweroff"]
+UNLOCK_TIMEOUT: int = int(os.getenv("COMMAND_UNLOCK_TIMEOUT"))
+logging.log_debug(f"Safe commands: {SAFE_COMMANDS}")
+logging.log_debug(f"Special commands: {SPECIAL_COMMANDS}")
 
 
 def process_cmd_bytes(command: bytes) -> str:
-    """Clean the command received from StarSpec."""
-    hdr = command[:4]
-    cmd_str = command[4:].decode("utf-8")
-    group, cmd = cmd_str.split(" ", maxsplit=1)
-    cmd = cmd.replace("\"", "").strip()
-    logging.log_info(f"{hdr.decode("utf-8")}\ngroup:{group:>12}\tcmd:\"{cmd}\"")
-    
+    """Clean the bytes received from StarSpec
+    (removes header and group)
+    and returns only the command string.
+    """
+    HEADER_LEN: int = 4  # starspec prepends four (LEO) bytes to denote packet size
+    logging.log_info(f"received {len(command)} bytes in command packet")
+    packet_size: int = struct.unpack("<I", command[:HEADER_LEN])[0]
+    full_str = command[HEADER_LEN:].decode("utf-8")
+    group, cmd = full_str.split(" ", maxsplit=1)
+    cmd = cmd.replace('"', "").strip()
+    logging.log_info(
+        f"size from packet: {packet_size}\ngroup: {group:<12}\tcmd ({len(cmd)} bytes): {cmd:<32}"
+    )
+    if packet_size != len(full_str):
+        logging.log_warning(
+            f"Command packet expected to be {packet_size} bytes; "
+            + f"got {len(full_str)} bytes in command string"
+        )
+
     return cmd
 
 
 def main():
     args = parse_args()
-    logging.log_info(f"Binding to port {args.listen_port}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # socket is sometimes slow to be closed by OS...
+    # this will allow the service to restart quickly without getting
+    # stuck in a reboot loop
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    logging.log_debug(f"Binding to port {args.listen_port}")
     sock.bind(("", args.listen_port))
     sock.listen(2)
     # The maximum transmission unit defined by the Gondola network
     MTU = 9100
     locked = True
-    # b'\x16\x00\x00\x00gencmd "power_status"\n'
     while True:
         cmd_bytes: bytes = b""
         error: str | None = None
+        # TCP socket timeout must be set BEFORE accepting a connection
         if locked:
             sock.settimeout(None)
         else:
+            # remove the following if statement once we
+            # get TCP sockets that don't refresh once a second...
+            if (time.time() - unlock_time) > UNLOCK_TIMEOUT:
+                logging.log_warning(f"Locking after timeout exceeded")
+                locked = True
+                continue
+            # Since the socket is constantly refreshed by scommand the
+            # following line does nothing right now... >:(
             sock.settimeout(UNLOCK_TIMEOUT)
-        conn, addr = sock.accept()  # flightsim constantly disconnects then reconnects...
-        logging.log_info(f"Connected to {addr[0]}:{addr[1]} for TCP")
+        conn, addr = sock.accept()  # scommand constantly disconnects then reconnects...
+        logging.log_debug(f"Connected to {addr[0]}:{addr[1]} for TCP")
         try:
             cmd_bytes: bytes = conn.recv(MTU)
         except socket.timeout:
-            logging.log_warning(f"Socket timed out while waiting for unsafe command, relocking")
+            logging.log_warning(
+                f"Socket timed out while waiting for unsafe command, relocking"
+            )
             locked = True
             continue
         if len(cmd_bytes) == 0:
@@ -69,10 +112,13 @@ def main():
         match (command, locked):
             case ("", _):
                 # flightsim/scommand sends an empty string every time it reconnects...
+                # I think that's a TCP thing?
                 continue
             case (x, _) if x in SPECIAL_COMMANDS:
-                logging.log_critical(f"Received special command {command}; executing")
-                exit_code = os.system(f"sudo {command}")
+                logging.log_critical(
+                    f"Received special command {command}; executing with sudo"
+                )
+                exit_code: int = os.system(f"sudo {command}")
                 logging.log_info(f"Special command exitted with code {exit_code}")
             case (x, _) if x in SAFE_COMMANDS:
                 logging.log_info(f"Received safe command {command}")
@@ -80,13 +126,17 @@ def main():
             case ("unlock", True):
                 locked = False
                 logging.log_warning("Unsafe commanding now unlocked")
+                unlock_time = time.time()
             case ("lock", False):
                 locked = True
                 logging.log_warning("Unsafe commanding now locked")
             case (_, True):
-                logging.log_warning(f"Received command \"{command}\" either unknown or unsafe without unlocking; doing nothing")
+                logging.log_warning(
+                    f'Received command "{command}" either unknown or unsafe '
+                    + "without unlocking; doing nothing"
+                )
             case (_, False):
-                logging.log_info(f"Received UNSAFE command \"{command}\"")
+                logging.log_info(f'Received UNSAFE command "{command}"')
                 error = execute_command(command, args.executor_port)
                 locked = True
         if error:
@@ -99,75 +149,38 @@ def execute_command(cmd: str, port: int):
     If it gets stuck... we will need to issue the "reset" special
     command.
     """
-    logging.log_critical(f"Sending command \"{cmd}\" to executor on {port}")
+    logging.log_critical(f'Sending command "{cmd}" to executor on {port}')
     len_sent: int = socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
         bytes(cmd, encoding="utf-8"), ("localhost", port)
     )
-    logging.log_info(f"Sent {len_sent} out of {len(cmd)} bytes")
-
-
-def execute_canned_command(cmd: str, endpoint: int) -> str | None:
-    """
-    A canned command corresponds to a script we have already written,
-        or one of the special commands enumerated in the function body.
-
-    The canned command may accept arguments, or not.
-    Aside from the special commands,
-        a canned command must exist in /usr/local/bin,
-        which is the common install point for scripts.
-    """
-    command_name, _ = cmd.split(maxsplit=1)
-
-    # A few special commands...
-    special_commands = ["restart-executor", "reboot", "poweroff"]
-    if command_name in special_commands:
-        os.system(f"sudo {command_name}")
-        return f"Executed special command {command_name}; check journal for issues"
-
-    listing = os.listdir("/usr/local/bin")
-    if command_name not in listing:
-        return f"{command_name} is not a canned command"
-
-    return execute_arbitrary_command(cmd, endpoint)
-
-
-def execute_arbitrary_command(cmd: str, endpoint: int) -> None:
-    """
-    The arbitrary executor is an external program,
-    so let it deal with any issues.
-    If it gets stuck...we will need to issue the "reset" special
-    command.
-    """
-    socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
-        bytes(cmd), ("localhost", endpoint)
-    )
+    logging.log_debug(f"Sent {len_sent} out of {len(cmd)} bytes")
 
 
 def send_error(s: socket.socket, dest: int, msg: str) -> None:
     packet = packets.CommandResponsePacket()
     packet.add_response(msg)
     len_sent = s.sendto(packet, ("127.0.0.1", dest))
-    logging.log_info(f"Sending error message (len: {len_sent}) to port {dest}")
+    logging.log_debug(f"Sending error message (len: {len_sent}) to port {dest}")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Route commands appropriately for IMPISH"
     )
-    _= parser.add_argument(
+    _ = parser.add_argument(
         "-p",
         "--listen_port",
         help="UDP port to listen on (bind to)",
         type=int,
         required=True,
     )
-    _= parser.add_argument(
+    _ = parser.add_argument(
         "-e",
         "--endpoint_port",
         help="Local UDP port to forward any data, like a command reply or error message.",
         type=int,
     )
-    _= parser.add_argument(
+    _ = parser.add_argument(
         "-x",
         "--executor_port",
         help="Which port to send arbitrary command execution requests",
