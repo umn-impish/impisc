@@ -40,7 +40,7 @@ impl OutputWrapper {
             cmd: cmd.into(),
             stdout: OsStr::from_bytes(&proc_out.stdout).into(),
             stderr: OsStr::from_bytes(&proc_out.stderr).into(),
-            status_code: proc_out.status.code().unwrap_or(0),
+            status_code: proc_out.status.code().unwrap_or(-1),
         };
     }
 
@@ -117,52 +117,55 @@ fn main() {
     }
 }
 
+/// Reply to the given socket with the results in OutputWrapper.
+/// the reply format is to split up
+/// stdout and stderr with a header
+/// indicating if the command worked or not.
+///
+/// Packet format:
+/// ```
+/// (u32 timestamp) + (512x u8 response data) + (u16 sequence number) + (u8 end of transmission indicator)
+/// ```
 fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
-    /* Reply to the given socket with the results in OutputWrapper.
-      the reply format is to split up
-      stdout and stderr with a header
-      indicating if the command worked or not
-    */
-
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
     const STEP: usize = 512;
-    let ts = SystemTime::now()
+    let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("time should go forward")
-        .as_secs();
+        .as_secs() as u32;
     for i in (0..res_bytes.len()).step_by(STEP) {
+        // Go until the end of data or the
         let max_idx = std::cmp::min(res_bytes.len(), i + STEP);
 
-        let mut send_bytes = res_bytes[i..max_idx].to_vec();
-        if send_bytes.len() != STEP {
+        // Put the timestamp at the front of the packet
+        let mut send_bytes: Vec<u8> = timestamp.to_le_bytes().to_vec();
+
+        // Then put the response bytes
+        send_bytes.extend(res_bytes[i..max_idx].iter());
+        if send_bytes.len() != (STEP + size_of_val(&timestamp)) {
             let padding: usize = STEP - send_bytes.len();
-            send_bytes.append(&mut vec![0u8; padding]);
+            send_bytes.extend(std::iter::repeat_n(0u8, padding));
         }
 
-        // timestamp
-        send_bytes.insert(0, ((ts >> 24) & 0xff) as u8);
-        send_bytes.insert(0, ((ts >> 16) & 0xff) as u8);
-        send_bytes.insert(0, ((ts >> 8) & 0xff) as u8);
-        send_bytes.insert(0, (ts & 0xff) as u8);
-
+        // Finally, append the packet ordering and EOT byte
         let packet_ordering = (i / STEP) as u16;
-        send_bytes.push((packet_ordering & 0xff) as u8);
-        send_bytes.push(((packet_ordering >> 8) & 0xff) as u8);
+        send_bytes.extend(packet_ordering.to_le_bytes());
+        send_bytes.push(if max_idx == res_bytes.len() {
+            // ASCII End of Transmission
+            0x04u8
+        } else {
+            // NUL --> More packets to come
+            0x00u8
+        });
 
         sock.send(&send_bytes).expect("failed to send UDP response");
     }
-
-    // Send a final message saying that data isn't flowing any more
-    sock.send("arb-cmd-finished".as_bytes())
-        .expect("failed to send end-of-message");
 }
 
+/// Receive a command as a series of bytes from a socket.
+/// Returns a tuple (cmd, sender address).
 fn receive_command(sock: &UdpSocket) -> Option<(Vec<u8>, SocketAddr)> {
-    /* Receive a command as a series of bytes from a socket.
-      Returns a tuple (cmd, sender address)
-    */
-
     // The command can be up to 8192 bytes long
     // Any longer gets dropped
     let mut buf = [0; 8192];
@@ -173,17 +176,14 @@ fn receive_command(sock: &UdpSocket) -> Option<(Vec<u8>, SocketAddr)> {
     return Some((vecta, sender));
 }
 
+/// Execute a command given as a string as a subprocess
+/// in a shell.
+/// The shell is invoked as `bash -l -s` and the
+/// command is piped to its stdin;
+/// its stdout and stderr are captured separately.
+/// In this way, typical shell syntax and nicities
+/// like loops, redirection, and pipes may be used.
 fn execute(cmd: &Vec<u8>) -> std::io::Result<OutputWrapper> {
-    /* Execute a command given as a string as a subprocess
-       in a shell.
-       The shell is invoked as `bash -l -s` and the
-       command is piped to its stdin;
-       its stdout and stderr are captured separately.
-       In this way, typical shell syntax and nicities
-       like loops, redirection, and pipes may be used.
-    */
-
-    // Execute the command
     let mut command = Command::new("bash")
         .arg("-ls")
         .stdin(Stdio::piped())
