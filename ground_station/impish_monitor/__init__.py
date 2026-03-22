@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import mysql.connector
 
-from impisc import logging, packets
+from impisc.packets import HealthPacket, QuicklookPacket, NUM_DET_CHANNELS, NUM_QUICKLOOK_BINS
 
 if TYPE_CHECKING:
     from mysql.connector.pooling import PooledMySQLConnection
@@ -79,7 +79,9 @@ def connect(
 
 def _health_columns() -> OrderedDict[str, str]:
     """The health column names mapped to their data type."""
-    fields: list[str] = [f[0] for f in packets.HealthPacket._fields_]
+    fields: list[str] = [f[0] for f in HealthPacket._fields_]
+    fields.remove("unix_timestamp")
+    # power_names is for the toggle bits
     power_names: list[str] = [
         "power_det1",
         "power_det2",
@@ -91,10 +93,11 @@ def _health_columns() -> OrderedDict[str, str]:
     ]
     return OrderedDict[str, str](
         [
-            ("id", "INT AUTO_INCREMENT PRIMARY KEY"),
+            ("unix_timestamp", "INTEGER PRIMARY KEY"),
             ("gs_unix_timestamp", "INTEGER"),
             *list((f, "INTEGER") for f in fields if "extra" not in f),
             *list((f"missing_{f}", "BIT(1)") for f in fields),
+	    ("missing_unix_timestamp", "BIT(1)"),
             *list((f, "BIT(1)") for f in power_names),
         ]
     )
@@ -102,12 +105,19 @@ def _health_columns() -> OrderedDict[str, str]:
 
 def _quicklook_columns() -> OrderedDict[str, str]:
     """The quicklook column names mapped to their data type."""
+    fields: list[str] = [f[0] for f in QuicklookPacket._fields_]
+    fields.remove("timestamp")
+    fields.remove("channels")
     cols: list[tuple[str, str]] = []
     for c in range(1, packets.NUM_DET_CHANNELS + 1):
         for b in range(1, packets.NUM_QUICKLOOK_BINS + 1):
             cols.append((f"chan{c}_ebin{b}", "INTEGER"))
     return OrderedDict[str, str](
-        [("id", "INT AUTO_INCREMENT PRIMARY KEY"), ("unix_timestamp", "INTEGER"), *cols]
+        [
+            ("unix_timestamp", "INTEGER PRIMARY KEY"),
+            *list((f, "INTEGER") for f in fields),
+            *cols,
+        ]
     )
 
 

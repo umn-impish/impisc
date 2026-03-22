@@ -34,7 +34,7 @@ def add_table_cols(table_name: str, cols: OrderedDict[str, str]):
     try:
         cursor: MySQLCursorAbstract = db.cursor()
         cursor.execute(
-            f"CREATE TABLE IF NOT EXISTS {table_name} (id INT AUTO_INCREMENT PRIMARY KEY);"
+            f"CREATE TABLE IF NOT EXISTS {table_name} (unix_timestamp INTEGER PRIMARY KEY);"
         )
         query = """
         SELECT COUNT(*)

@@ -19,25 +19,23 @@ PACKET_MAP = {
     HEADER_SIZE + sizeof(CommandResponsePacket): int(os.environ["LOCAL_COMMAND_FWD_PORT"]),
 }
 SORT_PORT = int(os.environ["SORT_PORT"])
+LISTEN_ADDR = ("", SORT_PORT)  # The address the relay is sending to, TODO: update this to use environ
 
 
 def main():
     # Program can only end if killed, and sockets will be released by OS
     # Don't bother closing them
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.bind(("", SORT_PORT))
-        logging.log_debug(f"Binding to port {SORT_PORT}")
-        while True:
-            data, addr = sock.recvfrom(8192)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(LISTEN_ADDR)
+    while True:
+        data, addr = sock.recvfrom(8192)
+        if len(data) > 0:  # For some reason we sometimes get empty packets?
+            port = PACKET_MAP[len(data)]
             logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
-            if len(data) in PACKET_MAP:
-                port = PACKET_MAP[len(data)]
-                len_sent: int = sock.sendto(data, ("", port))
-                logging.log_debug(
-                    f"Sent {len_sent} out of {len(data)} bytes to local port {port}"
-                )
-            else:
-                logging.log_warning(f"Unknown packet ({len(data)} bytes) received on port {SORT_PORT} from {addr[0]}:{addr[1]}; discarding;\n{data}")
+            logging.log_debug(f"Sending {len(data)} bytes to local port {port}")
+            sock.sendto(data, ("", port))
+        else:
+            logging.log_warning(f"Received zero length packet on {LISTEN_ADDR[0]}:{LISTEN_ADDR[1]}")
 
 
 if __name__ == "__main__":
