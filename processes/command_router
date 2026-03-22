@@ -3,6 +3,7 @@
 import argparse
 import os
 import socket
+import time
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -26,39 +27,70 @@ logging.log_info(f"Special commands: {SPECIAL_COMMANDS}")
 UNLOCK_TIMEOUT = 10  # seconds
 
 
+def process_cmd_bytes(command: bytes) -> str:
+    """Clean the command received from StarSpec."""
+    hdr = command[:4]
+    cmd_str = command[4:].decode("utf-8")
+    group, cmd = cmd_str.split(" ", maxsplit=1)
+    cmd = cmd.replace("\"", "").strip()
+    logging.log_info(f"{hdr.decode("utf-8")}\ngroup:{group:>12}\tcmd:\"{cmd}\"")
+    
+    return cmd
+
+
 def main():
     args = parse_args()
     logging.log_info(f"Binding to port {args.listen_port}")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("", args.listen_port))
+    sock.listen(2)
     # The maximum transmission unit defined by the Gondola network
     MTU = 9100
+    locked = True
+    # b'\x16\x00\x00\x00gencmd "power_status"\n'
     while True:
-        # Assume the commands are whitespace-delimited ascii
-        command: str = sock.recv(MTU).decode("utf-8")
+        cmd_bytes: bytes = b""
         error: str | None = None
-        match command:
-            case x if x in SPECIAL_COMMANDS:
+        if locked:
+            sock.settimeout(None)
+        else:
+            sock.settimeout(UNLOCK_TIMEOUT)
+        conn, addr = sock.accept()  # flightsim constantly disconnects then reconnects...
+        logging.log_info(f"Connected to {addr[0]}:{addr[1]} for TCP")
+        try:
+            cmd_bytes: bytes = conn.recv(MTU)
+        except socket.timeout:
+            logging.log_warning(f"Socket timed out while waiting for unsafe command, relocking")
+            locked = True
+            continue
+        if len(cmd_bytes) == 0:
+            continue
+        command: str = process_cmd_bytes(cmd_bytes)
+        match (command, locked):
+            case ("", _):
+                # flightsim/scommand sends an empty string every time it reconnects...
+                continue
+            case (x, _) if x in SPECIAL_COMMANDS:
                 logging.log_critical(f"Received special command {command}; executing")
                 exit_code = os.system(f"sudo {command}")
                 logging.log_info(f"Special command exitted with code {exit_code}")
-            case x if x in SAFE_COMMANDS:
+            case (x, _) if x in SAFE_COMMANDS:
                 logging.log_info(f"Received safe command {command}")
                 error = execute_command(command, args.executor_port)
-            case "unlock":
-                sock.settimeout(UNLOCK_TIMEOUT)
-                try:
-                    command = sock.recv(MTU)#.decode("utf-8")
-                    logging.log_info(f"Received UNSAFE command {command}")
-                    error = execute_command(command, args.executor_port)
-                except socket.timeout:
-                    logging.log_warning(f"Socket timed out while waiting for unsafe command, relocking")
-                finally:
-                    sock.settimeout(None)
-            case _:
+            case ("unlock", True):
+                locked = False
+                logging.log_warning("Unsafe commanding now unlocked")
+            case ("lock", False):
+                locked = True
+                logging.log_warning("Unsafe commanding now locked")
+            case (_, True):
                 logging.log_warning(f"Received command \"{command}\" either unknown or unsafe without unlocking; doing nothing")
+            case (_, False):
+                logging.log_info(f"Received UNSAFE command \"{command}\"")
+                error = execute_command(command, args.executor_port)
+                locked = True
         if error:
-            send_error(sock, args.endpoint_port, error)
+            send_error(conn, args.endpoint_port, error)
 
 
 def execute_command(cmd: str, port: int):
@@ -67,7 +99,7 @@ def execute_command(cmd: str, port: int):
     If it gets stuck... we will need to issue the "reset" special
     command.
     """
-    logging.log_critical(f"Executing command \"{cmd}\" on port {port}")
+    logging.log_critical(f"Sending command \"{cmd}\" to executor on {port}")
     len_sent: int = socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
         bytes(cmd, encoding="utf-8"), ("localhost", port)
     )
