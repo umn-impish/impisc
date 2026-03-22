@@ -11,7 +11,7 @@ ExecStart=command_router -p ${COMMAND_ROUTER_PORT} -e ${HEADER_STAMPER_PORT} -x 
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure
-RestartSec=5
+RestartSec=10
 User=impish
 
 [Install]

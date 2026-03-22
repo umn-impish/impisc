@@ -1,3 +1,5 @@
+command-executor.service
+command-router.service
 debug-spectrum-udpcapture.service
 debug-waveform-udpcapture.service
 gpio-init.service
