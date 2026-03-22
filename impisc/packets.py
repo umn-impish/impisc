@@ -73,9 +73,9 @@ class HealthPacket(ctypes.LittleEndianStructure):
 
 class PacketHeader(ctypes.LittleEndianStructure):
     """A packet header has three fields:
-        - an identifier number (id) specifying packet type
-        - a sequence number
-        - packet size in bytes, as a sanity check
+    - an identifier number (id) specifying packet type
+    - a sequence number
+    - packet size in bytes, as a sanity check
     """
 
     _pack_ = 1
@@ -84,6 +84,8 @@ class PacketHeader(ctypes.LittleEndianStructure):
         ("sequence_number", ctypes.c_uint16),
         ("packet_size", ctypes.c_uint16),  # EXCLUDING header size
     )
+
+
 HEADER_SIZE = ctypes.sizeof(PacketHeader)
 MAX_SEQUENCE_NUMBER = int(2**16) - 1  # packet header uses uint16
 
@@ -97,8 +99,9 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
         ("timestamp", ctypes.c_uint32),
         ("response", ctypes.c_char * NUM_RESP_CHARS),
         ("sequence", ctypes.c_uint16),
+        ("end_of_transmission", ctypes.c_uint8),
     )
-    
+
     def add_response(self, msg: str):
         # Reset with empty bytes
         self.response = (ctypes.c_char * CommandResponsePacket.NUM_RESP_CHARS)()
@@ -121,13 +124,11 @@ class QuicklookPacket(ctypes.LittleEndianStructure):
     )
 
 
-Packet: TypeAlias = type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
+Packet: TypeAlias = (
+    type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
+)
 # Define a unique ID for each packet type; their index in their ID value
-PACKET_IDS: list[Packet] = [
-    HealthPacket,
-    QuicklookPacket,
-    CommandResponsePacket
-]
+PACKET_IDS: list[Packet] = [HealthPacket, QuicklookPacket, CommandResponsePacket]
 
 
 def split(data: bytes) -> tuple[PacketHeader, Packet]:
@@ -135,5 +136,5 @@ def split(data: bytes) -> tuple[PacketHeader, Packet]:
     header = PacketHeader.from_buffer_copy(data[:HEADER_SIZE])
     PacketClass: Packet = PACKET_IDS[header.id]
     packet = PacketClass.from_buffer_copy(data[HEADER_SIZE:])
-    
+
     return header, packet
