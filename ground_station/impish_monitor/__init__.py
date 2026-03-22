@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import mysql.connector
 
-from impisc.packets import HealthPacket, QuicklookPacket, NUM_DET_CHANNELS, NUM_QUICKLOOK_BINS
+from impisc import logging, packets
 
 if TYPE_CHECKING:
     from mysql.connector.pooling import PooledMySQLConnection
@@ -22,7 +22,10 @@ COMMAND_TABLE_NAME = "commands"
 ADDR = ("", 12004)
 
 
-def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:
+def validate_packet(
+    full_packet: bytes,
+    ExpectedClass: packets.Packet
+) -> bool:
     """Check that the packet is the expected type and that its size
     matches what is stated in the header. Returns False if the packet
     is invalid; True if the packet is valid.
@@ -79,7 +82,7 @@ def connect(
 
 def _health_columns() -> OrderedDict[str, str]:
     """The health column names mapped to their data type."""
-    fields: list[str] = [f[0] for f in HealthPacket._fields_]
+    fields: list[str] = [f[0] for f in packets.HealthPacket._fields_]
     fields.remove("unix_timestamp")
     # power_names is for the toggle bits
     power_names: list[str] = [
@@ -105,7 +108,7 @@ def _health_columns() -> OrderedDict[str, str]:
 
 def _quicklook_columns() -> OrderedDict[str, str]:
     """The quicklook column names mapped to their data type."""
-    fields: list[str] = [f[0] for f in QuicklookPacket._fields_]
+    fields: list[str] = [f[0] for f in packets.QuicklookPacket._fields_]
     fields.remove("timestamp")
     fields.remove("channels")
     cols: list[tuple[str, str]] = []
