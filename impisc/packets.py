@@ -1,5 +1,7 @@
 import ctypes
 
+from typing import TypeAlias
+
 
 class HealthPacket(ctypes.LittleEndianStructure):
     """
@@ -69,38 +71,39 @@ class HealthPacket(ctypes.LittleEndianStructure):
     ]
 
 
-class TelemetryPacketHeader(ctypes.LittleEndianStructure):
-    """
-    A packet header only has two fields:
-        - and identifier number (id)
+class PacketHeader(ctypes.LittleEndianStructure):
+    """A packet header has three fields:
+        - an identifier number (id) specifying packet type
         - a sequence number
-
-    The packet size is contained in the UDP header,
-        so we don't need to save its size.
+        - packet size in bytes, as a sanity check
     """
 
     _pack_ = 1
     _fields_ = (
         ("id", ctypes.c_uint8),
         ("sequence_number", ctypes.c_uint16),
+        ("packet_size", ctypes.c_uint16),  # EXCLUDING header size
     )
+HEADER_SIZE = ctypes.sizeof(PacketHeader)
+MAX_SEQUENCE_NUMBER = int(2**16) - 1  # packet header uses uint16
 
 
 # A command response packet is just a blob of bytes.
 # They can be used however deemed fit.
-class CommandResponse(ctypes.LittleEndianStructure):
+class CommandResponsePacket(ctypes.LittleEndianStructure):
     NUM_RESP_CHARS = 512
     _pack_ = 1
     _fields_ = (
+        ("timestamp", ctypes.c_uint32),
         ("response", ctypes.c_char * NUM_RESP_CHARS),
-        ("sequence", ctypes.c_uint16),
+        ("sequence", ctypes.c_uint16),  # What is this?
     )
-
+    
     def add_response(self, msg: str):
         # Reset with empty bytes
-        self.response = (ctypes.c_char * CommandResponse.NUM_RESP_CHARS)()
+        self.response = (ctypes.c_char * CommandResponsePacket.NUM_RESP_CHARS)()
         # Set the maximum number of bytes we can
-        lim = min(CommandResponse.NUM_RESP_CHARS, len(msg))
+        lim = min(CommandResponsePacket.NUM_RESP_CHARS, len(msg))
         self.response[:lim] = msg[:lim].encode("utf-8")
 
 
@@ -116,3 +119,22 @@ class QuicklookPacket(ctypes.LittleEndianStructure):
         # 2D array: each channel gets a number of quicklook bins
         ("channels", NUM_DET_CHANNELS * (NUM_QUICKLOOK_BINS * ctypes.c_uint32)),
     )
+
+
+# Packet: TypeAlias = type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
+Packet: TypeAlias = HealthPacket | QuicklookPacket | CommandResponsePacket
+# Define a unique ID for each packet type; their index in their ID value
+PACKET_IDS = [
+    HealthPacket,
+    QuicklookPacket,
+    CommandResponsePacket
+]
+
+
+def split(data: bytes) -> tuple[PacketHeader, Packet]:
+    """Split a full packet's bytes into a header and payload."""
+    header = PacketHeader.from_buffer_copy(data[:HEADER_SIZE])
+    PacketClass: Packet = PACKET_IDS[header.id]
+    packet = PacketClass.from_buffer_copy(data[HEADER_SIZE:])
+    
+    return header, packet

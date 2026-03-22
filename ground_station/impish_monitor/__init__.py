@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import os
 
 from collections import OrderedDict
@@ -17,7 +18,54 @@ if TYPE_CHECKING:
 DB_NAME = "impish"
 HEALTH_TABLE_NAME = "health"
 QUICKLOOK_TABLE_NAME = "quicklook"
+COMMAND_TABLE_NAME = "commands"
 ADDR = ("", 12004)
+
+
+def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:
+    """Check that the packet is the expected type and that its size
+    matches what is stated in the header. Returns False if the packet
+    is invalid; True if the packet is valid.
+    """
+    header, packet = packets.split(full_packet)
+    if header.id != packets.PACKET_IDS.index(ExpectedClass):
+        logging.log_error(
+            f"Received unexpected packet (ID {header.id}; SEQ {header.sequence_number}; "
+            + f"{ctypes.sizeof(header)} bytes and {ctypes.sizeof(packet) - ctypes.sizeof(header)} bytes)"
+            + "; discarding packet"
+            + f"{full_packet}"
+        )
+        return False
+    packet_size = ctypes.sizeof(packet)
+    if header.packet_size != packet_size:
+        logging.log_critical(
+            f"Mismatched packet size ({packet_size}) to value"
+            + f"in header ({header.packet_size})"
+            + "; discarding packet"
+            + f"{full_packet}"
+        )
+        return False
+    logging.log_debug(
+        f"Header ID: {header.id}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
+    )
+    return True
+
+
+def process_sequence_number(header: packets.PacketHeader, seq_num: int) -> int:
+    """Check that the sequence number in the header is what we expect."""
+    if header.sequence_number != seq_num:
+        logging.log_warning(
+            "Unexpected packet sequence number; received "
+            + f"{header.sequence_number}, expected {seq_num}"
+        )
+        # Realign number
+        seq_num = header.sequence_number + 1
+    elif seq_num < packets.MAX_SEQUENCE_NUMBER:
+        seq_num += 1
+    else:
+        seq_num = 0
+
+    return seq_num
 
 
 def connect(
@@ -61,8 +109,8 @@ def _quicklook_columns() -> OrderedDict[str, str]:
     fields.remove("timestamp")
     fields.remove("channels")
     cols: list[tuple[str, str]] = []
-    for c in range(1, NUM_DET_CHANNELS + 1):
-        for b in range(1, NUM_QUICKLOOK_BINS + 1):
+    for c in range(1, packets.NUM_DET_CHANNELS + 1):
+        for b in range(1, packets.NUM_QUICKLOOK_BINS + 1):
             cols.append((f"chan{c}_ebin{b}", "INTEGER"))
     return OrderedDict[str, str](
         [

@@ -15,7 +15,9 @@ use std::ffi::{OsStr, OsString};
 // Unix-specific byte string decoding
 use std::net::{SocketAddr, UdpSocket};
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::OsStringExt;
 use std::process::{Command, Output, Stdio};
+use std::time::{SystemTime, UNIX_EPOCH};
 // Impl's needed for writing onto stdio of process
 use std::io::Write;
 
@@ -26,14 +28,16 @@ use std::io::Write;
   or during execution.
 */
 struct OutputWrapper {
+    cmd: OsString,
     stdout: OsString,
     stderr: OsString,
     status_code: i32,
 }
 
 impl OutputWrapper {
-    fn from(proc_out: &Output) -> OutputWrapper {
+    fn from(cmd: &String, proc_out: &Output) -> OutputWrapper {
         return OutputWrapper {
+            cmd: cmd.into(),
             stdout: OsStr::from_bytes(&proc_out.stdout).into(),
             stderr: OsStr::from_bytes(&proc_out.stderr).into(),
             status_code: proc_out.status.code().unwrap_or(0),
@@ -52,6 +56,10 @@ impl OutputWrapper {
         response.push(sc_str);
         response.push("\n");
 
+        response.push("arb-cmd-command\n");
+        response.push(&self.cmd);
+        response.push("\n");
+
         response.push("arb-cmd-stdout\n");
         response.push(&self.stdout);
         response.push("\n");
@@ -64,10 +72,10 @@ impl OutputWrapper {
 
 fn main() {
     // Where do we send output?
-    let dest_port = std::env::var("TELEMETER_PORT")
-        .expect("Need TELEMETER_PORT to be set")
+    let dest_port = std::env::var("HEADER_STAMPER_PORT")
+        .expect("Need HEADER_STAMPER_PORT to be set")
         .parse::<u16>()
-        .expect("Need TELEMETER_PORT to be a parsable u16");
+        .expect("Need HEADER_STAMPER_PORT to be a parsable u16");
     let send_to_me = format!("127.0.0.1:{dest_port}");
 
     // Where do we receive commands?
@@ -94,6 +102,7 @@ fn main() {
         let res = match execute(&cmd) {
             Ok(r) => r,
             Err(e) => OutputWrapper {
+                cmd: OsString::from_vec(cmd),
                 stdout: OsString::from(""),
                 stderr: OsString::from(&format!("{e:?}")),
                 status_code: -1,
@@ -118,6 +127,10 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
     const STEP: usize = 512;
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time should go forward")
+        .as_secs();
     for i in (0..res_bytes.len()).step_by(STEP) {
         let max_idx = std::cmp::min(res_bytes.len(), i + STEP);
 
@@ -126,6 +139,12 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
             let padding: usize = STEP - send_bytes.len();
             send_bytes.append(&mut vec![0u8; padding]);
         }
+
+        // timestamp
+        send_bytes.insert(0, ((ts >> 24) & 0xff) as u8);
+        send_bytes.insert(0, ((ts >> 16) & 0xff) as u8);
+        send_bytes.insert(0, ((ts >> 8) & 0xff) as u8);
+        send_bytes.insert(0, (ts & 0xff) as u8);
 
         let packet_ordering = (i / STEP) as u16;
         send_bytes.push((packet_ordering & 0xff) as u8);
@@ -176,6 +195,6 @@ fn execute(cmd: &Vec<u8>) -> std::io::Result<OutputWrapper> {
     }
 
     let out = command.wait_with_output()?;
-
-    return Ok(OutputWrapper::from(&out));
+    let cmd_str = String::from_utf8(cmd.clone()).unwrap();
+    return Ok(OutputWrapper::from(&cmd_str, &out));
 }

@@ -1,7 +1,10 @@
+command-executor.service
+command-router.service
 debug-spectrum-udpcapture.service
 debug-waveform-udpcapture.service
 gpio-init.service
 gpio-ownership-init.service
+header-stamper.service
 health-udpcapture.service
 quicklook.service
 quicklook-udpcapture.service

@@ -1,60 +1,55 @@
 #!/python-venv/bin/python
 """
-Listens for quicklook packets from IMPISH.
-The received packets are put into a MySQL database to be read
-and displayed by Grafana.
-
-Uses an assumed packet structure for now until a QL packet is added to impisc.
+Listens for command response packets from the IMPISH flight computer.
+Currently, the data is inserted in to a MySQL table.
 """
 
 import os
 import socket
+import time
 
-from mysql.connector.abstracts import MySQLConnectionAbstract
-from mysql.connector.errors import IntegrityError
 from mysql.connector.pooling import PooledMySQLConnection
+from mysql.connector.abstracts import MySQLConnectionAbstract
 
-from impisc import logging, packets
 import impish_monitor as monitor
 
+from impisc import logging, packets
 
-LISTEN_PORT = int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"])
+
+LISTEN_PORT = int(os.environ["LOCAL_COMMAND_FWD_PORT"])
 
 
 def insert_packet(
     db: PooledMySQLConnection | MySQLConnectionAbstract,
-    data: QuicklookPacket
+    packet: packets.CommandResponsePacket
 ):
     """Insert the health packet into the database."""
     logging.log_debug(str(packet.timestamp))
-    # Don't insert the DAQBOX frame number into the database (don't care)
     cols: dict[str, int] = {"unix_timestamp": packet.timestamp}
     for i in range(1, packets.NUM_DET_CHANNELS + 1):
         quicklook_bins = packet.channels[i - 1]
         for bin, cts in enumerate(quicklook_bins, start=1):
             cols[f"chan{i}_ebin{bin}"] = cts
     fmt = "%s, " * (len(cols) - 1) + "%s"
-    header = f"INSERT INTO {monitor.QUICKLOOK_TABLE_NAME}"
+    header = f"INSERT INTO {monitor.COMMAND_TABLE_NAME}"
 
     # Save the keys to ensure they remain ordered the same as the values
     keys = list(cols.keys())
     sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
-    val = tuple(cols[k] for k in keys)
+    vals = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
     logging.log_debug(f"sql: {sql}")
-    logging.log_debug(f"val: {val}")
+    logging.log_debug(f"val: {vals}")
     cursor = db.cursor()
-    try:
-        _ = cursor.execute(sql, val)
-    except IntegrityError as e:
-        # Ignore duplicate key
-        logging.log_warning(f"Ignoring integrity error: {e}")
-        return
+    _ = cursor.execute(sql, vals)
     _ = db.commit()
 
 
 def main():
-    logging.log_info("Opening DB connection")
+    """Infinitely loop, listening for incoming packets then writing them
+    to the database.
+    """
+    logging.log_debug("Opening DB connection")
     db = monitor.connect()
     expected_seqnum = 0
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -62,14 +57,16 @@ def main():
     sock.bind(("", LISTEN_PORT))
     try:
         while True:
-            data, addr = sock.recvfrom(1024)
-            logging.log_debug(f"{len(data)} bytes recevied from {addr[0]}:{addr[1]}")
-            if monitor.validate_packet(data, packets.QuicklookPacket):
+            data, addr = sock.recvfrom(8192)
+            logging.log_debug(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
+            logging.log_debug(f"{data}")
+            if monitor.validate_packet(data, packets.CommandResponsePacket):
                 header, packet = packets.split(data)
-                expected_seqnum = monitor.process_sequence_number(header, seq_num=expected_seqnum)
-                insert_packet(db, packet)
+                expected_seqnum = monitor.process_sequence_number(header, expected_seqnum)
+                logging.log_debug(f"{header.id} {header.sequence_number} {header.packet_size}\n{packet.timestamp} {packet.response}")
+                # insert_packet(db, packet=packet)
     finally:
-        logging.log_info("Closing DB connection")
+        logging.log_debug("Closing DB connection")
         sock.close()
         db.close()
 
