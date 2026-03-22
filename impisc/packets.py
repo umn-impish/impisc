@@ -121,10 +121,9 @@ class QuicklookPacket(ctypes.LittleEndianStructure):
     )
 
 
-# Packet: TypeAlias = type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
-Packet: TypeAlias = HealthPacket | QuicklookPacket | CommandResponsePacket
+Packet: TypeAlias = type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
 # Define a unique ID for each packet type; their index in their ID value
-PACKET_IDS = [
+PACKET_IDS: list[Packet] = [
     HealthPacket,
     QuicklookPacket,
     CommandResponsePacket
