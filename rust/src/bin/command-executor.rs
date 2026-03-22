@@ -35,9 +35,9 @@ struct OutputWrapper {
 }
 
 impl OutputWrapper {
-    fn from(cmd: &Vec<u8>, proc_out: &Output) -> OutputWrapper {
+    fn from(cmd: &String, proc_out: &Output) -> OutputWrapper {
         return OutputWrapper {
-            cmd: OsString::from_vec((&cmd).to_vec()).into(),
+            cmd: cmd.into(),
             stdout: OsStr::from_bytes(&proc_out.stdout).into(),
             stderr: OsStr::from_bytes(&proc_out.stderr).into(),
             status_code: proc_out.status.code().unwrap_or(0),
@@ -56,7 +56,7 @@ impl OutputWrapper {
         response.push(sc_str);
         response.push("\n");
 
-        response.push("command\n");
+        response.push("arb-cmd-command\n");
         response.push(&self.cmd);
         response.push("\n");
 
@@ -139,13 +139,13 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
             let padding: usize = STEP - send_bytes.len();
             send_bytes.append(&mut vec![0u8; padding]);
         }
-        
+
         // timestamp
         send_bytes.insert(0, ((ts >> 24) & 0xff) as u8);
         send_bytes.insert(0, ((ts >> 16) & 0xff) as u8);
         send_bytes.insert(0, ((ts >> 8) & 0xff) as u8);
         send_bytes.insert(0, (ts & 0xff) as u8);
-        
+
         let packet_ordering = (i / STEP) as u16;
         send_bytes.push((packet_ordering & 0xff) as u8);
         send_bytes.push(((packet_ordering >> 8) & 0xff) as u8);
@@ -195,6 +195,6 @@ fn execute(cmd: &Vec<u8>) -> std::io::Result<OutputWrapper> {
     }
 
     let out = command.wait_with_output()?;
-
-    return Ok(OutputWrapper::from(&cmd, &out));
+    let cmd_str = String::from_utf8(cmd.clone()).unwrap();
+    return Ok(OutputWrapper::from(&cmd_str, &out));
 }
