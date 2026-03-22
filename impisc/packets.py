@@ -96,7 +96,7 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
     _fields_ = (
         ("timestamp", ctypes.c_uint32),
         ("response", ctypes.c_char * NUM_RESP_CHARS),
-        ("sequence", ctypes.c_uint16),  # What is this?
+        ("sequence", ctypes.c_uint16),
     )
     
     def add_response(self, msg: str):

@@ -76,7 +76,7 @@ def connect(
 ) -> PooledMySQLConnection | MySQLConnectionAbstract:
     """Connect to the impisc_health MySQL database."""
     return mysql.connector.connect(
-        host="localhost", user="impish", password=os.environ["PASS"], database=database
+        host="localhost", user="impish", password="StellarCollapse", database=database
     )
 
 
@@ -124,5 +124,22 @@ def _quicklook_columns() -> OrderedDict[str, str]:
     )
 
 
+# Delimiters used in command_listener to separate the packet.response
+COMMAND_DELIMITERS = ["ret_code\n", "\ncommand\n", "\narb-cmd-stdout\n", "\narb-cmd-stderr\n"]
+def _command_columns() -> OrderedDict[str, str]:
+    """The command column names mapped to their data type.
+    This one is different from the others since we won't use
+    the packet definition from impisc.packets
+    """
+    return OrderedDict[str, str](
+        [
+            ("unix_timestamp", "INTEGER PRIMARY KEY"),
+            ("sequence", "INTEGER"),
+            *list((f.strip().replace("-", "_"), "VARCHAR(512)") for f in COMMAND_DELIMITERS)
+        ]
+    )
+
+
 HEALTH_COLUMNS: OrderedDict[str, str] = _health_columns()
 QUICKLOOK_COLUMNS: OrderedDict[str, str] = _quicklook_columns()
+COMMAND_COLUMNS: OrderedDict[str, str] = _command_columns()

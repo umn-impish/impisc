@@ -5,11 +5,12 @@ Currently, the data is inserted in to a MySQL table.
 """
 
 import os
+import re
 import socket
-import time
 
-from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.errors import IntegrityError
+from mysql.connector.pooling import PooledMySQLConnection
 
 import impish_monitor as monitor
 
@@ -19,36 +20,54 @@ from impisc import logging, packets
 LISTEN_PORT = int(os.environ["LOCAL_COMMAND_FWD_PORT"])
 
 
+def unpack_response(packet: packets.CommandResponsePacket) -> dict[str, int | str]:
+    """Split the command response into ack, command, stdout, stderr based
+    on predefined delimiters (command-executor; in Rust) using regex.
+    """
+    response: str = (packet.response).decode("utf-8")  # sus
+    ok: list[str] = response.split("\n", maxsplit=1)  # determine if ack-ok or error
+    logging.log_debug(f"response: {response}")
+    pattern = "|".join(map(re.escape, monitor.COMMAND_DELIMITERS))
+    split = re.split(pattern, ok[1])  # TODO: currently does not handle multi-sequence packets; fix this
+    logging.log_debug(f"split: {split}")
+    return {
+        "sequence": packet.sequence,
+        **{k.strip().replace("-", "_"): v for (k, v) in zip(monitor.COMMAND_DELIMITERS, split)}
+    }
+
+
 def insert_packet(
     db: PooledMySQLConnection | MySQLConnectionAbstract,
     packet: packets.CommandResponsePacket
 ):
-    """Insert the health packet into the database."""
-    logging.log_debug(str(packet.timestamp))
-    cols: dict[str, int] = {"unix_timestamp": packet.timestamp}
-    for i in range(1, packets.NUM_DET_CHANNELS + 1):
-        quicklook_bins = packet.channels[i - 1]
-        for bin, cts in enumerate(quicklook_bins, start=1):
-            cols[f"chan{i}_ebin{bin}"] = cts
+    """Insert the command response packet into the database."""
+    response: dict[str, str] = unpack_response(packet)
+    logging.log_debug(f"unpacked response {response}")
+    cols: dict[str, int | str] = {"unix_timestamp": packet.timestamp}
+    cols = {**cols, **response}
     fmt = "%s, " * (len(cols) - 1) + "%s"
     header = f"INSERT INTO {monitor.COMMAND_TABLE_NAME}"
 
     # Save the keys to ensure they remain ordered the same as the values
     keys = list(cols.keys())
     sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
-    vals = tuple(cols[k] for k in keys)
+    val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
     logging.log_debug(f"sql: {sql}")
-    logging.log_debug(f"val: {vals}")
+    logging.log_debug(f"val: {val}")
     cursor = db.cursor()
-    _ = cursor.execute(sql, vals)
+    try:
+        _ = cursor.execute(sql, val)
+    except IntegrityError as e:
+        # Ignore duplicate key
+        logging.log_warning(f"Ignoring integrity error: {e}")
+        return
     _ = db.commit()
 
 
 def main():
-    """Infinitely loop, listening for incoming packets then writing them
-    to the database.
-    """
+    header: packets.PacketHeader
+    packet: packets.CommandResponsePacket
     logging.log_debug("Opening DB connection")
     db = monitor.connect()
     expected_seqnum = 0
@@ -57,14 +76,12 @@ def main():
     sock.bind(("", LISTEN_PORT))
     try:
         while True:
-            data, addr = sock.recvfrom(8192)
-            logging.log_debug(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
-            logging.log_debug(f"{data}")
+            data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
+            logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
             if monitor.validate_packet(data, packets.CommandResponsePacket):
                 header, packet = packets.split(data)
                 expected_seqnum = monitor.process_sequence_number(header, expected_seqnum)
-                logging.log_debug(f"{header.id} {header.sequence_number} {header.packet_size}\n{packet.timestamp} {packet.response}")
-                # insert_packet(db, packet=packet)
+                insert_packet(db, packet)
     finally:
         logging.log_debug("Closing DB connection")
         sock.close()

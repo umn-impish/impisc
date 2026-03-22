@@ -13,6 +13,8 @@ from . import (
     HEALTH_COLUMNS,
     QUICKLOOK_TABLE_NAME,
     QUICKLOOK_COLUMNS,
+    COMMAND_TABLE_NAME,
+    COMMAND_COLUMNS,
     connect,
 )
 
@@ -70,10 +72,15 @@ def create_quicklook_table():
     add_table_cols(QUICKLOOK_TABLE_NAME, QUICKLOOK_COLUMNS)
 
 
+def create_command_table():
+    add_table_cols(COMMAND_TABLE_NAME, COMMAND_COLUMNS)
+
+
 def main():
     create_db()
     create_health_table()
     create_quicklook_table()
+    create_command_table()
 
 
 if __name__ == "__main__":
