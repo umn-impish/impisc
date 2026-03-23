@@ -96,19 +96,19 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
     NUM_RESP_CHARS = 512
     _pack_ = 1
     _fields_ = (
+        ("payload", ctypes.c_uint8 * NUM_RESP_CHARS),
         ("timestamp", ctypes.c_uint32),
         ("command_counter", ctypes.c_uint8),
         ("response_sequence", ctypes.c_uint8),
         ("total_packets_in_response", ctypes.c_uint8),
-        ("payload", ctypes.c_uint8 * NUM_RESP_CHARS),
     )
 
     def add_response(self, msg: str):
         # Reset with empty bytes
-        self.response = (ctypes.c_char * CommandResponsePacket.NUM_RESP_CHARS)()
+        self.payload = (ctypes.c_char * CommandResponsePacket.NUM_RESP_CHARS)()
         # Set the maximum number of bytes we can
         lim = min(CommandResponsePacket.NUM_RESP_CHARS, len(msg))
-        self.response[:lim] = msg[:lim].encode("utf-8")
+        self.payload[:lim] = msg[:lim].encode("utf-8")
 
 
 NUM_QUICKLOOK_BINS = 4
