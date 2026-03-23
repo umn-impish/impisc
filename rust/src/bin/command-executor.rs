@@ -42,7 +42,7 @@ impl OutputWrapper {
 
     fn to_packet(&self) -> Vec<u8> {
         // ASCII group separator nonprintable character
-        const GROUP_SEP: u8 = 0x29;
+        const GROUP_SEP: u8 = 0x1D;
 
         let mut response = Vec::new();
         response.push(self.status_code as u8);
