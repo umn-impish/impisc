@@ -76,7 +76,7 @@ def connect(
 ) -> PooledMySQLConnection | MySQLConnectionAbstract:
     """Connect to the impisc_health MySQL database."""
     return mysql.connector.connect(
-        host="localhost", user="impish", password="StellarCollapse", database=database
+        host="localhost", user="impish", password=os.getenv("PASS"), database=database
     )
 
 
@@ -133,9 +133,11 @@ def _command_columns() -> OrderedDict[str, str]:
     """
     return OrderedDict[str, str](
         [
-            ("unix_timestamp", "INTEGER PRIMARY KEY"),
+            ("id", "INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT"),
+            ("unix_timestamp", "INTEGER"),
             ("sequence", "INTEGER"),
-            *list((f.strip().replace("-", "_"), "VARCHAR(512)") for f in COMMAND_DELIMITERS)
+            ("ret_code", "INTEGER"),
+            *list((f.strip().replace("-", "_"), "VARCHAR(512)") for f in COMMAND_DELIMITERS[1:])
         ]
     )
 
