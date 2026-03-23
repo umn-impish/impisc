@@ -84,6 +84,8 @@ fn main() {
         .parse::<u16>()
         .expect("Need COMMAND_EXECUTOR_PORT to be a parsable u16");
 
+    // Count how many packets we receive for bookkeeping on the ground
+    let mut packets_received: u8 = 0;
     loop {
         // Special address 0000 is like INADDR_ANY.
         // The socket needs to get re-created each time
@@ -97,6 +99,8 @@ fn main() {
             eprintln!("Failed to parse command from UDP packet.");
             continue;
         };
+        packets_received += 1;
+
         // If there is a problem executing part of the command,
         // put the error msg into the wrapper stderr
         let res = match execute(&cmd) {
@@ -113,7 +117,7 @@ fn main() {
         // "connect" but this is syntactic sugar
         sock.connect(&send_to_me)
             .expect("Must be able to forward to specified destination address");
-        reply_with(&res, &sock);
+        reply_with(&res, &sock, &packets_received);
     }
 }
 
@@ -124,9 +128,9 @@ fn main() {
 ///
 /// Packet format:
 /// ```
-/// (u32 timestamp) + (512x u8 response data) + (u16 sequence number) + (u8 end of transmission indicator)
+/// (u32 timestamp) + (u8 num cmds received) + (u8 packet order) + (u8 total number of reply packets) + (512x u8 response data)
 /// ```
-fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
+fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
     const STEP: usize = 512;
@@ -134,12 +138,22 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
         .duration_since(UNIX_EPOCH)
         .expect("time should go forward")
         .as_secs() as u32;
+    let total_packets: u8 = res_bytes.len().div_ceil(STEP) as u8;
     for i in (0..res_bytes.len()).step_by(STEP) {
-        // Go until the end of data or the
+        // Go until the end of data or the step size
         let max_idx = std::cmp::min(res_bytes.len(), i + STEP);
 
         // Put the timestamp at the front of the packet
         let mut send_bytes: Vec<u8> = timestamp.to_le_bytes().to_vec();
+        // Reserve the capacity we'll need
+        send_bytes.reserve(STEP + 3);
+        // Put the command counter
+        send_bytes.push(*num_cmds_received);
+        // Put the packet ordering
+        let packet_ordering = (i / STEP) as u8;
+        send_bytes.push(packet_ordering);
+        // Put the total number of packets we'll get
+        send_bytes.push(total_packets);
 
         // Then put the response bytes
         send_bytes.extend(res_bytes[i..max_idx].iter());
@@ -147,17 +161,6 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket) {
             let padding: usize = STEP - send_bytes.len();
             send_bytes.extend(std::iter::repeat_n(0u8, padding));
         }
-
-        // Finally, append the packet ordering and EOT byte
-        let packet_ordering = (i / STEP) as u16;
-        send_bytes.extend(packet_ordering.to_le_bytes());
-        send_bytes.push(if max_idx == res_bytes.len() {
-            // ASCII End of Transmission
-            0x04u8
-        } else {
-            // NUL --> More packets to come
-            0x00u8
-        });
 
         sock.send(&send_bytes).expect("failed to send UDP response");
     }
