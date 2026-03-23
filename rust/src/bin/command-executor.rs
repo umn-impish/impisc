@@ -142,11 +142,15 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
     for i in (0..res_bytes.len()).step_by(STEP) {
         // Go until the end of data or the step size
         let max_idx = std::cmp::min(res_bytes.len(), i + STEP);
+        // Put the response bytes first so we can pad it easily
+        let mut send_bytes = res_bytes[i..max_idx].to_vec();
+        if send_bytes.len() != STEP {
+            let padding: usize = STEP - send_bytes.len();
+            send_bytes.extend(std::iter::repeat_n(0u8, padding));
+        }
 
         // Put the timestamp at the front of the packet
-        let mut send_bytes: Vec<u8> = timestamp.to_le_bytes().to_vec();
-        // Reserve the capacity we'll need
-        send_bytes.reserve(STEP + 3);
+        send_bytes.extend(timestamp.to_le_bytes());
         // Put the command counter
         send_bytes.push(*num_cmds_received);
         // Put the packet ordering
@@ -154,13 +158,6 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
         send_bytes.push(packet_ordering);
         // Put the total number of packets we'll get
         send_bytes.push(total_packets);
-
-        // Then put the response bytes
-        send_bytes.extend(res_bytes[i..max_idx].iter());
-        if send_bytes.len() != (STEP + size_of_val(&timestamp)) {
-            let padding: usize = STEP - send_bytes.len();
-            send_bytes.extend(std::iter::repeat_n(0u8, padding));
-        }
 
         sock.send(&send_bytes).expect("failed to send UDP response");
     }
