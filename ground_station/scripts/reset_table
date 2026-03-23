@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source /usr/local/bin/gs-variables.env
+source /python-venv/bin/activate
+python -m "impish_monitor.reset_database"
