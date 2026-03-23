@@ -1,5 +1,5 @@
 #!/bin/bash
 
-source /usr/local/bin/gs-variables.env
+source /home/impish/grafana.env
 source /python-venv/bin/activate
 python -m "impish_monitor.initialize_database"
