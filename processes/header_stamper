@@ -13,27 +13,29 @@ from impisc import logging, packets
 from impisc.packets import PacketHeader
 
 
-TELE_PORT = int(os.getenv("HEADER_STAMPER_PORT"))
-SS_FWD_PORT = int(os.getenv("ENDPOINT_PORT"))
+TELE_PORT = int(os.environ["HEADER_STAMPER_PORT"])
+SS_FWD_PORT = int(os.environ["ENDPOINT_PORT"])
 SEQUENCE_IDS = {
     packets.HealthPacket: 0,
     packets.QuicklookPacket: 0,
     packets.CommandResponsePacket: 0
 }
-PACKET_SIZES = {
-    ctypes.sizeof(p) : p for p in SEQUENCE_IDS.keys()
+PACKET_PORTS = {
+    int(os.environ["LOCAL_HEALTH_FWD_PORT"]): packets.HealthPacket,
+    int(os.environ["QUICKLOOK_UDPCAP_PORT"]): packets.QuicklookPacket,  # TODO: confirm this port number for quicklook
+    int(os.environ["COMMAND_EXECUTOR_PORT"]): packets.CommandResponsePacket,
 }
 
 
-def make_header(num_bytes: int) -> packets.PacketHeader:
+def make_header(recv_port: int, packet_size: int) -> packets.PacketHeader:
     """Create the header based on the number of bytes in the packet.
     And increment the packet sequence number.
     """
-    PacketClass = PACKET_SIZES[num_bytes]
+    PacketClass = PACKET_PORTS[recv_port]
     header: PacketHeader = packets.PacketHeader()
     header.id = packets.PACKET_IDS.index(PacketClass)
     header.sequence_number = SEQUENCE_IDS[PacketClass]
-    header.packet_size = num_bytes
+    header.packet_size = packet_size
     logging.log_info(f"Packet type {PacketClass}\nID: {header.id}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}")
     SEQUENCE_IDS[PacketClass] = (SEQUENCE_IDS[PacketClass] + 1) % (packets.MAX_SEQUENCE_NUMBER + 1)
 
@@ -50,13 +52,15 @@ def main():
     sock.bind(("", TELE_PORT))
     while True:
         data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
-        if len(data) in PACKET_SIZES:
-            logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
-            header: PacketHeader = make_header(num_bytes=len(data))
-            payload: bytes = bytes(header) + data
-            num_sent = sock.sendto(payload, ("", SS_FWD_PORT))
-            logging.log_info(f"Sent {num_sent} out of {len(payload)} bytes to StarSpec forwarder (port {SS_FWD_PORT})")
-            if num_sent != len(data):
+        logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+        # header_data = data[:HEADER_SIZE]
+        recv_port = addr[1]
+        if recv_port in PACKET_PORTS:
+            header = make_header(recv_port, len(data))
+            full_packet: bytes = bytes(header) + data
+            num_sent = sock.sendto(full_packet, ("", SS_FWD_PORT))
+            logging.log_info(f"Sent {num_sent} out of {len(full_packet)} bytes to StarSpec forwarder (port {SS_FWD_PORT})")
+            if num_sent != len(full_packet):
                 logging.log_warning(f"Byte loss when sending previous packet")
         else:
             logging.log_warning(
