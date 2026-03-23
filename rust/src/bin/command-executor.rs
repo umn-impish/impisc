@@ -11,11 +11,7 @@
     indicates the packet "sequence number".
 */
 
-use std::ffi::{OsStr, OsString};
-// Unix-specific byte string decoding
 use std::net::{SocketAddr, UdpSocket};
-use std::os::unix::ffi::OsStrExt;
-use std::os::unix::ffi::OsStringExt;
 use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 // Impl's needed for writing onto stdio of process
@@ -28,45 +24,35 @@ use std::io::Write;
   or during execution.
 */
 struct OutputWrapper {
-    cmd: OsString,
-    stdout: OsString,
-    stderr: OsString,
+    cmd: Vec<u8>,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
     status_code: i32,
 }
 
 impl OutputWrapper {
-    fn from(cmd: &String, proc_out: &Output) -> OutputWrapper {
+    fn from(cmd: String, proc_out: Output) -> OutputWrapper {
         return OutputWrapper {
-            cmd: cmd.into(),
-            stdout: OsStr::from_bytes(&proc_out.stdout).into(),
-            stderr: OsStr::from_bytes(&proc_out.stderr).into(),
+            cmd: cmd.into_bytes(),
+            stdout: proc_out.stdout.into(),
+            stderr: proc_out.stderr.into(),
             status_code: proc_out.status.code().unwrap_or(-1),
         };
     }
 
     fn to_packet(&self) -> Vec<u8> {
-        let mut response = OsString::from(if self.status_code == 0 {
-            "ack-ok\n"
-        } else {
-            "error\n"
-        });
+        // ASCII group separator nonprintable character
+        const GROUP_SEP: u8 = 0x29;
 
-        let sc_str = OsString::from(self.status_code.to_string());
-        // Use newlines to delineate chunks of data
-        response.push(sc_str);
-        response.push("\n");
-
-        response.push("arb-cmd-command\n");
-        response.push(&self.cmd);
-        response.push("\n");
-
-        response.push("arb-cmd-stdout\n");
-        response.push(&self.stdout);
-        response.push("\n");
-
-        response.push("arb-cmd-stderr\n");
-        response.push(&self.stderr);
-        return response.into_encoded_bytes();
+        let mut response = Vec::new();
+        response.push(self.status_code as u8);
+        response.push(GROUP_SEP);
+        response.extend(self.cmd.iter());
+        response.push(GROUP_SEP);
+        response.extend(self.stdout.iter());
+        response.push(GROUP_SEP);
+        response.extend(self.stderr.iter());
+        return response;
     }
 }
 
@@ -106,9 +92,9 @@ fn main() {
         let res = match execute(&cmd) {
             Ok(r) => r,
             Err(e) => OutputWrapper {
-                cmd: OsString::from_vec(cmd),
-                stdout: OsString::from(""),
-                stderr: OsString::from(&format!("{e:?}")),
+                cmd: cmd,
+                stdout: vec![],
+                stderr: format!("{e:?}").into_bytes(),
                 status_code: -1,
             },
         };
@@ -196,5 +182,5 @@ fn execute(cmd: &Vec<u8>) -> std::io::Result<OutputWrapper> {
 
     let out = command.wait_with_output()?;
     let cmd_str = String::from_utf8(cmd.clone()).unwrap();
-    return Ok(OutputWrapper::from(&cmd_str, &out));
+    return Ok(OutputWrapper::from(cmd_str, out));
 }
