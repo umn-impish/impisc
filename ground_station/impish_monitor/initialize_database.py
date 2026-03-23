@@ -28,15 +28,15 @@ def create_db():
     db.close()
 
 
-def add_table_cols(table_name: str, cols: OrderedDict[str, str]):
+def add_table_cols(table_name: str, cols: OrderedDict[str, str], init_col: str = "unix_timestamp"):
     """Create a new table, if it doesn't exist. Checks if the column
-    already exists and adds a new column if it doesn't.
+    already exists and adds a new, integer column as the primary key if it doesn't.
     """
     db = connect()
     try:
         cursor: MySQLCursorAbstract = db.cursor()
         cursor.execute(
-            f"CREATE TABLE IF NOT EXISTS {table_name} (unix_timestamp INTEGER PRIMARY KEY);"
+            f"CREATE TABLE IF NOT EXISTS {table_name} ({init_col} INTEGER PRIMARY KEY);"
         )
         query = """
         SELECT COUNT(*)
@@ -73,7 +73,7 @@ def create_quicklook_table():
 
 
 def create_command_table():
-    add_table_cols(COMMAND_TABLE_NAME, COMMAND_COLUMNS)
+    add_table_cols(COMMAND_TABLE_NAME, COMMAND_COLUMNS, init_col="id")
 
 
 def main():
