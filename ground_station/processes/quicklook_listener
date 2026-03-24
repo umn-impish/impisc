@@ -40,8 +40,7 @@ def insert_packet(
     sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
     val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
-    logging.log_debug(f"sql: {sql}")
-    logging.log_debug(f"val: {val}")
+    logging.log_debug(f"sql: {sql}\nval: {val}")
     cursor = db.cursor()
     try:
         _ = cursor.execute(sql, val)
