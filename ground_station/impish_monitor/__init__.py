@@ -22,10 +22,7 @@ COMMAND_TABLE_NAME = "commands"
 ADDR = ("", 12004)
 
 
-def validate_packet(
-    full_packet: bytes,
-    ExpectedClass: packets.Packet
-) -> bool:
+def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:
     """Check that the packet is the expected type and that its size
     matches what is stated in the header. Returns False if the packet
     is invalid; True if the packet is valid.
@@ -76,7 +73,7 @@ def connect(
 ) -> PooledMySQLConnection | MySQLConnectionAbstract:
     """Connect to the impisc_health MySQL database."""
     return mysql.connector.connect(
-        host="localhost", user="impish", password=os.getenv("PASS"), database=database
+        host="localhost", user="impish", password=os.environ["PASS"], database=database
     )
 
 
@@ -100,7 +97,7 @@ def _health_columns() -> OrderedDict[str, str]:
             ("gs_unix_timestamp", "INTEGER"),
             *list((f, "INTEGER") for f in fields if "extra" not in f),
             *list((f"missing_{f}", "BIT(1)") for f in fields),
-	    ("missing_unix_timestamp", "BIT(1)"),
+            ("missing_unix_timestamp", "BIT(1)"),
             *list((f, "BIT(1)") for f in power_names),
         ]
     )
@@ -124,8 +121,6 @@ def _quicklook_columns() -> OrderedDict[str, str]:
     )
 
 
-# Delimiters used in command_listener to separate the packet.response
-COMMAND_DELIMITERS = ["ret_code\n", "\ncommand\n", "\narb-cmd-stdout\n", "\narb-cmd-stderr\n"]
 def _command_columns() -> OrderedDict[str, str]:
     """The command column names mapped to their data type.
     This one is different from the others since we won't use
@@ -133,11 +128,17 @@ def _command_columns() -> OrderedDict[str, str]:
     """
     return OrderedDict[str, str](
         [
-            ("id", "INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT"),
-            ("unix_timestamp", "INTEGER"),
-            ("sequence", "INTEGER"),
-            ("ret_code", "INTEGER"),
-            *list((f.strip().replace("-", "_"), "VARCHAR(512)") for f in COMMAND_DELIMITERS[1:])
+            ("id", "INTEGER UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE KEY"),
+            ("hash", "BIGINT UNSIGNED PRIMARY KEY"),
+            ("unix_timestamp", "INTEGER UNSIGNED"),
+            ("command_counter", "TINYINT UNSIGNED"),
+            ("response_sequence", "TINYINT UNSIGNED"),
+            ("total_packets_in_response", "TINYINT UNSIGNED"),
+            ("cmd", "MEDIUMBLOB"),
+            ("status_code", "TINYINT UNSIGNED"),
+            ("stdout", "MEDIUMBLOB"),
+            ("stderr", "MEDIUMBLOB"),
+            ("unparsed", "MEDIUMBLOB"),
         ]
     )
 

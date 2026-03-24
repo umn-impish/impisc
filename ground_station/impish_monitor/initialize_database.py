@@ -30,8 +30,8 @@ def create_db():
 
 def add_table_cols(
     table_name: str,
-    cols: OrderedDict[str,str],
-    init_col: str = "unix_timestamp INTEGER PRIMARY KEY"
+    cols: OrderedDict[str, str],
+    init_col: str = "unix_timestamp INTEGER PRIMARY KEY",
 ):
     """Create a new table, if it doesn't exist. Checks if the column
     already exists and adds a new, integer column as the primary key if it doesn't.
@@ -39,9 +39,7 @@ def add_table_cols(
     db = connect()
     try:
         cursor: MySQLCursorAbstract = db.cursor()
-        cursor.execute(
-            f"CREATE TABLE IF NOT EXISTS {table_name} ({init_col});"
-        )
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({init_col});")
         query = """
         SELECT COUNT(*)
         FROM INFORMATION_SCHEMA.COLUMNS
@@ -80,7 +78,7 @@ def create_command_table():
     add_table_cols(
         COMMAND_TABLE_NAME,
         COMMAND_COLUMNS,
-        init_col="id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY"
+        init_col="id INTEGER UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE KEY",
     )
 
 
