@@ -4,8 +4,8 @@ Listens for command response packets from the IMPISH flight computer.
 Currently, the data is inserted in to a MySQL table.
 """
 
+import hashlib
 import os
-import re
 import socket
 
 from mysql.connector.abstracts import MySQLConnectionAbstract
@@ -14,37 +14,23 @@ from mysql.connector.pooling import PooledMySQLConnection
 
 import impish_monitor as monitor
 
-from impisc import logging, packets
+from impisc import logging
+from impisc.packets import CommandResponsePacket, PacketHeader, split
 
 
 LISTEN_PORT = int(os.environ["LOCAL_COMMAND_FWD_PORT"])
 
 
-def unpack_response(packet: packets.CommandResponsePacket) -> dict[str, int | str]:
-    """Split the command response into ack, command, stdout, stderr based
-    on predefined delimiters (command-executor; in Rust) using regex.
-    """
-    response: str = (packet.response).decode("utf-8")  # sus
-    ok: list[str] = response.split("\n", maxsplit=1)  # determine if ack-ok or error
-    logging.log_debug(f"response: {response}")
-    pattern = "|".join(map(re.escape, monitor.COMMAND_DELIMITERS))
-    split = re.split(pattern, ok[1])  # TODO: currently does not handle multi-sequence packets; fix this
-    logging.log_debug(f"split: {split}")
-    return {
-        "sequence": packet.sequence,
-        **{k.strip().replace("-", "_"): v for (k, v) in zip(monitor.COMMAND_DELIMITERS, split)}
-    }
+def generate_hash(packet_bytes: bytes, bytes_in_hash: int = 8) -> bytes:
+    """Hash generator for keying the packets in the database."""
+    return hashlib.md5(packet_bytes).digest()[:bytes_in_hash]
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract,
-    packet: packets.CommandResponsePacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: CommandResponsePacket
 ):
     """Insert the command response packet into the database."""
-    response: dict[str, str] = unpack_response(packet)
-    logging.log_debug(f"unpacked response {response}")
-    cols: dict[str, int | str] = {"unix_timestamp": packet.timestamp}
-    cols = {**cols, **response}
+    cols = unpack_it(packet)
     fmt = "%s, " * (len(cols) - 1) + "%s"
     header = f"INSERT INTO {monitor.COMMAND_TABLE_NAME}"
 
@@ -65,9 +51,53 @@ def insert_packet(
     _ = db.commit()
 
 
+def parse_payload(packet: CommandResponsePacket) -> dict[str, str | int | None]:
+    """Split the command payload into as many fields as possible:
+    status code, command, stdout, stderr based a predefined delimiter
+    (command-executor; in Rust).
+    """
+    parsed: list[bytes] = bytes(packet.payload).split(CommandResponsePacket.DELIMITER)
+    mapped: dict[str, str | int | None] = {}
+    if len(parsed) != 4:
+        mapped["unparsed"] = (parsed.pop()).decode("utf-8")
+    for (f, v) in zip(CommandResponsePacket.PAYLOAD_FIELDS[: len(parsed)], parsed):
+        mapped[f] = (v.decode("utf-8")).strip("\x00")
+    if not mapped["status_code"]:
+        mapped["status_code"] = 0
+    else:
+        mapped["status_code"] = int.from_bytes(
+            bytes(mapped["status_code"], encoding="utf-8")
+        )
+
+    return mapped
+
+
+def unpack_it(packet: CommandResponsePacket) -> dict[str, str | int | None]:
+    """Unpack the packet into a dict for entering into the database."""
+    cols: dict[str, str | int | None] = {
+        c: None for c in monitor.COMMAND_COLUMNS.keys()
+    }
+    _ = cols.pop("id")  # this is auto incremented by the database
+    cols["hash"] = int.from_bytes(
+        generate_hash(bytes(packet), bytes_in_hash=8),
+        signed=False
+    )
+    cols["unix_timestamp"] = packet.timestamp
+    cols["command_counter"] = packet.command_counter
+    cols["response_sequence"] = packet.response_sequence
+    cols["total_packets_in_response"] = packet.total_packets_in_response
+    match (packet.response_sequence, packet.total_packets_in_response):
+        case (0, _):
+            cols = {**cols, **parse_payload(packet)}
+        case _:
+            cols["unparsed"] = bytes(packet.payload).decode("utf-8")
+
+    return cols
+
+
 def main():
-    header: packets.PacketHeader
-    packet: packets.CommandResponsePacket
+    header: PacketHeader
+    packet: CommandResponsePacket
     logging.log_debug("Opening DB connection")
     db = monitor.connect()
     expected_seqnum = 0
@@ -78,10 +108,18 @@ def main():
         while True:
             data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
             logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
-            if monitor.validate_packet(data, packets.CommandResponsePacket):
-                header, packet = packets.split(data)
-                expected_seqnum = monitor.process_sequence_number(header, expected_seqnum)
+            if monitor.validate_packet(data, CommandResponsePacket):
+                header, packet = split(data)
+                expected_seqnum = monitor.process_sequence_number(
+                    header,
+                    expected_seqnum
+                )
                 insert_packet(db, packet)
+            else:
+                logging.log_info(
+                    "Received unknown or corrupted packet "
+                    + f"with {len(data)} bytes\n{header.id}"
+                )
     finally:
         logging.log_debug("Closing DB connection")
         sock.close()
