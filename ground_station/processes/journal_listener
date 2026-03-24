@@ -55,7 +55,9 @@ def main():
         uncompressed_data = lzma.decompress(data, format=lzma.FORMAT_XZ)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as send_sock:
             send_sock.connect(SEND_ADDR)
-            logging.log_info(f"Sending {len(uncompressed_data)} bytes to port {SEND_ADDR[1]}")
+            logging.log_info(
+                f"Sending {len(uncompressed_data)} bytes to port {SEND_ADDR[1]}"
+            )
             _ = send_sock.send(uncompressed_data)
 
 
