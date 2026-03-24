@@ -6,8 +6,8 @@ import os
 
 def packet_to_hex(data: bytes) -> str:
     """Format a data packet as zero-padded hexadecimal,
-       encoded as a string"""
-    return ''.join(format(d, "02x") for d in data)
+    encoded as a string"""
+    return "".join(format(d, "02x") for d in data)
 
 
 def main():
@@ -25,6 +25,7 @@ def main():
             [f"oneshot-forwarder {packet_to_hex(data)}"],
             shell=True,
         )
+
 
 if __name__ == "__main__":
     main()

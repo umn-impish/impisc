@@ -5,7 +5,6 @@ The stamped packets then get sent to the starspec-forwarder process
 and subsequently sent to the gondola.
 """
 
-import ctypes
 import os
 import socket
 
@@ -18,11 +17,13 @@ SS_FWD_PORT = int(os.environ["ENDPOINT_PORT"])
 SEQUENCE_IDS = {
     packets.HealthPacket: 0,
     packets.QuicklookPacket: 0,
-    packets.CommandResponsePacket: 0
+    packets.CommandResponsePacket: 0,
 }
 PACKET_PORTS = {
     int(os.environ["LOCAL_HEALTH_FWD_PORT"]): packets.HealthPacket,
-    int(os.environ["QUICKLOOK_UDPCAP_PORT"]): packets.QuicklookPacket,  # TODO: confirm this port number for quicklook
+    int(
+        os.environ["QUICKLOOK_UDPCAP_PORT"]
+    ): packets.QuicklookPacket,  # TODO: confirm this port number for quicklook
     int(os.environ["COMMAND_EXECUTOR_PORT"]): packets.CommandResponsePacket,
 }
 
@@ -36,8 +37,12 @@ def make_header(recv_port: int, packet_size: int) -> packets.PacketHeader:
     header.id = packets.PACKET_IDS.index(PacketClass)
     header.sequence_number = SEQUENCE_IDS[PacketClass]
     header.packet_size = packet_size
-    logging.log_info(f"Packet type {PacketClass}\nID: {header.id}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}")
-    SEQUENCE_IDS[PacketClass] = (SEQUENCE_IDS[PacketClass] + 1) % (packets.MAX_SEQUENCE_NUMBER + 1)
+    logging.log_info(
+        f"Packet type {PacketClass}\nID: {header.id}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
+    )
+    SEQUENCE_IDS[PacketClass] = (SEQUENCE_IDS[PacketClass] + 1) % (
+        packets.MAX_SEQUENCE_NUMBER + 1
+    )
 
     return header
 
@@ -47,7 +52,7 @@ def main():
     Stamps the header onto each packet and increments a sequence
     ID for each type of packet.
     """
-    sock =socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     logging.log_debug(f"Binding to port {TELE_PORT}")
     sock.bind(("", TELE_PORT))
     while True:
@@ -59,9 +64,11 @@ def main():
             header = make_header(recv_port, len(data))
             full_packet: bytes = bytes(header) + data
             num_sent = sock.sendto(full_packet, ("", SS_FWD_PORT))
-            logging.log_info(f"Sent {num_sent} out of {len(full_packet)} bytes to StarSpec forwarder (port {SS_FWD_PORT})")
+            logging.log_info(
+                f"Sent {num_sent} out of {len(full_packet)} bytes to StarSpec forwarder (port {SS_FWD_PORT})"
+            )
             if num_sent != len(full_packet):
-                logging.log_warning(f"Byte loss when sending previous packet")
+                logging.log_warning("Byte loss when sending previous packet")
         else:
             logging.log_warning(
                 f"Unknown packet ({len(data)} bytes) received "

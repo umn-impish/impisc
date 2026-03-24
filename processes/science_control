@@ -5,7 +5,6 @@ import time
 import socket
 import subprocess
 from impisc.et_daqbox import daq_box_api as dba
-from impisc import logging
 
 
 # DAQBOX framerate

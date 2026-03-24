@@ -4,7 +4,7 @@ Listens for commands on a TCP socket and handles logic.
 Executed commands are passed on to the command-executor service,
 which sends the stdout and stderr to the header stamper.
 Three groups of commands are defined:
-    - Special: very limited number of commands that 
+    - Special: very limited number of commands that
         don't get passed to command-executor; uses os.system
     - Safe: all commands defined in /usr/local/bin; these
         do not need a prior `unlock` command
@@ -80,6 +80,7 @@ def main():
     # The maximum transmission unit defined by the Gondola network
     MTU = 9100
     locked = True
+    unlock_time = float("nan")
     while True:
         cmd_bytes: bytes = b""
         error: str | None = None
@@ -90,19 +91,20 @@ def main():
             # remove the following if statement once we
             # get TCP sockets that don't refresh once a second...
             if (time.time() - unlock_time) > UNLOCK_TIMEOUT:
-                logging.log_warning(f"Locking after timeout exceeded")
+                logging.log_warning("Locking after timeout exceeded")
                 locked = True
                 continue
             # Since the socket is constantly refreshed by scommand the
             # following line does nothing right now... >:(
             sock.settimeout(UNLOCK_TIMEOUT)
+
         conn, addr = sock.accept()  # scommand constantly disconnects then reconnects...
         logging.log_debug(f"Connected to {addr[0]}:{addr[1]} for TCP")
         try:
             cmd_bytes: bytes = conn.recv(MTU)
         except socket.timeout:
             logging.log_warning(
-                f"Socket timed out while waiting for unsafe command, relocking"
+                "Socket timed out while waiting for unsafe command, relocking"
             )
             locked = True
             continue

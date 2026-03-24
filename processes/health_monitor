@@ -194,7 +194,10 @@ def measure_toggle_byte() -> tuple[bool, int]:
         logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
     return True, 0
 
+
 wiper_issues = 0
+
+
 def measure_bubba_wiper() -> tuple[bool, int]:
     """Measure the wiper value from the ISL22317 that sets the bias voltage."""
     try:
