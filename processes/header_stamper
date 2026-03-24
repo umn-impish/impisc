@@ -59,8 +59,8 @@ def main():
         data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
         logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
         # header_data = data[:HEADER_SIZE]
-        recv_port = addr[1]
-        if recv_port in PACKET_PORTS:
+        recv_port: int = addr[1]
+        if recv_port in PACKET_PORTS and len(data) != 0:
             header = make_header(recv_port, len(data))
             full_packet: bytes = bytes(header) + data
             num_sent = sock.sendto(full_packet, ("", SS_FWD_PORT))
