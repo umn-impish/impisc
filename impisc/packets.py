@@ -93,7 +93,9 @@ MAX_SEQUENCE_NUMBER = int(2**16) - 1  # packet header uses uint16
 # A command response packet is just a blob of bytes.
 # They can be used however deemed fit.
 class CommandResponsePacket(ctypes.LittleEndianStructure):
-    NUM_RESP_CHARS = 512
+    DELIMITER = b"\x1d"  # group separator
+    NUM_RESP_CHARS: int = 512
+    PAYLOAD_FIELDS: list[str] = ["status_code", "cmd", "stdout", "stderr"]
     _pack_ = 1
     _fields_ = (
         ("payload", ctypes.c_uint8 * NUM_RESP_CHARS),
