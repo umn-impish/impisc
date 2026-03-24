@@ -80,7 +80,7 @@ def connect(
 def _health_columns() -> OrderedDict[str, str]:
     """The health column names mapped to their data type."""
     fields: list[str] = [f[0] for f in packets.HealthPacket._fields_]
-    fields.remove("unix_timestamp")
+    fields.remove("timestamp")
     # power_names is for the toggle bits
     power_names: list[str] = [
         "power_det1",

@@ -80,7 +80,7 @@ def main():
         ("ram_usage", measure_ram_usage),
         ("swap_usage", measure_swap_usage),
         #                  Lol
-        ("unix_timestamp", lambda: (False, int(time.time()))),
+        ("timestamp", lambda: (False, int(time.time()))),
         ("extra", fill_extra),
     ]
 
