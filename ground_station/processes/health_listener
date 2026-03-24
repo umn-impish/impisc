@@ -49,12 +49,12 @@ def insert_packet(
     db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.HealthPacket
 ):
     """Insert the health packet into the database."""
-    # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to db
-    cols: dict[str, int] = {"gs_unix_timestamp": int(time.time())}
     cols = {
-        **cols,
+        "unix_timestamp": packet.timestamp,
+        "gs_unix_timestamp": int(time.time()),
         **{f[0]: getattr(packet, f[0]) for f in packet._fields_ if "extra" not in f},
     }
+    cols.pop("timestamp")  # remove `timestamp` field...
     cols = {**cols, **unpack_power_byte(getattr(packet, "power_line_statuses"))}
     cols = {**cols, **unpack_missing_bytes(getattr(packet, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"

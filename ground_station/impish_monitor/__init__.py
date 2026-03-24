@@ -32,16 +32,16 @@ def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:
         logging.log_error(
             f"Received unexpected packet (ID {header.id}; NUM {header.packet_number}; SEQ {header.sequence_number}; "
             + f"{ctypes.sizeof(header)} bytes and {ctypes.sizeof(packet) - ctypes.sizeof(header)} bytes)"
-            + "; discarding packet"
+            + "; discarding packet: "
             + f"{full_packet}"
         )
         return False
     packet_size = ctypes.sizeof(packet)
     if header.packet_size != packet_size:
         logging.log_critical(
-            f"Mismatched packet size ({packet_size}) to value"
-            + f"in header ({header.packet_size})"
-            + "; discarding packet"
+            f"Mismatched packet size ({packet_size}) to value "
+            + f"in header ({header.packet_size}) "
+            + "; discarding packet: "
             + f"{full_packet}"
         )
         return False
