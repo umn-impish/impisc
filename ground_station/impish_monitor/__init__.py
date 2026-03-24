@@ -30,7 +30,7 @@ def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:
     header, packet = packets.split(full_packet)
     if header.id != packets.PACKET_IDS.index(ExpectedClass):
         logging.log_error(
-            f"Received unexpected packet (ID {header.id}; SEQ {header.sequence_number}; "
+            f"Received unexpected packet (ID {header.id}; NUM {header.packet_number}; SEQ {header.sequence_number}; "
             + f"{ctypes.sizeof(header)} bytes and {ctypes.sizeof(packet) - ctypes.sizeof(header)} bytes)"
             + "; discarding packet"
             + f"{full_packet}"
@@ -46,7 +46,7 @@ def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:
         )
         return False
     logging.log_debug(
-        f"Header ID: {header.id}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
+        f"Header ID: {header.id}  NUM: {header.packet_number:>6}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
     )
     return True
 

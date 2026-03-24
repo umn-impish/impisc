@@ -72,15 +72,17 @@ class HealthPacket(ctypes.LittleEndianStructure):
 
 
 class PacketHeader(ctypes.LittleEndianStructure):
-    """A packet header has three fields:
+    """A packet header has four fields:
     - an identifier number (id) specifying packet type
-    - a sequence number
+    - a packet number, total packet counter
+    - a sequence number, sequenced per packet type
     - packet size in bytes, as a sanity check
     """
 
     _pack_ = 1
     _fields_ = (
         ("id", ctypes.c_uint8),
+        ("packet_number", ctypes.c_uint16),
         ("sequence_number", ctypes.c_uint16),
         ("packet_size", ctypes.c_uint16),  # EXCLUDING header size
     )

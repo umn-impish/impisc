@@ -15,6 +15,7 @@ from impisc.packets import PacketHeader
 TELE_PORT = int(os.environ["HEADER_STAMPER_PORT"])
 SS_FWD_PORT = int(os.environ["ENDPOINT_PORT"])
 SEQUENCE_IDS = {
+    "total": 0,
     packets.HealthPacket: 0,
     packets.QuicklookPacket: 0,
     packets.CommandResponsePacket: 0,
@@ -35,10 +36,15 @@ def make_header(recv_port: int, packet_size: int) -> packets.PacketHeader:
     PacketClass = PACKET_PORTS[recv_port]
     header: PacketHeader = packets.PacketHeader()
     header.id = packets.PACKET_IDS.index(PacketClass)
+    header.packet_number = SEQUENCE_IDS["total"]
     header.sequence_number = SEQUENCE_IDS[PacketClass]
     header.packet_size = packet_size
     logging.log_info(
-        f"Packet type {PacketClass}\nID: {header.id}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
+        f"Packet type {PacketClass}\nID: {header.id}  NUM: {header.packet_number}  "
+        + f"SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
+    )
+    SEQUENCE_IDS["total"] = (SEQUENCE_IDS["total"] + 1) % (
+        packets.MAX_SEQUENCE_NUMBER + 1
     )
     SEQUENCE_IDS[PacketClass] = (SEQUENCE_IDS[PacketClass] + 1) % (
         packets.MAX_SEQUENCE_NUMBER + 1
