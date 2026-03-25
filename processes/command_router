@@ -53,7 +53,11 @@ def process_cmd_bytes(command: bytes) -> str:
     logging.log_info(f"received {len(command)} bytes in command packet")
     packet_size: int = struct.unpack("<I", command[:HEADER_LEN])[0]
     full_str = command[HEADER_LEN:].decode("utf-8")
-    group, cmd = full_str.split(" ", maxsplit=1)
+    logging.log_debug(f"received command string: {full_str}")
+    if full_str.startswith("arbcmd"):
+        group, cmd = full_str.split(" ", maxsplit=1)
+    else:
+        group, cmd = "special", full_str
     cmd = cmd.replace('"', "").strip()
     logging.log_info(
         f"size from packet: {packet_size}\ngroup: {group:<12}\tcmd ({len(cmd)} bytes): {cmd:<32}"
