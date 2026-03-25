@@ -4,6 +4,7 @@ Very coarsely emulate `scommand`
 Accepts keyboard input, formats the bytes to mimic `scommand`,
 then sends the bytes to `command_router` via TCP socket.
 """
+
 import socket
 import struct
 
@@ -16,11 +17,9 @@ def make_starspec_packet(command: str) -> bytes:
     group is defined in the flightsim .rcf file.
     """
     if command in SPECIAL_COMMANDS:
-        group: str = "special"
         cmd_bytes: bytes = f"{command}\n".encode("utf-8")
     else:
-        group: str = "arbcmd"
-        cmd_bytes: bytes = f"{group} \"{command}\"\n".encode(encoding="utf-8")        
+        cmd_bytes: bytes = f'arbcmd "{command}"\n'.encode(encoding="utf-8")
 
     return struct.pack(f"<I{len(cmd_bytes)}s", len(cmd_bytes), cmd_bytes)
 
