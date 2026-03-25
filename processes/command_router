@@ -87,7 +87,7 @@ def main():
     unlock_time = float("nan")
     while True:
         cmd_bytes: bytes = b""
-        error: str | None = None
+        packet: packets.CommandResponsePacket | None = None
         # TCP socket timeout must be set BEFORE accepting a connection
         if locked:
             sock.settimeout(None)
@@ -95,7 +95,11 @@ def main():
             # remove the following if statement once we
             # get TCP sockets that don't refresh once a second...
             if (time.time() - unlock_time) > UNLOCK_TIMEOUT:
-                logging.log_warning("Locking after timeout exceeded")
+                stdout = "Locking after timeout exceeded"
+                packet = packets.CommandResponsePacket.from_parts(
+                    ret_code=0, command="lock", stdout=stdout, stderr="")
+                send_response(args.listen_port, args.endpoint_port, packet)
+                logging.log_warning(stdout)
                 locked = True
                 continue
             # Since the socket is constantly refreshed by scommand the
@@ -124,29 +128,39 @@ def main():
                 logging.log_critical(
                     f"Received special command {command}; executing with sudo"
                 )
-                exit_code: int = os.system(f"sudo {command}")
-                logging.log_info(f"Special command exitted with code {exit_code}")
+                command = f"sudo {command}"
+                ret_code: int = os.system(command)
+                packet = packets.CommandResponsePacket.from_parts(
+                    ret_code=ret_code, command=command, stdout="", stderr="")
+                logging.log_info(f"Special command exitted with code {ret_code}")
             case (x, _) if x in SAFE_COMMANDS:
                 logging.log_info(f"Received safe command {command}")
-                error = execute_command(command, args.executor_port)
+                execute_command(command, args.executor_port)
             case ("unlock", True):
                 locked = False
-                logging.log_warning("Unsafe commanding now unlocked")
+                stdout = "Unsafe commanding now unlocked"
+                packet = packets.CommandResponsePacket.from_parts(
+                    ret_code=0, command=command, stdout=stdout, stderr="")
+                logging.log_warning(stdout)
                 unlock_time = time.time()
             case ("lock", False):
                 locked = True
-                logging.log_warning("Unsafe commanding now locked")
+                stdout = "Unsafe commanding now locked"
+                packet = packets.CommandResponsePacket.from_parts(
+                    ret_code=0, command=command, stdout=stdout, stderr="")
+                logging.log_warning(stdout)
             case (_, True):
-                logging.log_warning(
-                    f'Received command "{command}" either unknown or unsafe '
-                    + "without unlocking; doing nothing"
-                )
+                stderr = f'Received command "{command}" either unknown or unsafe ' \
+                             + "without unlocking; doing nothing"
+                packet = packets.CommandResponsePacket.from_parts(
+                    ret_code=1, command=command, stdout="", stderr=stderr)
+                logging.log_warning(stderr)
             case (_, False):
                 logging.log_info(f'Received UNSAFE command "{command}"')
-                error = execute_command(command, args.executor_port)
+                execute_command(command, args.executor_port)
                 locked = True
-        if error:
-            send_error(conn, args.endpoint_port, error)
+        if packet:
+            send_response(args.listen_port, args.endpoint_port, packet)
 
 
 def execute_command(cmd: str, port: int):
@@ -162,11 +176,15 @@ def execute_command(cmd: str, port: int):
     logging.log_debug(f"Sent {len_sent} out of {len(cmd)} bytes")
 
 
-def send_error(s: socket.socket, dest: int, msg: str) -> None:
-    packet = packets.CommandResponsePacket()
-    packet.add_response(msg)
-    len_sent = s.sendto(packet, ("127.0.0.1", dest))
-    logging.log_debug(f"Sending error message (len: {len_sent}) to port {dest}")
+def send_response(
+    my_port: int,
+    dest_port: int,
+    packet: packets.CommandResponsePacket
+):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", my_port))
+    len_sent = sock.sendto(packet, ("", dest_port))
+    logging.log_debug(f"Sending response packet (len: {len_sent}) to port {dest_port}")
 
 
 def parse_args() -> argparse.Namespace:

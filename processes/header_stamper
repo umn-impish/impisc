@@ -25,6 +25,7 @@ PACKET_PORTS = {
     int(
         os.environ["QUICKLOOK_UDPCAP_PORT"]
     ): packets.QuicklookPacket,  # TODO: confirm this port number for quicklook
+    int(os.environ["COMMAND_ROUTER_PORT"]): packets.CommandResponsePacket,
     int(os.environ["COMMAND_EXECUTOR_PORT"]): packets.CommandResponsePacket,
 }
 

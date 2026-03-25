@@ -106,13 +106,27 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
         ("response_sequence", ctypes.c_uint8),
         ("total_packets_in_response", ctypes.c_uint8),
     )
-
-    def add_response(self, msg: str):
+    
+    @classmethod
+    def from_parts(cls, ret_code: int, command: str, stdout: str, stderr: str):
+        """Build a packet given the payload parts."""
+        import time
+        packet = CommandResponsePacket()
+        packet.timestamp = int(time.time())
+        packet.command_counter = 255
+        packet.response_sequence = 0
+        packet.total_packets_in_response = 1
         # Reset with empty bytes
-        self.payload = (ctypes.c_char * CommandResponsePacket.NUM_RESP_CHARS)()
-        # Set the maximum number of bytes we can
-        lim = min(CommandResponsePacket.NUM_RESP_CHARS, len(msg))
-        self.payload[:lim] = msg[:lim].encode("utf-8")
+        packet.payload = (ctypes.c_uint8 * CommandResponsePacket.NUM_RESP_CHARS)()
+        delimiter: str = CommandResponsePacket.DELIMITER.decode("utf-8")
+        # .encode adds too many bytes to the ret_code, so we convert to bytes here
+        code: bytes = ret_code.to_bytes(1, "little")
+        message = delimiter.join([command, stdout, stderr]).encode("utf-8")
+        message = code + CommandResponsePacket.DELIMITER + message
+        lim = min(CommandResponsePacket.NUM_RESP_CHARS, len(message))
+        packet.payload[:lim] = message[:lim]
+
+        return packet
 
 
 NUM_QUICKLOOK_BINS = 4
