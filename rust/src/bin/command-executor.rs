@@ -70,17 +70,15 @@ fn main() {
         .parse::<u16>()
         .expect("Need COMMAND_EXECUTOR_PORT to be a parsable u16");
 
+    // Special address 0000 is like INADDR_ANY.
+    let sock = UdpSocket::bind(format!("0.0.0.0:{listen_port}"))
+        .expect("Need to be able to bind socket to given listen port.");
+    sock.set_read_timeout(None)
+        .expect("Need to be able to set socket timeout");
+
     // Count how many packets we receive for bookkeeping on the ground
     let mut packets_received: u8 = 0;
     loop {
-        // Special address 0000 is like INADDR_ANY.
-        // The socket needs to get re-created each time
-        // so that we can stay bound to 0.0.0.0
-        let sock = UdpSocket::bind(format!("0.0.0.0:{listen_port}"))
-            .expect("Need to be able to bind socket to given listen port.");
-        sock.set_read_timeout(None)
-            .expect("Need to be able to set socket timeout");
-
         let Some((cmd, _)) = receive_command(&sock) else {
             eprintln!("Failed to parse command from UDP packet.");
             continue;
@@ -99,11 +97,7 @@ fn main() {
             },
         };
 
-        // we're using UDP so it doesn't actually
-        // "connect" but this is syntactic sugar
-        sock.connect(&send_to_me)
-            .expect("Must be able to forward to specified destination address");
-        reply_with(&res, &sock, &packets_received);
+        reply_with(&res, &sock, &packets_received, &send_to_me);
     }
 }
 
@@ -116,7 +110,7 @@ fn main() {
 /// ```
 /// (u32 timestamp) + (u8 num cmds received) + (u16 packet order) + (u16 total number of reply packets) + (512x u8 response data)
 /// ```
-fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
+fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8, send_to_me: &String) {
     // slice response up into chunks and send it off
     let res_bytes = res.to_packet();
     const STEP: usize = 512;
@@ -145,7 +139,7 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
         // Put the total number of packets we'll get
         send_bytes.extend(total_packets.to_le_bytes());
 
-        sock.send(&send_bytes).expect("failed to send UDP response");
+        sock.send_to(&send_bytes, &send_to_me).expect("failed to send UDP response");
         // Delay a short while to not overwhelm the network stack
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
