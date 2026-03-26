@@ -113,7 +113,7 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
         import time
         packet = CommandResponsePacket()
         packet.timestamp = int(time.time())
-        packet.command_counter = 255
+        packet.command_counter = 255  # max number; can't put a "real" one
         packet.response_sequence = 0
         packet.total_packets_in_response = 1
         # Reset with empty bytes

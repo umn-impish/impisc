@@ -71,7 +71,7 @@ def main():
             header = make_header(recv_port, len(data))
             full_packet: bytes = bytes(header) + data
             num_sent = sock.sendto(full_packet, ("", SS_FWD_PORT))
-            logging.log_info(
+            logging.log_debug(
                 f"Sent {num_sent} out of {len(full_packet)} bytes to StarSpec forwarder (port {SS_FWD_PORT})"
             )
             if num_sent != len(full_packet):
