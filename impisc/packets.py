@@ -1,4 +1,5 @@
 import ctypes
+import time
 
 from typing import TypeAlias
 
@@ -106,24 +107,21 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
         ("response_sequence", ctypes.c_uint8),
         ("total_packets_in_response", ctypes.c_uint8),
     )
-    
+
     @classmethod
     def from_parts(cls, ret_code: int, command: str, stdout: str, stderr: str):
         """Build a packet given the payload parts."""
-        import time
-        packet = CommandResponsePacket()
+        packet = cls()
         packet.timestamp = int(time.time())
-        packet.command_counter = 255  # max number; can't put a "real" one
+        packet.command_counter = 0xFF  # max number; can't put a "real" one
         packet.response_sequence = 0
         packet.total_packets_in_response = 1
-        # Reset with empty bytes
-        packet.payload = (ctypes.c_uint8 * CommandResponsePacket.NUM_RESP_CHARS)()
-        delimiter: str = CommandResponsePacket.DELIMITER.decode("utf-8")
-        # .encode adds too many bytes to the ret_code, so we convert to bytes here
-        code: bytes = ret_code.to_bytes(1, "little")
-        message = delimiter.join([command, stdout, stderr]).encode("utf-8")
-        message = code + CommandResponsePacket.DELIMITER + message
-        lim = min(CommandResponsePacket.NUM_RESP_CHARS, len(message))
+        code = bytes(ctypes.c_uint8(ret_code))
+        message = cls.DELIMITER.join(
+            part.encode("utf-8") for part in (command, stdout, stderr)
+        )
+        message = code + cls.DELIMITER + message
+        lim = min(cls.NUM_RESP_CHARS, len(message))
         packet.payload[:lim] = message[:lim]
 
         return packet
