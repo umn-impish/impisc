@@ -44,51 +44,47 @@ def listener(
         while True:
             data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
             logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
-            if validate_packet(full_packet=data, ExpectedClass=PacketClass):
-                header, packet = packets.split(data)
-                expected_seqnum = process_sequence_number(
-                    header,
-                    expected_seqnum
-                )
-                insert_func(db, packet)
-            else:
-                logging.log_info(
-                    "Received unknown or corrupted packet "
-                    + f"with {len(data)} bytes\nID: {header.id}\ndata: {data}"
-                )
+            try:
+                validate_packet(full_packet=data, ExpectedClass=PacketClass)
+            except ValueError as e:
+                logging.log_critical(f"Received unexpected, unknown, or corrupted packet:\n{e}")
+            header, packet = packets.split(data)
+            expected_seqnum = process_sequence_number(
+                header,
+                expected_seqnum
+            )
+            insert_func(db, packet)
     finally:
         logging.log_debug("Closing DB connection")
         sock.close()
         db.close()
 
 
-def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:
+def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet):
     """Check that the packet is the expected type and that its size
-    matches what is stated in the header. Returns False if the packet
-    is invalid; True if the packet is valid.
+    matches what is stated in the header. Returns None if packet is valid;
+    otherwise a ValueError is raised.
     """
     header, packet = packets.split(full_packet)
     if header.id != packets.PACKET_IDS.index(ExpectedClass):
-        logging.log_error(
+        raise ValueError(
             f"Received unexpected packet (ID {header.id}; NUM {header.packet_number}; SEQ {header.sequence_number}; "
             + f"{ctypes.sizeof(header)} bytes and {ctypes.sizeof(packet) - ctypes.sizeof(header)} bytes)"
             + "; discarding packet: "
             + f"{full_packet}"
         )
-        return False
     packet_size = ctypes.sizeof(packet)
     if header.packet_size != packet_size:
-        logging.log_critical(
+        raise ValueError(
             f"Mismatched packet size ({packet_size}) to value "
             + f"in header ({header.packet_size}) "
             + "; discarding packet: "
             + f"{full_packet}"
         )
-        return False
     logging.log_debug(
-        f"Header ID: {header.id}  NUM: {header.packet_number:>6}  SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
+        f"Header ID: {header.id}  NUM: {header.packet_number:>6}  "
+        + f"SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
     )
-    return True
 
 
 def process_sequence_number(header: packets.PacketHeader, seq_num: int) -> int:
