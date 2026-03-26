@@ -24,6 +24,7 @@ import struct
 import time
 
 from collections.abc import Iterator
+from math import isnan
 from pathlib import Path
 from typing import Callable
 
@@ -54,16 +55,17 @@ class CommandStepper:
         self.lock()
 
     def lock(self):
-        self.sock.settimeout(UNLOCK_TIMEOUT)
         self.unlock_time = float("nan")
+        self.sock.setblocking(True)
+        self.sock.settimeout(None)
 
     def unlock(self):
-        self.sock.setblocking(False)
+        self.sock.settimeout(UNLOCK_TIMEOUT)
         self.unlock_time = time.time()
 
     @property
     def locked(self) -> bool:
-        return self.sock.getblocking()
+        return isnan(self.unlock_time)
 
     def execute_step(self) -> packets.CommandResponsePacket | None:
         """Logical steps to take per-command.
@@ -89,7 +91,6 @@ class CommandStepper:
         cmd_bytes: bytes = conn.recv(GONDOLA_MTU)
 
         if len(cmd_bytes) == 0:
-            logging.log_warning("Received empty command; ignoring")
             return
 
         command: str = process_cmd_bytes(cmd_bytes)
@@ -134,7 +135,7 @@ class CommandStepper:
                 logging.log_warning(stderr)
             case (_, False):
                 logging.log_info(f'Received UNSAFE command "{command}"')
-                exec(command)
+                self.exec(command)
                 # Re-lock immediately after execution to be safe
                 self.lock()
 
@@ -180,7 +181,7 @@ def process_cmd_bytes(command: bytes) -> str:
     if full_str.startswith("arbcmd"):
         group, cmd = full_str.split(" ", maxsplit=1)
         # Remove start/end quotes from StarSpec formatting
-        cmd = cmd[1:-1]
+        cmd = cmd.strip()[1:-1]
     else:
         group, cmd = "special", full_str
     logging.log_info(
