@@ -43,7 +43,7 @@ def listener(
     try:
         while True:
             data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
-            logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
+            logging.log_debug(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
             try:
                 validate_packet(full_packet=data, ExpectedClass=PacketClass)
             except ValueError as e:
