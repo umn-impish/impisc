@@ -114,7 +114,7 @@ fn main() {
 ///
 /// Packet format:
 /// ```
-/// (u32 timestamp) + (u8 num cmds received) + (u8 packet order) + (u8 total number of reply packets) + (512x u8 response data)
+/// (u32 timestamp) + (u8 num cmds received) + (u16 packet order) + (u16 total number of reply packets) + (512x u8 response data)
 /// ```
 fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
     // slice response up into chunks and send it off
@@ -124,7 +124,7 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
         .duration_since(UNIX_EPOCH)
         .expect("time should go forward")
         .as_secs() as u32;
-    let total_packets: u8 = res_bytes.len().div_ceil(STEP) as u8;
+    let total_packets: u16 = res_bytes.len().div_ceil(STEP) as u16;
     for i in (0..res_bytes.len()).step_by(STEP) {
         // Go until the end of data or the step size
         let max_idx = std::cmp::min(res_bytes.len(), i + STEP);
@@ -140,12 +140,14 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8) {
         // Put the command counter
         send_bytes.push(*num_cmds_received);
         // Put the packet ordering
-        let packet_ordering = (i / STEP) as u8;
-        send_bytes.push(packet_ordering);
+        let packet_ordering = (i / STEP) as u16;
+        send_bytes.extend(packet_ordering.to_le_bytes());
         // Put the total number of packets we'll get
-        send_bytes.push(total_packets);
+        send_bytes.extend(total_packets.to_le_bytes());
 
         sock.send(&send_bytes).expect("failed to send UDP response");
+        // Delay a short while to not overwhelm the network stack
+        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 }
 
