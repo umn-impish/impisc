@@ -25,6 +25,7 @@ import time
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Callable
 
 from impisc import logging, packets
 
@@ -42,33 +43,102 @@ SPECIAL_COMMANDS: list[str] = ["restart-executor", "reboot", "poweroff"]
 UNLOCK_TIMEOUT: int = int(os.getenv("COMMAND_UNLOCK_TIMEOUT"))
 logging.log_debug(f"Safe commands: {SAFE_COMMANDS}")
 logging.log_debug(f"Special commands: {SPECIAL_COMMANDS}")
+GONDOLA_MTU = 9100
 
 
-def process_cmd_bytes(command: bytes) -> str:
-    """Clean the bytes received from StarSpec
-    (removes header and group)
-    and returns only the command string.
-    """
-    HEADER_LEN: int = 4  # starspec prepends four (LEO) bytes to denote packet size
-    logging.log_info(f"received {len(command)} bytes in command packet")
-    packet_size: int = struct.unpack("<I", command[:HEADER_LEN])[0]
-    full_str = command[HEADER_LEN:].decode("utf-8")
-    logging.log_debug(f"received command string: {full_str}")
-    if full_str.startswith("arbcmd"):
-        group, cmd = full_str.split(" ", maxsplit=1)
-    else:
-        group, cmd = "special", full_str
-    cmd = cmd.replace('"', "").strip()
-    logging.log_info(
-        f"size from packet: {packet_size}\ngroup: {group:<12}\tcmd ({len(cmd)} bytes): {cmd:<32}"
-    )
-    if packet_size != len(full_str):
-        logging.log_warning(
-            f"Command packet expected to be {packet_size} bytes; "
-            + f"got {len(full_str)} bytes in command string"
-        )
+class CommandStepper:
+    def __init__(self, sock: socket.socket, exec_func: Callable[[str], None]):
+        self.unlock_time: float = float("nan")
+        self.sock: socket.socket = sock
+        self.exec: Callable[[str], None] = exec_func
+        self.lock()
 
-    return cmd
+    def lock(self):
+        self.sock.settimeout(UNLOCK_TIMEOUT)
+        self.unlock_time = float("nan")
+
+    def unlock(self):
+        self.sock.setblocking(False)
+        self.unlock_time = time.time()
+
+    @property
+    def locked(self) -> bool:
+        return self.sock.getblocking()
+
+    def execute_step(self) -> packets.CommandResponsePacket | None:
+        """Logical steps to take per-command.
+
+        Side-effects:
+            - can modify blocking state of `sock`
+            - executes commands (affects rest of system)
+        """
+        # TCP socket timeout must be set BEFORE accepting a connection
+        if (not self.locked) and (time.time() - self.unlock_time > UNLOCK_TIMEOUT):
+            stderr = "Locking after timeout exceeded"
+            response = packets.CommandResponsePacket.from_parts(
+                ret_code=1, command="lock", stdout="", stderr=stderr
+            )
+            logging.log_warning(stderr)
+            self.lock()
+            return response
+
+        conn, addr = (
+            self.sock.accept()
+        )  # scommand constantly disconnects then reconnects...
+        logging.log_debug(f"Connected to {addr[0]}:{addr[1]} for TCP")
+        cmd_bytes: bytes = conn.recv(GONDOLA_MTU)
+
+        if len(cmd_bytes) == 0:
+            logging.log_warning("Received empty command; ignoring")
+            return
+
+        command: str = process_cmd_bytes(cmd_bytes)
+        response: packets.CommandResponsePacket | None = None
+        match (command, self.locked):
+            case ("", _):
+                # flightsim/scommand sends an empty string every time it reconnects...
+                # I think that's a TCP thing?
+                return
+            case (x, _) if x in SPECIAL_COMMANDS:
+                logging.log_critical(
+                    f"Received special command {command}; executing with sudo"
+                )
+                command = f"sudo {command}"
+                ret_code: int = os.system(command)
+                response = packets.CommandResponsePacket.from_parts(
+                    ret_code=ret_code, command=command, stdout="", stderr=""
+                )
+                logging.log_info(f"Special command exitted with code {ret_code}")
+            case (x, _) if x in SAFE_COMMANDS:
+                logging.log_info(f"Received safe command {command}")
+                self.exec(command)
+            case ("unlock", True):
+                self.unlock()
+                stdout = "Unsafe commanding now unlocked"
+                response = packets.CommandResponsePacket.from_parts(
+                    ret_code=0, command=command, stdout=stdout, stderr=""
+                )
+                logging.log_warning(stdout)
+            case ("lock", False):
+                self.lock()
+                stdout = "Unsafe commanding now locked"
+                response = packets.CommandResponsePacket.from_parts(
+                    ret_code=0, command=command, stdout=stdout, stderr=""
+                )
+                logging.log_warning(stdout)
+            case (_, True):
+                stderr = f"Received command '{command}' either unknown or unsafe without unlocking; doing nothing"
+                response = packets.CommandResponsePacket.from_parts(
+                    ret_code=1, command=command, stdout="", stderr=stderr
+                )
+                logging.log_warning(stderr)
+            case (_, False):
+                logging.log_info(f'Received UNSAFE command "{command}"')
+                exec(command)
+                # Re-lock immediately after execution to be safe
+                self.lock()
+
+        return response
 
 
 def main():
@@ -81,86 +151,48 @@ def main():
     logging.log_debug(f"Binding to port {args.listen_port}")
     sock.bind(("", args.listen_port))
     sock.listen(2)
-    # The maximum transmission unit defined by the Gondola network
-    MTU = 9100
-    locked = True
-    unlock_time = float("nan")
-    while True:
-        cmd_bytes: bytes = b""
-        packet: packets.CommandResponsePacket | None = None
-        # TCP socket timeout must be set BEFORE accepting a connection
-        if locked:
-            sock.settimeout(None)
-        else:
-            # remove the following if statement once we
-            # get TCP sockets that don't refresh once a second...
-            if (time.time() - unlock_time) > UNLOCK_TIMEOUT:
-                stdout = "Locking after timeout exceeded"
-                packet = packets.CommandResponsePacket.from_parts(
-                    ret_code=0, command="lock", stdout=stdout, stderr="")
-                send_response(args.listen_port, args.endpoint_port, packet)
-                logging.log_warning(stdout)
-                locked = True
-                continue
-            # Since the socket is constantly refreshed by scommand the
-            # following line does nothing right now... >:(
-            sock.settimeout(UNLOCK_TIMEOUT)
+    stepper = CommandStepper(
+        sock, exec_func=lambda s: execute_command(s, args.executor_port)
+    )
 
-        conn, addr = sock.accept()  # scommand constantly disconnects then reconnects...
-        logging.log_debug(f"Connected to {addr[0]}:{addr[1]} for TCP")
+    while True:
         try:
-            cmd_bytes: bytes = conn.recv(MTU)
+            res = stepper.execute_step()
+            if res is not None:
+                send_response(args.listen_port, args.endpoint_port, res)
         except socket.timeout:
             logging.log_warning(
-                "Socket timed out while waiting for unsafe command, relocking"
+                "Socket timed out while waiting for unsafe command; relocking"
             )
-            locked = True
-            continue
-        if len(cmd_bytes) == 0:
-            continue
-        command: str = process_cmd_bytes(cmd_bytes)
-        match (command, locked):
-            case ("", _):
-                # flightsim/scommand sends an empty string every time it reconnects...
-                # I think that's a TCP thing?
-                continue
-            case (x, _) if x in SPECIAL_COMMANDS:
-                logging.log_critical(
-                    f"Received special command {command}; executing with sudo"
-                )
-                command = f"sudo {command}"
-                ret_code: int = os.system(command)
-                packet = packets.CommandResponsePacket.from_parts(
-                    ret_code=ret_code, command=command, stdout="", stderr="")
-                logging.log_info(f"Special command exitted with code {ret_code}")
-            case (x, _) if x in SAFE_COMMANDS:
-                logging.log_info(f"Received safe command {command}")
-                execute_command(command, args.executor_port)
-            case ("unlock", True):
-                locked = False
-                stdout = "Unsafe commanding now unlocked"
-                packet = packets.CommandResponsePacket.from_parts(
-                    ret_code=0, command=command, stdout=stdout, stderr="")
-                logging.log_warning(stdout)
-                unlock_time = time.time()
-            case ("lock", False):
-                locked = True
-                stdout = "Unsafe commanding now locked"
-                packet = packets.CommandResponsePacket.from_parts(
-                    ret_code=0, command=command, stdout=stdout, stderr="")
-                logging.log_warning(stdout)
-            case (_, True):
-                stderr = f'Received command "{command}" either unknown or unsafe ' \
-                             + "without unlocking; doing nothing"
-                packet = packets.CommandResponsePacket.from_parts(
-                    ret_code=1, command=command, stdout="", stderr=stderr)
-                logging.log_warning(stderr)
-            case (_, False):
-                logging.log_info(f'Received UNSAFE command "{command}"')
-                execute_command(command, args.executor_port)
-                locked = True
-        if packet:
-            send_response(args.listen_port, args.endpoint_port, packet)
+            stepper.lock()
+
+
+def process_cmd_bytes(command: bytes) -> str:
+    """Clean the bytes received from StarSpec
+    (removes header and group)
+    and returns only the command string.
+    """
+    HEADER_LEN: int = 4  # starspec prepends four (LE) bytes to denote packet size
+    logging.log_info(f"received {len(command)} bytes in command packet")
+    packet_size: int = struct.unpack("<I", command[:HEADER_LEN])[0]
+    full_str = command[HEADER_LEN:].decode("utf-8")
+    logging.log_debug(f"received command string: {full_str}")
+    if full_str.startswith("arbcmd"):
+        group, cmd = full_str.split(" ", maxsplit=1)
+        # Remove start/end quotes from StarSpec formatting
+        cmd = cmd[1:-1]
+    else:
+        group, cmd = "special", full_str
+    logging.log_info(
+        f"size from packet: {packet_size}\ngroup: {group:<12}\tcmd ({len(cmd)} bytes): {cmd:<32}"
+    )
+    if packet_size != len(full_str):
+        logging.log_warning(
+            f"Command packet expected to be {packet_size} bytes; "
+            + f"got {len(full_str)} bytes in command string"
+        )
+
+    return cmd
 
 
 def execute_command(cmd: str, port: int):
@@ -176,11 +208,7 @@ def execute_command(cmd: str, port: int):
     logging.log_debug(f"Sent {len_sent} out of {len(cmd)} bytes")
 
 
-def send_response(
-    my_port: int,
-    dest_port: int,
-    packet: packets.CommandResponsePacket
-):
+def send_response(my_port: int, dest_port: int, packet: packets.CommandResponsePacket):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("", my_port))
     len_sent = sock.sendto(packet, ("", dest_port))
