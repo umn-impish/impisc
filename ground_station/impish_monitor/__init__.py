@@ -1,10 +1,14 @@
 from __future__ import annotations
+"""
+Define various helper functions and table columns for our database.
+"""
 
 import ctypes
 import os
+import socket
 
 from collections import OrderedDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Never
 
 import mysql.connector
 
@@ -20,6 +24,42 @@ HEALTH_TABLE_NAME = "health"
 QUICKLOOK_TABLE_NAME = "quicklook"
 COMMAND_TABLE_NAME = "commands"
 ADDR = ("", 12004)
+
+
+def listener(
+    port: int,
+    PacketClass: packets.Packet,
+    insert_func: Callable[..., None]
+) -> Never:
+    """Listens for incoming packets."""
+    header: packets.PacketHeader
+    packet: PacketClass
+    logging.log_debug("Opening DB connection")
+    db = connect()
+    expected_seqnum = 0
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    logging.log_debug(f"Binding to port {port}")
+    sock.bind(("", port))
+    try:
+        while True:
+            data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
+            logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
+            if validate_packet(full_packet=data, ExpectedClass=PacketClass):
+                header, packet = packets.split(data)
+                expected_seqnum = process_sequence_number(
+                    header,
+                    expected_seqnum
+                )
+                insert_func(db, packet)
+            else:
+                logging.log_info(
+                    "Received unknown or corrupted packet "
+                    + f"with {len(data)} bytes\nID: {header.id}\ndata: {data}"
+                )
+    finally:
+        logging.log_debug("Closing DB connection")
+        sock.close()
+        db.close()
 
 
 def validate_packet(full_packet: bytes, ExpectedClass: packets.Packet) -> bool:

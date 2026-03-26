@@ -6,16 +6,17 @@ and displayed by Grafana.
 """
 
 import os
-import socket
 import time
+
+from typing import Never
 
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.errors import IntegrityError
 from mysql.connector.pooling import PooledMySQLConnection
 
-import impish_monitor as monitor
-
 from impisc import logging, packets
+
+import impish_monitor as monitor
 
 
 LISTEN_PORT = int(os.environ["LOCAL_HEALTH_FWD_PORT"])
@@ -76,29 +77,12 @@ def insert_packet(
     _ = db.commit()
 
 
-def main():
-    header: packets.PacketHeader
-    packet: packets.HealthPacket
-    logging.log_debug("Opening DB connection")
-    db = monitor.connect()
-    expected_seqnum = 0
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    logging.log_debug(f"Binding to port {LISTEN_PORT}")
-    sock.bind(("", LISTEN_PORT))
-    try:
-        while True:
-            data, addr = sock.recvfrom(1024)  # pyright: ignore[reportAny]
-            logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
-            if monitor.validate_packet(data, packets.HealthPacket):
-                header, packet = packets.split(data)
-                expected_seqnum = monitor.process_sequence_number(
-                    header, expected_seqnum
-                )
-                insert_packet(db, packet)
-    finally:
-        logging.log_debug("Closing DB connection")
-        sock.close()
-        db.close()
+def main() -> Never:
+    monitor.listener(
+        port=LISTEN_PORT,
+        PacketClass=packets.HealthPacket,
+        insert_func=insert_packet
+    )
 
 
 if __name__ == "__main__":

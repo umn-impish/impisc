@@ -6,16 +6,16 @@ Currently, the data is inserted in to a MySQL table.
 
 import hashlib
 import os
-import socket
+
+from typing import Never
 
 from mysql.connector.abstracts import MySQLConnectionAbstract
 from mysql.connector.errors import IntegrityError
 from mysql.connector.pooling import PooledMySQLConnection
 
-import impish_monitor as monitor
+from impisc import logging, packets
 
-from impisc import logging
-from impisc.packets import CommandResponsePacket, PacketHeader, split
+import impish_monitor as monitor
 
 
 LISTEN_PORT = int(os.environ["LOCAL_COMMAND_FWD_PORT"])
@@ -27,7 +27,7 @@ def generate_hash(packet_bytes: bytes, bytes_in_hash: int = 8) -> bytes:
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: CommandResponsePacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.CommandResponsePacket
 ):
     """Insert the command response packet into the database."""
     cols = unpack_it(packet)
@@ -39,8 +39,7 @@ def insert_packet(
     sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
     val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
-    logging.log_debug(f"sql: {sql}")
-    logging.log_debug(f"val: {val}")
+    logging.log_debug(f"sql: {sql}\nval: {val}")
     cursor = db.cursor()
     try:
         _ = cursor.execute(sql, val)
@@ -51,16 +50,16 @@ def insert_packet(
     _ = db.commit()
 
 
-def parse_payload(packet: CommandResponsePacket) -> dict[str, str | int | None]:
+def parse_payload(packet: packets.CommandResponsePacket) -> dict[str, str | int | None]:
     """Split the command payload into as many fields as possible:
     status code, command, stdout, stderr based a predefined delimiter
     (command-executor; in Rust).
     """
-    parsed: list[bytes] = bytes(packet.payload).split(CommandResponsePacket.DELIMITER)
+    parsed: list[bytes] = bytes(packet.payload).split(packets.CommandResponsePacket.DELIMITER)
     mapped: dict[str, str | int | None] = {}
     if len(parsed) != 4:
         mapped["unparsed"] = (parsed.pop()).decode("utf-8")
-    for (f, v) in zip(CommandResponsePacket.PAYLOAD_FIELDS[: len(parsed)], parsed):
+    for (f, v) in zip(packets.CommandResponsePacket.PAYLOAD_FIELDS[: len(parsed)], parsed):
         mapped[f] = (v.decode("utf-8")).strip("\x00")
     if not mapped["status_code"]:
         mapped["status_code"] = 0
@@ -72,7 +71,7 @@ def parse_payload(packet: CommandResponsePacket) -> dict[str, str | int | None]:
     return mapped
 
 
-def unpack_it(packet: CommandResponsePacket) -> dict[str, str | int | None]:
+def unpack_it(packet: packets.CommandResponsePacket) -> dict[str, str | int | None]:
     """Unpack the packet into a dict for entering into the database."""
     cols: dict[str, str | int | None] = {
         c: None for c in monitor.COMMAND_COLUMNS.keys()
@@ -95,35 +94,12 @@ def unpack_it(packet: CommandResponsePacket) -> dict[str, str | int | None]:
     return cols
 
 
-def main():
-    header: PacketHeader
-    packet: CommandResponsePacket
-    logging.log_debug("Opening DB connection")
-    db = monitor.connect()
-    expected_seqnum = 0
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    logging.log_debug(f"Binding to port {LISTEN_PORT}")
-    sock.bind(("", LISTEN_PORT))
-    try:
-        while True:
-            data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
-            logging.log_info(f"{len(data)} bytes received from {addr[0]}:{addr[1]}")
-            if monitor.validate_packet(data, CommandResponsePacket):
-                header, packet = split(data)
-                expected_seqnum = monitor.process_sequence_number(
-                    header,
-                    expected_seqnum
-                )
-                insert_packet(db, packet)
-            else:
-                logging.log_info(
-                    "Received unknown or corrupted packet "
-                    + f"with {len(data)} bytes\n{header.id}"
-                )
-    finally:
-        logging.log_debug("Closing DB connection")
-        sock.close()
-        db.close()
+def main() -> Never:
+    monitor.listener(
+        port=LISTEN_PORT,
+        PacketClass=packets.CommandResponsePacket,
+        insert_func=insert_packet
+    )
 
 
 if __name__ == "__main__":
