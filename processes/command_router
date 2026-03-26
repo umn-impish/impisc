@@ -184,6 +184,7 @@ def process_cmd_bytes(command: bytes) -> str:
         cmd = cmd.strip()[1:-1]
     else:
         group, cmd = "special", full_str
+        cmd = cmd.strip()
     logging.log_info(
         f"size from packet: {packet_size}\ngroup: {group:<12}\tcmd ({len(cmd)} bytes): {cmd:<32}"
     )

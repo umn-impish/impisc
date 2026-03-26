@@ -104,8 +104,8 @@ class CommandResponsePacket(ctypes.LittleEndianStructure):
         ("payload", ctypes.c_uint8 * NUM_RESP_CHARS),
         ("timestamp", ctypes.c_uint32),
         ("command_counter", ctypes.c_uint8),
-        ("response_sequence", ctypes.c_uint8),
-        ("total_packets_in_response", ctypes.c_uint8),
+        ("response_sequence", ctypes.c_uint16),
+        ("total_packets_in_response", ctypes.c_uint16),
     )
 
     @classmethod
