@@ -37,7 +37,7 @@ def main():
         logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
         port = PACKET_PORTS[PacketClass]
         num_sent = sock.sendto(data, ("", port))
-        logging.log_info(f"Sent {num_sent} out of {len(data)} bytes to port {port}")
+        logging.log_debug(f"Sent {num_sent} out of {len(data)} bytes to port {port}")
         if num_sent != len(data):
             logging.log_warning(
                 f"Byte loss when sending previous packet to port {port}"
