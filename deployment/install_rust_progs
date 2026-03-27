@@ -17,3 +17,11 @@ sudo systemctl daemon-reload
 for serv in $(cat services_to_enable.txt); do
     sudo systemctl restart $serv
 done
+
+# Init and install the starspec layer
+git submodule update --init --recursive
+cd starspec-layer
+git checkout main
+git pull
+cargo build --release
+./install-forwarder
