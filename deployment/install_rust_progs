@@ -5,6 +5,8 @@ for serv in $(cat services_to_enable.txt); do
     sudo systemctl stop $serv
 done
 
+# For cargo
+source ~/.bashrc
 rustup update
 cd ../rust
 cargo build --release
