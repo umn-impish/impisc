@@ -17,5 +17,9 @@ def log_warning(s: str):
     syslog.syslog(syslog.LOG_WARNING, s)
 
 
+def log_critical(s: str):
+    syslog.syslog(syslog.LOG_CRIT, s)
+
+
 def log_error(s: str):
     syslog.syslog(syslog.LOG_ERR, s)

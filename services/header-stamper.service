@@ -1,0 +1,17 @@
+[Unit]
+Description=Stamps all outgoing packets with a header defining the packet type and sequence number.
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/header_stamper
+EnvironmentFile=/data/config/variables.env
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=0.5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

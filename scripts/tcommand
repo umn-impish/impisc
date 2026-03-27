@@ -1,0 +1,37 @@
+#!/python-venv/bin/python
+"""
+Very coarsely emulate `scommand`
+Accepts keyboard input, formats the bytes to mimic `scommand`,
+then sends the bytes to `command_router` via TCP socket.
+"""
+
+import socket
+import struct
+
+
+SPECIAL_COMMANDS: list[str] = ["restart-executor", "reboot", "shutdown"]
+
+
+def make_starspec_packet(command: str) -> bytes:
+    """Convert a command string into bytes formatted like scommand.
+    group is defined in the flightsim .rcf file.
+    """
+    if command in SPECIAL_COMMANDS:
+        cmd_bytes: bytes = f"{command}\n".encode("utf-8")
+    else:
+        cmd_bytes: bytes = f'arbcmd "{command}"\n'.encode(encoding="utf-8")
+
+    return struct.pack(f"<I{len(cmd_bytes)}s", len(cmd_bytes), cmd_bytes)
+
+
+def main():
+    ROUTER_PORT = 13001
+    while True:
+        packet: bytes = make_starspec_packet(input())
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect(("", ROUTER_PORT))
+        _ = sock.send(packet)
+
+
+if __name__ == "__main__":
+    main()

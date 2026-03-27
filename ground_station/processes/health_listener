@@ -6,71 +6,83 @@ and displayed by Grafana.
 """
 
 import os
-import socket
 import time
 
-from mysql.connector.pooling import PooledMySQLConnection
-from mysql.connector.abstracts import MySQLConnectionAbstract
+from typing import Never
 
-from impisc import logging
-from impisc.packets import HealthPacket
-from impish_monitor import HEALTH_TABLE_NAME, HEALTH_COLUMNS, connect  # pyright: ignore[reportImplicitRelativeImport]
+from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.errors import IntegrityError
+from mysql.connector.pooling import PooledMySQLConnection
+
+from impisc import logging, packets
+
+import impish_monitor as monitor
+
+
+LISTEN_PORT = int(os.environ["LOCAL_HEALTH_FWD_PORT"])
 
 
 def unpack_power_byte(byte: int) -> dict[str, int]:
     """Map the power status bits."""
-    power_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("power_")]
+    power_cols: list[str] = [
+        c for c in monitor.HEALTH_COLUMNS.keys() if c.startswith("power_")
+    ]
     power_cols.remove("power_line_statuses")
-    bools: dict[str, int] = {c: int((byte >> i) & 1) for i, c in enumerate(reversed(power_cols))}
+    bools: dict[str, int] = {
+        c: int((byte >> i) & 1) for i, c in enumerate(reversed(power_cols))
+    }
     return bools
 
 
 def unpack_missing_bytes(mbytes: int) -> dict[str, int]:
     """Map the missing status bits."""
-    missing_cols: list[str] = [c for c in HEALTH_COLUMNS.keys() if c.startswith("missing_")]
+    missing_cols: list[str] = [
+        c for c in monitor.HEALTH_COLUMNS.keys() if c.startswith("missing_")
+    ]
     missing_cols.remove("missing_fields")
-    bools: dict[str, int] = {c: int((mbytes >> i) & 1) for i, c in enumerate(missing_cols)}
+    bools: dict[str, int] = {
+        c: int((mbytes >> i) & 1) for i, c in enumerate(missing_cols)
+    }
     return bools
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract,
-    data: HealthPacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.HealthPacket
 ):
     """Insert the health packet into the database."""
-    # timestamp = datetime.datetime.now()   # TODO: add gs timestamp to packet
-    cols: dict[str, int] = {"gs_unix_timestamp": int(time.time())}
-    cols = {**cols, **{f[0]: getattr(data, f[0]) for f in data._fields_ if "extra" not in f}}
-    cols = {**cols, **unpack_power_byte(getattr(data, "power_line_statuses"))}
-    cols = {**cols, **unpack_missing_bytes(getattr(data, "missing_fields"))}
+    cols = {
+        "unix_timestamp": packet.timestamp,
+        "gs_unix_timestamp": int(time.time()),
+        **{f[0]: getattr(packet, f[0]) for f in packet._fields_ if "extra" not in f},
+    }
+    cols.pop("timestamp")  # remove `timestamp` field...
+    cols = {**cols, **unpack_power_byte(getattr(packet, "power_line_statuses"))}
+    cols = {**cols, **unpack_missing_bytes(getattr(packet, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"
 
     # Save the keys to ensure they remain ordered the same as the values
     keys = list(cols.keys())
-    header = f"INSERT INTO {HEALTH_TABLE_NAME}"
+    header = f"INSERT INTO {monitor.HEALTH_TABLE_NAME}"
     sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
     val = tuple(cols[k] for k in keys)
     logging.log_info(f"Executing: {header}")
+    logging.log_debug(f"{sql}\n{val}")
     cursor = db.cursor()
-    _ = cursor.execute(sql, val)
+    try:
+        _ = cursor.execute(sql, val)
+    except IntegrityError as e:
+        # Ignore duplicate key
+        logging.log_warning(f"Ignoring integrity error: {e}")
+        return
     _ = db.commit()
 
 
-def main():
-    logging.log_info("Opening DB connection")
-    db = connect()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("", int(os.environ["LOCAL_HEALTH_FWD_PORT"])))
-    try:
-        while True:
-            data, addr = sock.recvfrom(1024)
-            logging.log_debug(f"{len(data)} bytes recevied from {addr[0]}:{addr[1]}")
-            packet = HealthPacket.from_buffer_copy(data)
-            insert_packet(db, packet)
-    finally:
-        logging.log_info("Closing DB connection")
-        sock.close()
-        db.close()
+def main() -> Never:
+    monitor.listener(
+        port=LISTEN_PORT,
+        PacketClass=packets.HealthPacket,
+        insert_func=insert_packet
+    )
 
 
 if __name__ == "__main__":
