@@ -1,0 +1,43 @@
+#!/bin/bash
+
+function usage {
+    echo "usage: $0 [-ictph]"
+    echo "  -i id number         unique id number assigned by SQL table"
+    echo "  -c command counter   command counter value"
+    echo "  -t total packets     total number of packets in sequence"
+    echo "  -p                   print each packet"
+    echo "  -h                   display help"
+    exit 1
+}
+
+pflag=""
+while getopts "i:c:t:ph" opt; do
+  case "${opt}" in
+    i)
+        id=$OPTARG
+        ;;
+    c)
+        count=$OPTARG
+        ;;
+    t)
+        total=$OPTARG
+        ;;
+    p)
+        pflag="-p"  # print each packet
+        ;;
+    h)
+        usage
+        ;;
+    \?)
+        usage
+        ;;
+  esac
+done
+
+source /python-venv/bin/activate
+source /usr/local/bin/grafana.env
+if [ "$#" -ge 3 ]; then
+    cresponse_builder -i $id -c $count -t $total $pflag
+elif [ "$#" -le 1 ]; then
+    cresponse_builder $pflag
+fi

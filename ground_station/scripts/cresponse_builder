@@ -1,0 +1,212 @@
+#!/python-venv/bin/python3
+"""
+"""
+
+import argparse
+import textwrap
+
+from collections import OrderedDict
+from datetime import datetime, timezone
+from dataclasses import dataclass
+from typing import Literal
+
+from impish_monitor import connect, COMMAND_TABLE_NAME, COMMAND_COLUMNS
+from impisc.packets import CommandResponsePacket
+
+
+FILL: bytes = (b"[" + b"*" * 20 + b"]\n") * 1
+
+
+@dataclass
+class Response:
+    packets: dict[int, int | bytes]
+    expected_num: int
+    line_chars: int = 40
+    fill_missing: bool = False
+
+    @property
+    def ordered(self) -> OrderedDict[int, int | bytes]:
+        """Returned packets ordered by sequence number."""
+        ordered = OrderedDict(
+            sorted(self.packets.items(), key=lambda item: item[0])
+        )
+        if self.fill_missing:
+            for m in self.missing_seqnums:
+                ordered[m] = {k: FILL for k in ["stdout", "stderr", "unparsed"]}
+        return ordered
+
+    @property
+    def missing_seqnums(self) -> list[int]:
+        """Returns a list of the missing sequence numbers."""
+        missing: list[int] = []
+        if self.expected_num != len(self.packets):
+            for num in range(self.expected_num):
+                if num not in self.packets:
+                    missing.append(num)
+        return missing
+
+    @property
+    def command(self) -> str:
+        """Returns the command that was issued."""
+        return self.packets[0]["cmd"].decode("utf-8") if 0 in self.packets else "unknown"
+
+    @property
+    def timestamp(self) -> datetime:
+        """Returns the command that was issued."""
+        return datetime.fromtimestamp(
+            self.packets[next(iter(self.packets))]["unix_timestamp"],
+            tz=timezone.utc
+        )
+
+    @property
+    def stdout(self) -> str:
+        """Returns the full standard output from the packets."""
+        stdout: str = ""
+        for packet in self.ordered.values():
+            stdout += packet["stdout"].decode("utf-8")
+        return stdout + self.parse_unparsed()[0]
+
+    @property
+    def stderr(self) -> str:
+        """Returns the full standard error from the packets."""
+        stderr: str = ""
+        for packet in self.ordered.values():
+            stderr += packet["stderr"].decode("utf-8")
+        return stderr + self.parse_unparsed()[1]
+
+    def combine(self, which: Literal["stdout", "stderr", "unparsed"]) -> bytes:
+        """Combines 'which' from of the packets into one bytes object."""
+        full: bytes = b""
+        for packet in self.ordered.values():
+            full += packet[which]
+        return full
+
+    def parse_unparsed(self) -> tuple[str, str]:
+        """Combines all the 'unparsed' data and then tries to split into
+        stdout and stderr. Everything goes into stdout if there's no
+        delimiter \x1d.
+        """
+        stdout: str = ""
+        stderr: str = ""
+        unparsed: bytes = self.combine("unparsed")
+        if unparsed:
+            split: list[bytes] = unparsed.split(CommandResponsePacket.DELIMITER)
+            match len(split):
+                case 1:
+                    stdout = split[0].decode("utf-8")
+                case 2:
+                    stdout, stderr = [s.decode("utf-8") for s in split]
+        return stdout, stderr
+
+    def print(self):
+        """Nicely prints everything."""
+        self.fill_missing = False
+        stdout: str = "\t" + self.stdout.replace("\n", "\n\t")
+        stderr: str = "\t" + self.stderr.replace("\n", "\n\t")
+        print(f"timestamp: [{self.timestamp}]\ncommand:\n\t{self.command}\n\nstdout:\n{stdout}\n\nstderr:\n{stderr}")
+
+    def print_packets(self):
+        """Prints each packet individually.
+        TODO: try to redo this better lol
+        """
+        self.fill_missing = True
+        print(f"\t[seqnum]")
+        for num, packet in self.ordered.items():
+            for k in ["stdout", "stderr", "unparsed"]:
+                if packet[k]:
+                    ascii_lines =[s.ljust(self.line_chars) for s in textwrap.wrap(packet[k].decode("utf-8"), self.line_chars)]
+                    hex_lines = [a.encode("utf-8").hex(" ", 1) for a in ascii_lines]
+                    print(f"\t[{num:>06}]", end="")
+                    for i, (a, h) in enumerate(zip(ascii_lines, hex_lines)):
+                        if i == 0:
+                            prefix = "\t"
+                        else:
+                            prefix = "\t\t\t"
+                        print(f"{prefix}{a}\t|{h}|")
+
+    # def format_ascii(self) -> dict[str, list[str]]:
+    #     return {
+    #         "stdout": [s.ljust(self.line_chars) for s in textwrap.wrap(self.stdout, self.line_chars)],
+    #         "stderr": [s.ljust(self.line_chars) for s in textwrap.wrap(self.stderr, self.line_chars)],
+    #     }
+
+    # def format_hex(self):
+    #     ascii: dict[str, list[str]] = self.format_ascii()
+    #     hex: dict[str, list[str]] = {}
+    #     for k, v in ascii.items():
+    #         full = ""
+    #         for line in v:
+    #             full += line.encode("utf-8").hex(" ", 1) + "\n"
+    #         hex[k] = full.split("\n")
+    #     return hex
+
+    # def print_format(self):
+    #     ascii = self.format_ascii()
+    #     hex = self.format_hex()
+    #     for k in ascii.keys():
+    #         for ascii_line, hex_line in zip(ascii[k], hex[k]):
+    #             print(f"\t|{ascii_line}|\t{hex_line}")
+
+
+def query(
+    id_: int | None = None,
+    cmd_count: int | None = None,
+    total_packets: int | None = None
+) -> Response:
+    """Query the database. Format stdout, stderr, and unparsed as bytes.
+    If id_ is not specified, it will grab the most recent command.
+    If id_ is specified, cmd_count and total_packets must also be specified.
+    """
+    db = connect()
+    cursor = db.cursor()
+    if id_ is None:
+        print("fetching most recent response sequence")
+        sql = f"SELECT * FROM {COMMAND_TABLE_NAME} " \
+                 + f"WHERE response_sequence = 0 " \
+                 + f"ORDER BY id DESC "
+        _ = cursor.execute(sql)
+        result = cursor.fetchall()
+        mapped = {c: r for c, r in zip(COMMAND_COLUMNS, result[0])}
+        id_, cmd_count, total_packets = mapped["id"], mapped["command_counter"], mapped["total_packets_in_response"]
+    sql = f"SELECT * FROM {COMMAND_TABLE_NAME} " \
+        + f"WHERE total_packets_in_response = {total_packets} " \
+        + f"AND command_counter = {cmd_count} " \
+        + f"AND id >= {id_} AND id <= {id_ + (total_packets*2) - 1}"
+    _ = cursor.execute(sql)
+    result = cursor.fetchall()
+    print(f"sql query: {sql}\n")
+    print(f"ID: {id_:<12}\ttotal packets: {total_packets:<8}")
+    if not result:
+        raise ValueError(f"no results from query {sql}")
+    packets: dict[int, int | bytes] = {}
+    for res in result:
+        mapped = {c: r for c, r in zip(COMMAND_COLUMNS, res)}
+        for k in ["stdout", "stderr", "unparsed"]:
+            mapped[k] = mapped[k].strip(b"\x00") if mapped[k] else b""
+        packets[mapped["response_sequence"]] = mapped
+
+    return Response(
+        packets,
+        expected_num=total_packets
+    )
+
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    _ = parser.add_argument("-i", type=int, required=False, help="unique row ID")
+    _ = parser.add_argument("-c", type=int, required=False, help="command counter")
+    _ = parser.add_argument("-t", type=int, required=False, help="total packets in sequence")
+    _ = parser.add_argument("-p", action="store_true", help="print each packet separately")
+    args = parser.parse_args()
+    id_, cmd_count, total_packets = args.i, args.c, args.t
+    response = query(id_, cmd_count, total_packets)
+    response.print()
+    if args.p:
+        print("packets:")
+        response.print_packets()
+    print(f"\nfetched {len(response.packets)} out of {response.expected_num} packets")
+
+
+if __name__ == "__main__":
+    main()
