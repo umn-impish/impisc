@@ -1,7 +1,4 @@
 from __future__ import annotations
-"""
-Define various helper functions and table columns for our database.
-"""
 
 import ctypes
 import os
@@ -27,9 +24,7 @@ ADDR = ("", 12004)
 
 
 def listener(
-    port: int,
-    PacketClass: packets.Packet,
-    insert_func: Callable[..., None]
+    port: int, PacketClass: packets.Packet, insert_func: Callable[..., None]
 ) -> Never:
     """Listens for incoming packets."""
     header: packets.PacketHeader
@@ -47,12 +42,11 @@ def listener(
             try:
                 validate_packet(full_packet=data, ExpectedClass=PacketClass)
             except ValueError as e:
-                logging.log_critical(f"Received unexpected, unknown, or corrupted packet:\n{e}")
+                logging.log_critical(
+                    f"Received unexpected, unknown, or corrupted packet:\n{e}"
+                )
             header, packet = packets.split(data)
-            expected_seqnum = process_sequence_number(
-                header,
-                expected_seqnum
-            )
+            expected_seqnum = process_sequence_number(header, expected_seqnum)
             insert_func(db, packet)
     finally:
         logging.log_debug("Closing DB connection")
