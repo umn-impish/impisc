@@ -139,7 +139,8 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8, sen
         // Put the total number of packets we'll get
         send_bytes.extend(total_packets.to_le_bytes());
 
-        sock.send_to(&send_bytes, &send_to_me).expect("failed to send UDP response");
+        sock.send_to(&send_bytes, &send_to_me)
+            .expect("failed to send UDP response");
         // Delay a short while to not overwhelm the network stack
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
