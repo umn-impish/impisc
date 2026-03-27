@@ -3,7 +3,8 @@
 scripts="configure_sd1 setup_directories setup_timesyncd configure_system_config
 install_required_programs configure_network install_networkd_hooks remove_bloat
 install_scripts configure_system_python_env
-configure_journal disable_swap install_rust_progs install_edge_detector install_services"
+configure_journal disable_swap install_rust_progs install_edge_detector install_services
+create_cleanup_script"
 for s in $scripts; do
     echo "executing $s"
     ./"$s"
