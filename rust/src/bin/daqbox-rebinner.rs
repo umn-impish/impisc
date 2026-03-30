@@ -29,7 +29,9 @@ fn main() {
     let args: Vec<_> = std::env::args().collect();
     if args.len() != (1 + 4) {
         let name = &args[0];
-        std::panic::panic_any(format!("Usage: {name} <recv_port> <dest_port> <num frames to sum over> <ADC edges for rebinning>"))
+        std::panic::panic_any(format!(
+            "Usage: {name} <recv_port> <dest_port> <num frames to sum over> <ADC edges for rebinning>"
+        ))
     }
 
     let parse_u16 = |v: &String, msg: &str| v.parse::<u16>().expect(msg);
