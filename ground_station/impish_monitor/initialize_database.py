@@ -13,6 +13,8 @@ from . import (
     HEALTH_COLUMNS,
     QUICKLOOK_TABLE_NAME,
     QUICKLOOK_COLUMNS,
+    COMMAND_TABLE_NAME,
+    COMMAND_COLUMNS,
     connect,
 )
 
@@ -26,16 +28,18 @@ def create_db():
     db.close()
 
 
-def add_table_cols(table_name: str, cols: OrderedDict[str, str]):
+def add_table_cols(
+    table_name: str,
+    cols: OrderedDict[str, str],
+    init_col: str = "unix_timestamp INTEGER PRIMARY KEY",
+):
     """Create a new table, if it doesn't exist. Checks if the column
-    already exists and adds a new column if it doesn't.
+    already exists and adds a new, integer column as the primary key if it doesn't.
     """
     db = connect()
     try:
         cursor: MySQLCursorAbstract = db.cursor()
-        cursor.execute(
-            f"CREATE TABLE IF NOT EXISTS {table_name} (id INT AUTO_INCREMENT PRIMARY KEY);"
-        )
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({init_col});")
         query = """
         SELECT COUNT(*)
         FROM INFORMATION_SCHEMA.COLUMNS
@@ -70,10 +74,19 @@ def create_quicklook_table():
     add_table_cols(QUICKLOOK_TABLE_NAME, QUICKLOOK_COLUMNS)
 
 
+def create_command_table():
+    add_table_cols(
+        COMMAND_TABLE_NAME,
+        COMMAND_COLUMNS,
+        init_col="id INTEGER UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE KEY",
+    )
+
+
 def main():
     create_db()
     create_health_table()
     create_quicklook_table()
+    create_command_table()
 
 
 if __name__ == "__main__":

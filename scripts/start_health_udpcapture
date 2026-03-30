@@ -2,5 +2,5 @@
 
 source /data/config/variables.env
 udpcapture --port $LOCAL_HEALTH_FWD_PORT --base-filename '/data/health/impish_health' \
-	--file-lifetime 300 --forward-addrs "$ENDPOINT_IP:$ENDPOINT_PORT" -f 127.0.0.1:12346\
+	--file-lifetime 300 --forward-addrs "127.0.0.1:$HEADER_STAMPER_PORT"\
 	--post-process-cmd 'xz $out_file'

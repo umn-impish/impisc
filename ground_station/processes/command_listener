@@ -1,0 +1,106 @@
+#!/python-venv/bin/python
+"""
+Listens for command response packets from the IMPISH flight computer.
+Currently, the data is inserted in to a MySQL table.
+"""
+
+import hashlib
+import os
+
+from typing import Never
+
+from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.errors import IntegrityError
+from mysql.connector.pooling import PooledMySQLConnection
+
+from impisc import logging, packets
+
+import impish_monitor as monitor
+
+
+LISTEN_PORT = int(os.environ["LOCAL_COMMAND_FWD_PORT"])
+
+
+def generate_hash(packet_bytes: bytes, bytes_in_hash: int = 8) -> bytes:
+    """Hash generator for keying the packets in the database."""
+    return hashlib.md5(packet_bytes).digest()[:bytes_in_hash]
+
+
+def insert_packet(
+    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.CommandResponsePacket
+):
+    """Insert the command response packet into the database."""
+    cols = unpack_it(packet)
+    fmt = "%s, " * (len(cols) - 1) + "%s"
+    header = f"INSERT INTO {monitor.COMMAND_TABLE_NAME}"
+
+    # Save the keys to ensure they remain ordered the same as the values
+    keys = list(cols.keys())
+    sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
+    val = tuple(cols[k] for k in keys)
+    logging.log_info(f"Executing: {header}")
+    logging.log_debug(f"sql: {sql}\nval: {val}")
+    cursor = db.cursor()
+    try:
+        _ = cursor.execute(sql, val)
+    except IntegrityError as e:
+        # Ignore duplicate key
+        logging.log_warning(f"Ignoring integrity error: {e}")
+        return
+    _ = db.commit()
+
+
+def parse_payload(packet: packets.CommandResponsePacket) -> dict[str, str | int | None]:
+    """Split the command payload into as many fields as possible:
+    status code, command, stdout, stderr based a predefined delimiter
+    (command-executor; in Rust).
+    """
+    parsed: list[bytes] = bytes(packet.payload).split(packets.CommandResponsePacket.DELIMITER)
+    mapped: dict[str, str | int | None] = {}
+    if len(parsed) != 4:
+        mapped["unparsed"] = (parsed.pop()).decode("utf-8")
+    for (f, v) in zip(packets.CommandResponsePacket.PAYLOAD_FIELDS[: len(parsed)], parsed):
+        mapped[f] = (v.decode("utf-8")).strip("\x00")
+    if not mapped["status_code"]:
+        mapped["status_code"] = 0
+    else:
+        mapped["status_code"] = int.from_bytes(
+            bytes(mapped["status_code"], encoding="utf-8")
+        )
+
+    return mapped
+
+
+def unpack_it(packet: packets.CommandResponsePacket) -> dict[str, str | int | None]:
+    """Unpack the packet into a dict for entering into the database."""
+    cols: dict[str, str | int | None] = {
+        c: None for c in monitor.COMMAND_COLUMNS.keys()
+    }
+    _ = cols.pop("id")  # this is auto incremented by the database
+    cols["hash"] = int.from_bytes(
+        generate_hash(bytes(packet), bytes_in_hash=8),
+        signed=False
+    )
+    cols["unix_timestamp"] = packet.timestamp
+    cols["command_counter"] = packet.command_counter
+    cols["response_sequence"] = packet.response_sequence
+    cols["total_packets_in_response"] = packet.total_packets_in_response
+    match (packet.response_sequence, packet.total_packets_in_response):
+        case (0, _):
+            cols = {**cols, **parse_payload(packet)}
+        case _:
+            cols["unparsed"] = bytes(packet.payload).decode("utf-8")
+
+    return cols
+
+
+def main() -> Never:
+    monitor.listener(
+        port=LISTEN_PORT,
+        PacketClass=packets.CommandResponsePacket,
+        insert_func=insert_packet
+    )
+
+
+if __name__ == "__main__":
+    main()

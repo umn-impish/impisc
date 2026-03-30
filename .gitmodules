@@ -1,0 +1,3 @@
+[submodule "rust/starspec-layer"]
+	path = rust/starspec-layer
+	url = https://github.com/umn-impish/starspec-layer.git
