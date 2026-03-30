@@ -45,6 +45,7 @@ impl OutputWrapper {
         const GROUP_SEP: u8 = 0x1D;
 
         let mut response = Vec::new();
+        response.reserve(4 + self.cmd.len() + self.stdout.len() + self.stderr.len());
         response.push(self.status_code as u8);
         response.push(GROUP_SEP);
         response.extend(self.cmd.iter());
