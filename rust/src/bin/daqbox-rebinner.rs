@@ -2,6 +2,31 @@ use std::net::{SocketAddr, UdpSocket};
 
 const NUM_CHAN: usize = 4;
 
+/// Accumulate the data in `spectra` into `sum_bins` using the ranges optionally defined by `rebin_edges`.
+fn accumulate_spec(
+    sum_bins: &mut Vec<Vec<u32>>,
+    spectra: [[u16; 1000]; NUM_CHAN],
+    rebin_edges: &Option<Vec<u16>>,
+) {
+    if let Some(re) = &rebin_edges {
+        for spec_idx in 0..spectra.len() {
+            for bin_idx in 0..(re.len() - 1) {
+                let a = re[bin_idx] as usize;
+                let b = re[bin_idx + 1] as usize;
+                let this_bin: u32 = spectra[spec_idx][a..b].iter().map(|&x| x as u32).sum();
+                sum_bins[spec_idx][bin_idx] += this_bin;
+            }
+        }
+    } else {
+        for (i, s) in spectra.iter().enumerate() {
+            for (j, e) in s.iter().enumerate() {
+                sum_bins[i][j] += *e as u32;
+            }
+        }
+    }
+}
+
+/// Parse the rebin edges string into a Vec<u16>.
 fn parse_rebin_edges(bins: &String) -> Vec<u16> {
     bins.split("-")
         .into_iter()
@@ -12,8 +37,8 @@ fn parse_rebin_edges(bins: &String) -> Vec<u16> {
         .collect()
 }
 
-fn parse_daqbox_spectrum(data: &[u8]) -> [[u16; 1000]; 4] {
-    /* Parse the 8000B DAQBOX spectrum packet into a 4x1000 u16 2-dimensional array */
+/// Parse the 8000B DAQBOX spectrum packet into a 4x1000 u16 2-dimensional array.
+fn parse_daqbox_spectrum(data: &[u8]) -> [[u16; 1000]; NUM_CHAN] {
     let mut ret: [[u16; 1000]; NUM_CHAN] = [[0; 1000]; NUM_CHAN];
     for i in (0..data.len()).step_by(8) {
         for chan in 0..4 {
@@ -29,7 +54,9 @@ fn main() {
     let args: Vec<_> = std::env::args().collect();
     if args.len() != (1 + 3) {
         let name = &args[0];
-        std::panic::panic_any(format!("Usage: {name} <recv_port> <dest_port> <num frames to sum over> <optional ADC edges for rebinning>"))
+        std::panic::panic_any(format!(
+            "Usage: {name} <recv_port> <dest_port> <num frames to sum over> <optional ADC edges for rebinning>"
+        ))
     }
 
     let parse_u16 = |v: &String, msg: &str| v.parse::<u16>().expect(msg);
@@ -55,8 +82,7 @@ fn main() {
         const DEFAULT_DAQBOX_BINS_PER_CHANNEL: usize = 1000;
         DEFAULT_DAQBOX_BINS_PER_CHANNEL
     };
-    let cleared_bins: Vec<Vec<u32>> = vec![vec![0; num_bins]; NUM_CHAN];
-    let mut sum_bins = cleared_bins.clone();
+    let mut sum_bins = vec![vec![0; num_bins]; NUM_CHAN];
     let mut accumulated: u16 = 0;
     loop {
         // Accept data
@@ -76,36 +102,21 @@ fn main() {
         }
 
         // Discard the timing info and parse the spectrum packet
-        let spectra = parse_daqbox_spectrum(&buf[TIME_INFO_SZ..]);
-
-        // Sum it up
-        if let Some(re) = &rebin_edges {
-            for spec_idx in 0..spectra.len() {
-                for bin_idx in 0..(re.len() - 1) {
-                    let a = re[bin_idx] as usize;
-                    let b = re[bin_idx + 1] as usize;
-                    let this_bin: u32 = spectra[spec_idx][a..b].iter().map(|&x| x as u32).sum();
-                    sum_bins[spec_idx][bin_idx] += this_bin;
-                }
-            }
-        } else {
-            for (i, s) in spectra.iter().enumerate() {
-                for (j, e) in s.iter().enumerate() {
-                    sum_bins[i][j] += *e as u32;
-                }
-            }
-        }
+        accumulate_spec(
+            &mut sum_bins,
+            parse_daqbox_spectrum(&buf[TIME_INFO_SZ..]),
+            &rebin_edges,
+        );
 
         // Forward it
         accumulated = (accumulated + 1) % spectra_per_packet;
         if accumulated == 0 {
             // Enough space for timestamp plus summed bins
-            let mut packet: Vec<u8> =
-                Vec::with_capacity(TIME_INFO_SZ + NUM_CHAN * num_bins);
+            let mut packet: Vec<u8> = Vec::with_capacity(TIME_INFO_SZ + NUM_CHAN * num_bins);
             // The first 5 bytes are the most recent timestamp
             // and DAQBOX frame number
             packet.extend(&buf[..TIME_INFO_SZ]);
-            for spec in sum_bins {
+            for spec in &sum_bins {
                 for bin in spec {
                     packet.extend(bin.to_le_bytes());
                 }
@@ -117,7 +128,11 @@ fn main() {
             };
 
             // Clear the accumulated packet data
-            sum_bins = cleared_bins.clone();
+            for bin_set in &mut sum_bins {
+                for i in 0..bin_set.len() {
+                    bin_set[i] = 0;
+                }
+            }
         }
     }
 }
