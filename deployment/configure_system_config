@@ -3,4 +3,7 @@
 sudo cp config.txt /boot/firmware/config.txt
 
 # Enable the i2c kernel module
-sudo sh -c "echo i2c-dev >> /etc/modules-load.d/modules.conf"
+sudo sh -c "echo i2c-dev > /etc/modules-load.d/modules.conf"
+
+# Let the `spi` group control spi devices
+sudo cp '90-spi.rules' /etc/udev/rules.d
