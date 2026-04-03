@@ -1,0 +1,30 @@
+#!/bin/bash
+# Install systemd services and associated process programs
+
+# Install all processes
+processes=$(ls ../processes)
+for s in $processes; do
+    sudo cp --preserve=mode "../processes/$s" "/usr/local/bin"
+done
+
+# Install all .service files and enable them
+services=$(ls ../services/*.service)
+for s in $services; do
+    sudo cp --preserve=mode "../services/$s" "/etc/systemd/system"
+done
+
+# Do this separately--don't start it immediately
+sudo cp --preserve=mode "../services/nominal-science.service" "/etc/systemd/system"
+sudo systemctl disable nominal-science
+
+# Put environment varibles inside of a central directory
+mkdir -p /data/config
+sudo cp '../services/variables.env' '/data/config/variables.env'
+
+sudo systemctl daemon-reload
+enableme=$(cat services_to_enable.txt)
+echo $enableme
+for name in $enableme; do
+    sudo systemctl enable "$name"
+    sudo systemctl restart "$name"
+done

@@ -1,0 +1,16 @@
+[Unit]
+Description=Receive rebinned science packets and save them to files
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+ExecStart=start_science_udpcapture
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

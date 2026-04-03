@@ -1,0 +1,14 @@
+[Unit]
+Description=Set the correct group ownership for /dev/gpio devices
+After=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=initialize_gpio_ownership
+StandardOutput=inherit
+StandardError=inherit
+Restart=no
+User=impish
+
+[Install]
+WantedBy=multi-user.target

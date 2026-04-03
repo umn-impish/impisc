@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# 5min/file
+lifetime=300
+
+source /data/config/variables.env
+# Set the file lifetime as a failsafe
+udpcapture --port $QUICKLOOK_UDPCAP_PORT\
+    --base-filename '/data/quicklook/qlook'\
+    --file-lifetime $lifetime\
+    --forward-addrs "$QUICKLOOK_ENDPOINT"\
+	--post-process-cmd 'bzip2 $out_file'

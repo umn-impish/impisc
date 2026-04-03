@@ -1,0 +1,40 @@
+#!/python-venv/bin/python
+
+import os
+import socket
+import sys
+import time
+
+from impisc.et_daqbox import daq_box_api as dbapi
+from impisc import logging
+
+mode = sys.argv[1]
+options = ("spectrum", "waveform")
+if mode not in options:
+    raise ValueError(f"Mode {mode} not supported; choose from {options}")
+
+num_packets = int(sys.argv[2])
+
+# Update the DAQBOX configuration
+ACTIVE_CONFIG = "/data/config/daqbox_config.json"
+cfg = dbapi.DaqBoxConfig.from_file(ACTIVE_CONFIG)
+cfg.acquisition_mode = mode
+
+iface = dbapi.DaqBoxInterface()
+iface.send(cfg.to_packet())
+
+iface.send(dbapi.START)
+# Block so that we don't time out before packets start coming in
+iface.sock.setblocking(True)
+# Clear some of the spectra, because they could be bad
+iface.flush(max_iterations=32)
+
+# Acquire and forward spectra
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+dest = ("localhost", int(os.getenv(f"DEBUG_{mode.upper()}_PORT")))
+for i in range(num_packets):
+    spectra = iface.recv()
+    sock.sendto(spectra, dest)
+
+iface.sock.setblocking(False)
+iface.send(dbapi.STOP, expect_handshake=False)

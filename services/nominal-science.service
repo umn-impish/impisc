@@ -1,0 +1,16 @@
+[Unit]
+Description=Configure the detector systems, then start acquiring DAQBOX packets and route them elsewhere.
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=/usr/local/bin
+EnvironmentFile=/data/config/variables.env
+ExecStart=launch_science_control
+StandardOutput=inherit
+StandardError=journal
+User=impish
+
+[Install]
+WantedBy=multi-user.target

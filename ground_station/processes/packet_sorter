@@ -1,0 +1,48 @@
+#!/python-venv/bin/python
+"""
+Listens for all packets from IMPISH and sorts them, sending
+them to their respective process for handling.
+"""
+
+import os
+import socket
+
+from ctypes import sizeof
+from impisc import logging, packets
+
+
+HEADER_SIZE = sizeof(packets.PacketHeader)
+SORT_PORT = int(os.environ["SORT_PORT"])
+PACKET_PORTS = {
+    packets.HealthPacket: int(os.environ["LOCAL_HEALTH_FWD_PORT"]),
+    packets.QuicklookPacket: int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"]),
+    packets.CommandResponsePacket: int(os.environ["LOCAL_COMMAND_FWD_PORT"]),
+}
+
+
+def main():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", SORT_PORT))
+    while True:
+        data, addr = sock.recvfrom(8192)  # pyright: ignore[reportAny]
+        try:
+            header, _ = packets.split(data)
+            PacketClass = packets.PACKET_IDS[header.id]
+        except (IndexError, ValueError) as e:
+            logging.log_warning(
+                f"Unknown packet ({len(data)} bytes) received "
+                + f"on port {SORT_PORT} from {addr[0]}:{addr[1]}; discarding;\n{data}\n{e}"
+            )
+            continue
+        logging.log_debug(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+        port = PACKET_PORTS[PacketClass]
+        num_sent = sock.sendto(data, ("", port))
+        logging.log_debug(f"Sent {num_sent} out of {len(data)} bytes to port {port}")
+        if num_sent != len(data):
+            logging.log_warning(
+                f"Byte loss when sending previous packet to port {port}"
+            )
+
+
+if __name__ == "__main__":
+    main()

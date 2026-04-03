@@ -1,0 +1,6 @@
+#!/bin/bash
+
+scripts=$(ls ../scripts)
+for s in $scripts; do
+    sudo cp --preserve=mode "../scripts/$s" "/usr/local/bin/$s"
+done

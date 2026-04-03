@@ -1,0 +1,16 @@
+[Unit]
+Description=Monitor science packets and compress them, a lot
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+ExecStart=start_quicklook
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

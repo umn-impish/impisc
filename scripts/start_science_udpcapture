@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Rebinned data: 4000 bins at 2B down to 400 at 4B
+one_second=$(( (4 + 1 + 400*4) * 32 ))
+# Enough to fit a chunk of science data
+lifetime=30
+# 10% longer than accumulation time
+timeout=$(( 11 * lifetime / 10 ))
+max_size=$((one_second * lifetime))
+
+source /data/config/variables.env
+# Set the file lifetime as a failsafe
+udpcapture --port $SCIENCE_UDPCAP_PORT --base-filename '/data/science/rebinned_science' \
+    --file-lifetime $timeout\
+    --max-file-size $max_size\
+    --post-process-cmd 'bzip2 $out_file'

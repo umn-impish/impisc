@@ -1,0 +1,26 @@
+// Display ALL log levels
+logging {
+  level = "debug"
+}
+
+loki.source.journal "gs_journal" {
+  forward_to    = [loki.write.grafana_loki.receiver]
+  path          = "/var/log/journal/e109678b1d4a4b419e9d6e4e6d6caec0"
+  labels        = {
+    "service" = "gs",
+  }
+}
+
+loki.source.journal "impish_journal" {
+  forward_to    = [loki.write.grafana_loki.receiver]
+  path          = "/var/log/journal/remote"
+  labels        = {
+    "service" = "impish",
+  }
+}
+
+loki.write "grafana_loki" {
+  endpoint {
+    url = "http://localhost:3100/loki/api/v1/push"
+  }
+}

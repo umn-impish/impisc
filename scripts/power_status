@@ -1,0 +1,6 @@
+#!/bin/bash
+# Prints a byte indicating the status of the power toggles.
+# First bit is always 0.
+
+source gpio_toggles
+printf "0%s" "$(pinctrl lev $(gpio_pinlist) | tr -d " ")"

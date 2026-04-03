@@ -1,0 +1,16 @@
+[Unit]
+Description=Rebin science data and send elsewhere.
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+ExecStart=start_science_rebinner
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

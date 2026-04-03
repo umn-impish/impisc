@@ -1,0 +1,8 @@
+#!/bin/bash
+
+scripts="install_scripts configure_system_python_env install_services install_mysql install_grafana install_systemd-journal-remote"
+for s in $scripts; do
+    echo "executing $s"
+    ./"$s"
+    echo "done $s"
+done

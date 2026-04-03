@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Tell the Pi to mount the additional SD card in /data on boot.
+# Checks if the entry already exists in /etc/fstab first
+
+uuid_info=($(sudo blkid | grep mmcblk1))
+partuuid="${uuid_info[4]}"
+already_set_up=$(cat /etc/fstab | grep "$partuuid")
+
+if [[ -z "$already_set_up" ]]; then
+    echo "SD1 not set up yet"
+else
+    echo "SD1 already set up"
+    exit 0
+fi
+
+# Anyone can read/write to the data partition
+sudo mkdir -p /data
+sudo chmod -R 0777 /data
+
+# See https://man7.org/linux/man-pages/man5/fstab.5.html for info on fstab entry
+# See https://man7.org/linux/man-pages/man8/mount.8.html for info on mount options
+# in column 4
+echome="$partuuid   /data   ext4    defaults,noatime,auto,rw 0 2"
+echo $echome | sudo tee -a /etc/fstab > /dev/null

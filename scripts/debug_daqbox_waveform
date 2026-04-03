@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source /data/config/variables.env
+export DEBUG_WAVEFORM_PORT
+debug_daqbox waveform $1

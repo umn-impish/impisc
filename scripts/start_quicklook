@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source /data/config/variables.env
+daqbox-rebinner $QUICKLOOK_RECV_PORT $QUICKLOOK_UDPCAP_PORT $QUICKLOOK_FRAMES "$QUICKLOOK_EDGES"

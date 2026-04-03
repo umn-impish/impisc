@@ -1,0 +1,5 @@
+#!/bin/bash
+
+sudo cp enp1s0-link-down /etc/networkd-dispatcher/no-carrier.d/
+sudo systemctl daemon-reload
+sudo systemctl restart networkd-dispatcher

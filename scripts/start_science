@@ -1,0 +1,11 @@
+#!/bin/bash
+
+power_on_science
+# Wait for power to stabilize
+sleep 20
+set_science_bias
+
+setup_daqbox_network enp1s0
+# Wait for network to come up
+sleep 10
+sudo systemctl start nominal-science.service
