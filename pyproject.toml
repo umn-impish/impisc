@@ -17,6 +17,8 @@ name = "impisc"
 dependencies = [
     "psutil>=7.2.2",
     "smbus2",
+    "rpi-gpio>=0.7.1",
+    "spidev>=3.8",
 ]
 
 [project.optional-dependencies]
