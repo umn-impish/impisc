@@ -3,8 +3,21 @@
 # Tell the Pi to mount the additional SD card in /data on boot.
 # Checks if the entry already exists in /etc/fstab first
 
-uuid_info=($(sudo blkid | grep mmcblk1))
-partuuid="${uuid_info[4]}"
+drive="/dev/mmcblk1"
+partition="/dev/mmcblk1p1"
+
+partuuid=$(sudo blkid -s PARTUUID -o value $partition)
+if [[ -z "$partuuid" ]]; then
+    echo "$partition doesn't exist; creating"
+    # There is no partition set up on $drive yet:
+    # create a GPT table and an ext4 partition
+    sudo parted -a optimal $drive --script -- mklabel gpt mkpart primary 0% 100%
+else
+    echo "$partuuid exists"
+fi
+
+# Re-fetch
+partuuid=$(sudo blkid -s PARTUUID -o value $partition)
 already_set_up=$(cat /etc/fstab | grep "$partuuid")
 
 if [[ -z "$already_set_up" ]]; then
@@ -13,6 +26,9 @@ else
     echo "SD1 already set up"
     exit 0
 fi
+
+# Format the drive
+sudo mkfs.ext4 "$partition"
 
 # Anyone can read/write to the data partition
 sudo mkdir -p /data
