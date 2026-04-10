@@ -1,6 +1,16 @@
+[build-system]
+requires = ["setuptools >= 61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    'scripts',
+    'impisc',
     'impisc.et_daqbox',
     'impisc.i2c',
     'impisc.i2c.devices',
+    'impisc.spi',
+    'impisc.spi.devices',
 ]
 
 [project]
