@@ -101,7 +101,7 @@ class LTC2983(SPIDevice):
         self.reset()
         while not self.startup_complete:
             print("waiting for startup")
-            time.sleep(0.1)
+            time.sleep(0.01)
 
     @property
     def startup_complete(self) -> bool:
@@ -167,7 +167,9 @@ class LTC2983(SPIDevice):
             )
         conv = 0b10000000 + channel
         self.write("command", [conv])
-        time.sleep(0.5)  # Needed when interrupt pin is disconnected...
+        while not self.interrupt_status:
+            # Wait for conversion to finish; otherwise the LTC2983 throws an error
+            time.sleep(0.001)
 
     def read_conversion(self, channel: int, force_conversion: bool = False) -> float:
         """Read the conversion status for the specified channel.
