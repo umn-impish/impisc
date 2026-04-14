@@ -71,6 +71,13 @@ class HealthPacket(ctypes.LittleEndianStructure):
         ("missing_fields", ctypes.c_uint16),
     ]
 
+    def __init__(self):
+        # Don't want these to default to zero since that's a valid value...
+        # TODO: might want to change the default value of other attributes as well?
+        for channel in range(1, 10):
+            setattr(self, f"temperature_rtd{channel}", -127)
+
+
 
 class PacketHeader(ctypes.LittleEndianStructure):
     """A packet header has four fields:
