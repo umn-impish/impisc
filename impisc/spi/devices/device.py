@@ -1,7 +1,11 @@
+import time
+
 from dataclasses import dataclass
 from typing import Iterable
 
 import spidev
+
+from impisc import logging
 
 
 def twos_complement_to_int(binary_string: str) -> int:
@@ -62,7 +66,7 @@ class SPIDevice:
         """Opens SPI port for device."""
         self._spi = spidev.SpiDev()
         self._spi.open(self.bus, self.cs)
-        self._spi.max_speed_hz = int(1e5)
+        self._spi.max_speed_hz = int(5e5)
         self._spi.mode = 0
 
     def _close(self):
