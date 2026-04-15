@@ -17,14 +17,14 @@ SS_FWD_PORT = int(os.environ["ENDPOINT_PORT"])
 SEQUENCE_IDS = {
     "total": 0,
     packets.HealthPacket: 0,
+    packets.RTDPacket: 0,
     packets.QuicklookPacket: 0,
     packets.CommandResponsePacket: 0,
 }
 PACKET_PORTS = {
     int(os.environ["LOCAL_HEALTH_FWD_PORT"]): packets.HealthPacket,
-    int(
-        os.environ["QUICKLOOK_UDPCAP_PORT"]
-    ): packets.QuicklookPacket,  # TODO: confirm this port number for quicklook
+    int(os.environ["RTD_UDPCAP_PORT"]): packets.RTDPacket,
+    int(os.environ["QUICKLOOK_UDPCAP_PORT"]): packets.QuicklookPacket,
     int(os.environ["COMMAND_ROUTER_PORT"]): packets.CommandResponsePacket,
     int(os.environ["COMMAND_EXECUTOR_PORT"]): packets.CommandResponsePacket,
 }

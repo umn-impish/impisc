@@ -18,6 +18,9 @@ class HealthPacket(ctypes.LittleEndianStructure):
     # Reserved bytes for additional data
     EXTRA_BYTES = 64
 
+    # Impossibly low temperature
+    NULL_RTD_VALUE = -127
+
     # Do not include padding bytes
     _pack_ = 1
 
@@ -43,17 +46,6 @@ class HealthPacket(ctypes.LittleEndianStructure):
         # Disk usages in 10 MiB units
         ("os_disk_usage", ctypes.c_uint16),
         ("data_disk_usage", ctypes.c_uint16),
-        # Temperatures from RTDs; measured in Celsius to integer precision
-        # Rename once we assign them locations within the payload
-        ("temperature_rtd1", ctypes.c_int8),
-        ("temperature_rtd2", ctypes.c_int8),
-        ("temperature_rtd3", ctypes.c_int8),
-        ("temperature_rtd4", ctypes.c_int8),
-        ("temperature_rtd5", ctypes.c_int8),
-        ("temperature_rtd6", ctypes.c_int8),
-        ("temperature_rtd7", ctypes.c_int8),
-        ("temperature_rtd8", ctypes.c_int8),
-        ("temperature_rtd9", ctypes.c_int8),
         # In units of centikelvin
         ("cpu_temperature", ctypes.c_uint16),
         ("cpu0_usage", ctypes.c_uint16),
@@ -71,12 +63,32 @@ class HealthPacket(ctypes.LittleEndianStructure):
         ("missing_fields", ctypes.c_uint16),
     ]
 
-    def __init__(self):
-        # Don't want these to default to zero since that's a valid value...
-        # TODO: might want to change the default value of other attributes as well?
-        for channel in range(1, 10):
-            setattr(self, f"temperature_rtd{channel}", -127)
 
+class RTDPacket(ctypes.LittleEndianStructure):
+
+    # Impossibly low temperature
+    NULL_RTD_VALUE = -127
+
+    _pack_ = 1
+    # Temperatures from RTDs; measured in Celsius to integer precision
+    # Rename once we assign them locations within the payload?
+    _fields_ = [
+        ("temperature0", ctypes.c_int8),
+        ("temperature1", ctypes.c_int8),
+        ("temperature2", ctypes.c_int8),
+        ("temperature3", ctypes.c_int8),
+        ("temperature4", ctypes.c_int8),
+        ("temperature5", ctypes.c_int8),
+        ("temperature6", ctypes.c_int8),
+        ("temperature7", ctypes.c_int8),
+        ("temperature8", ctypes.c_int8)
+    ]
+
+    def __init__(self):
+        super().__init__()
+        # Don't want these to default to zero since that's a valid value...
+        for channel in range(1, 10):
+            setattr(self, f"temperature_rtd{channel}", self.NULL_RTD_VALUE)
 
 
 class PacketHeader(ctypes.LittleEndianStructure):
@@ -152,7 +164,7 @@ Packet: TypeAlias = (
     type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
 )
 # Define a unique ID for each packet type; their index in their ID value
-PACKET_IDS: list[Packet] = [HealthPacket, QuicklookPacket, CommandResponsePacket]
+PACKET_IDS: list[Packet] = [HealthPacket, RTDPacket, QuicklookPacket, CommandResponsePacket]
 
 
 def split(data: bytes) -> tuple[PacketHeader, Packet]:
