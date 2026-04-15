@@ -39,7 +39,7 @@ def measure_rtd(channel: VALID_CHANNELS) -> tuple[bool, int]:
     Returned value is in units Celsius.
     """
     device = LTC2983.LTC2983(0, 0, 20, 21)
-    device.add_rtd_channel(channel, 'PT-500', 20, 100, 'european')
+    device.add_rtd_channel(channel, "PT-500", 20, 100, "european")
     device.add_sense_resistor(20, 5100)
     try:
         temperature = int(device.read_conversion(channel, force_conversion=True))
