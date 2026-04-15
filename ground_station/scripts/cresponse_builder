@@ -11,8 +11,8 @@ import argparse
 import textwrap
 
 from collections import OrderedDict
-from datetime import datetime, timezone
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Literal
 
 from impish_monitor import connect, COMMAND_TABLE_NAME, COMMAND_COLUMNS
