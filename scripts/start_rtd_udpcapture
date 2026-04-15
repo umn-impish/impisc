@@ -1,0 +1,6 @@
+#!/bin/bash
+
+source /data/config/variables.env
+udpcapture --port $RTD_UDPCAP_PORT --base-filename '/data/health/impish_temperatures' \
+	--file-lifetime 300 --forward-addrs $RTD_ENDPOINT\
+	--post-process-cmd 'xz $out_file'

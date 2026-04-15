@@ -1,0 +1,53 @@
+#!/python-venv/bin/python
+
+
+import os
+import socket
+import time
+
+from typing import Literal, Never
+
+from impisc import logging
+from impisc.packets import RTDPacket
+from impisc.spi.devices import LTC2983
+
+
+VALID_CHANNELS = Literal[2, 4, 6, 8, 10, 12, 14, 16, 18]
+MY_PORT = int(os.getenv("RTD_MONITOR_PORT"))
+SEND_PORT = int(os.getenv("RTD_UDPCAP_PORT"))
+CADENCE_SECONDS = int(os.getenv("RTD_CADENCE"))
+
+
+def main() -> Never:
+    """Loop indefinitely, sampling the RTDs with the LTC2983."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", MY_PORT))
+    CHANNELS: list[VALID_CHANNELS] = [2, 4, 6, 8, 10, 12, 14, 16, 18]
+    while True:
+        packet = RTDPacket()
+        for i, channel in enumerate(CHANNELS):
+            missing, temperature = measure_rtd(channel)
+            setattr(packet, f"temperature{i}", temperature)
+        sock.sendto(packet, ("localhost", SEND_PORT))
+        time.sleep(CADENCE_SECONDS)
+
+
+RTD_VALUE_ERROR = -999
+def measure_rtd(channel: VALID_CHANNELS) -> tuple[bool, int]:
+    """Measure the RTD temperature at the specified channel [1,9].
+    Returned value is in units Celsius.
+    """
+    device = LTC2983.LTC2983(0, 0, 20, 21)
+    device.add_rtd_channel(channel, 'PT-500', 20, 100, 'european')
+    device.add_sense_resistor(20, 5100)
+    try:
+        temperature = int(device.read_conversion(channel, force_conversion=True))
+        if temperature != RTD_VALUE_ERROR:
+            return False, temperature
+    except ValueError as e:
+        logging.log_error(f"Could not read RTD on channel {channel}\n{e}")
+    return True, RTDPacket.NULL_RTD_VALUE
+
+
+if __name__ == "__main__":
+    main()
