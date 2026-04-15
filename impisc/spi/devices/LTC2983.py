@@ -1,12 +1,13 @@
 import struct
 import time
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from RPi import GPIO
 
 from .device import SPIDevice, Register, twos_complement_to_int
+from impisc import logging
 
 GPIO.setmode(GPIO.BCM)
 
@@ -100,7 +101,6 @@ class LTC2983(SPIDevice):
         GPIO.setup(interrupt_pin, GPIO.IN)
         self.reset()
         while not self.startup_complete:
-            print("waiting for startup")
             time.sleep(0.01)
 
     @property
@@ -120,12 +120,11 @@ class LTC2983(SPIDevice):
     def reset(self):
         """Reset the device by pulling the RESET pin low."""
         GPIO.output(self.reset_pin, False)
-        time.sleep(0.01)  # Arbitrary sleep time
+        # time.sleep(0.01)  # Arbitrary sleep time
         GPIO.output(self.reset_pin, True)
 
     def soft_reset(self):
         """Reset by reinitalizing the registers."""
-        print("SOFT RESET!!!!!!")
         time.sleep(0.5)
         for number in list(self.channels.keys()):
             channel = Channel(
@@ -183,11 +182,8 @@ class LTC2983(SPIDevice):
         unpacked = struct.unpack(">I", bytes([0] + data[1:]))[0]
         status = data[0]
         if status != 1:
-            print("status:", status)
-            print("ERROR!!!!!!!\n\t", f"{data[0]:0b}".zfill(8))
-            # self._interpret_conversion_error(status)
             self.soft_reset()
-            # TODO: some default return value here? Otherwise I think it's zero
+            raise ValueError(f"Conversion error; performing soft reset\n\tstatus: {status}\n\tdata: {data[0]:<08b}")
         temperature = twos_complement_to_int(f"{unpacked:0b}".zfill(24)) / 1024
 
         return temperature
@@ -410,35 +406,3 @@ def ltc_test():
         # for i in range(1, 21, 2):
         #     device._configure_channel(i, 'T', i+1, True)
         break
-
-
-def ltc_test():
-    def initalize() -> LTC2983:
-        device = LTC2983(0, 0, 25, 24)
-        device.add_thermocouple_channel(2, "T", False, 5)
-        device.add_cold_junction_channel(5, True, True, True, 3, 1)
-
-        return device
-
-    device = initalize()
-    while True:
-        # try:
-        device.start_conversion(2)
-        print("CH2 conversion:", device.read_conversion(2))
-        print("CH5 conversion:", device.read_conversion(5))
-        device._debug_print_register("command")
-        device._debug_print_channel(2)
-        device._debug_print_channel(5)
-        # time.sleep(0.1)
-        # except NotImplementedError as e:
-        #     print(e)
-        #     time.sleep(1)
-        #     device = initalize()
-
-
-def main():
-    ltc_test()
-
-
-if __name__ == "__main__":
-    main()

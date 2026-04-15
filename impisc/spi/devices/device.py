@@ -1,12 +1,8 @@
-import time
-
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 import spidev
-
-from impisc import logging
 
 
 def twos_complement_to_int(binary_string: str) -> int:
