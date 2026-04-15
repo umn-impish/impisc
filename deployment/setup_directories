@@ -1,9 +1,7 @@
-sudo mkdir -p /data/config
-sudo mkdir -p /data/debug
-sudo mkdir -p /data/health
-sudo mkdir -p /data/science
+#!/bin/bash
 
-sudo chmod 777 /data/config
-sudo chmod 777 /data/debug
-sudo chmod 777 /data/health
-sudo chmod 777 /data/science
+direcs="config debug health science quicklook"
+for d in $direcs; do
+    sudo mkdir -p /data/$d
+    sudo chmod 777 /data/$d
+done

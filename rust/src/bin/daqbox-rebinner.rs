@@ -52,7 +52,7 @@ fn parse_daqbox_spectrum(data: &[u8]) -> [[u16; 1000]; NUM_CHAN] {
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    if args.len() != (1 + 3) {
+    if args.len() < (1 + 3) {
         let name = &args[0];
         std::panic::panic_any(format!(
             "Usage: {name} <recv_port> <dest_port> <num frames to sum over> <optional ADC edges for rebinning>"
