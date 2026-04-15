@@ -2,6 +2,7 @@
 
 function usage {
     echo "usage: $0 [-ictph]"
+    echo "No args will retrieve the most recent packet; otherwise specify i, c, and t"
     echo "  -i id number         unique id number assigned by SQL table"
     echo "  -c command counter   command counter value"
     echo "  -t total packets     total number of packets in sequence"
