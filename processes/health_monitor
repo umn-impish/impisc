@@ -61,18 +61,12 @@ def main():
             "sipm_preamp_pos_volts",
             lambda: measure_power_line(MAX11617_CHANNELS["+SIPM"]),
         ),
-        (
-            "sipm_preamp_neg_volts",
-            lambda: measure_power_line(MAX11617_CHANNELS["-SIPM"]),
-        ),
+        ("sipm_preamp_neg_volts", lambda: measure_negative_voltage("-SIPM")),
         (
             "bubba_input_pos_volts",
             lambda: measure_power_line(MAX11617_CHANNELS["+BUBBA"]),
         ),
-        (
-            "bubba_input_neg_volts",
-            lambda: measure_power_line(MAX11617_CHANNELS["-BUBBA"]),
-        ),
+        ("bubba_input_neg_volts", lambda: measure_negative_voltage("-BUBBA")),
         ("bubba_output_volts", measure_bubba_output),
         ("bubba_wiper", measure_bubba_wiper),
         ("power_line_statuses", measure_toggle_byte),
@@ -128,6 +122,20 @@ def main():
 def measure(func: generator_type, results: list[tuple[bool, Any]], index: int) -> None:
     """Helper function for threading purposes."""
     results[index] = func()
+
+
+def measure_negative_voltage(chan_id: str) -> tuple[bool, int]:
+    """We need to scale the negative voltages by an ad-hoc factor due to
+    resistive inverting op amp gain. So, do that here before returning the 'true' value
+    of the voltage measurement."""
+    missing, value = measure_power_line(MAX11617_CHANNELS[chan_id])
+    if missing:
+        # Bad things happened during the measurement;
+        # don't do more calculations
+        return missing, value
+
+    scales = {"-SIPM": 0.8, "-BUBBA": 0.99992850511}
+    return missing, int(value * scales[chan_id])
 
 
 def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[bool, int]:
