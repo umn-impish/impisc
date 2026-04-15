@@ -85,12 +85,12 @@ class LTC2983(SPIDevice):
         "ITS-90": 0b11,
     }
 
-    def __init__(self, bus: int, cs: int, reset_pin: int, interrupt_pin: int):
+    def __init__(self, bus_num: int, cs: int, reset_pin: int, interrupt_pin: int):
         """Initalizes the device by adding known registers and
         pin connections. The device is reset and then waits until
         the startup sequence is complete.
         """
-        super().__init__(bus, cs)
+        super().__init__(bus_num, cs)
         self.channels = {}
         self.add_register(LTCRegister("command", 0x000, 8))
         self.add_register(LTCRegister("global_config", 0x0F0, 8))
@@ -143,9 +143,8 @@ class LTC2983(SPIDevice):
         dummy = [0x000] * reg.num_bytes
         # dummy keeps the clock running just long enough
         # so that the device can output the requested data
-        self._open()
-        data = self._spi.xfer2(header + dummy)
-        self._close()
+        with self.bus() as bus:
+            data = bus.xfer2(header + dummy)
 
         # Skip first three since they're the READ_BYTE and two address bytes
         return data[3:]

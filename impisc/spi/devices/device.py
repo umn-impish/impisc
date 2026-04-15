@@ -1,7 +1,8 @@
 import time
 
-from dataclasses import dataclass
-from typing import Iterable
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 
 import spidev
 
@@ -33,11 +34,10 @@ class Register:
 
 @dataclass
 class SPIDevice:
-    bus: int
+    bus_num: int
     cs: int
-
-    def __post_init__(self):
-        self.registers = {}
+    registers: dict[str, Register] = field(default_factory=dict)
+    _bus: spidev.SpiDev = field(init=False, repr=False, default_factory=spidev.SpiDev)
 
     def add_register(self, register: Register):
         """Add a register to the device."""
@@ -45,30 +45,31 @@ class SPIDevice:
             raise ValueError(f'Register "{register.name}" already in device.')
         self.registers[register.name] = register
 
+    @contextmanager
+    def bus(self) -> Generator[spidev.SpiDev]:
+        """The I2C bus needs to be reopened every time since it
+        doesn't autoupdate. We close and reopen it so we leave
+        unused, open files.
+        """
+        _bus = spidev.SpiDev()
+        try:
+            _bus.open(self.bus_num, self.cs)
+            _bus.max_speed_hz = int(5e5)
+            _bus.mode = 0
+            yield _bus
+        finally:
+            _bus.close()
+
     def read(self, register: str):
         """Read data from the specified register.
         Automatically opens the device, reads data,
         then closes the device.
         """
-        self._open()
-        data = self._spi.readbytes(self.registers[register].num_bits // 8)
-        self._close()
-
+        with self.bus() as bus:
+            data = bus.readbytes(self.registers[register].num_bits // 8)
         return data
 
-    def write(self, data: Iterable):
+    def write(self, data: Iterable) -> None:
         """Write the data to the device."""
-        self._open()
-        self._spi.writebytes(data)
-        self._close()
-
-    def _open(self):
-        """Opens SPI port for device."""
-        self._spi = spidev.SpiDev()
-        self._spi.open(self.bus, self.cs)
-        self._spi.max_speed_hz = int(5e5)
-        self._spi.mode = 0
-
-    def _close(self):
-        """Closes SPI port for device."""
-        self._spi.close()
+        with self.bus() as bus:
+            bus.writebytes(data)
