@@ -73,6 +73,7 @@ class RTDPacket(ctypes.LittleEndianStructure):
     # Temperatures from RTDs; measured in Celsius to integer precision
     # Rename once we assign them locations within the payload?
     _fields_ = [
+        ("timestamp", ctypes.c_uint32),
         ("temperature0", ctypes.c_int8),
         ("temperature1", ctypes.c_int8),
         ("temperature2", ctypes.c_int8),

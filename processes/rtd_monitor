@@ -16,6 +16,7 @@ VALID_CHANNELS = Literal[2, 4, 6, 8, 10, 12, 14, 16, 18]
 MY_PORT = int(os.getenv("RTD_MONITOR_PORT"))
 SEND_PORT = int(os.getenv("RTD_UDPCAP_PORT"))
 CADENCE_SECONDS = int(os.getenv("RTD_CADENCE"))
+RTD_VALUE_ERROR = -999
 
 
 def main() -> Never:
@@ -25,14 +26,14 @@ def main() -> Never:
     CHANNELS: list[VALID_CHANNELS] = [2, 4, 6, 8, 10, 12, 14, 16, 18]
     while True:
         packet = RTDPacket()
+        packet.timestamp = int(time.time())
         for i, channel in enumerate(CHANNELS):
-            missing, temperature = measure_rtd(channel)
+            _, temperature = measure_rtd(channel)
             setattr(packet, f"temperature{i}", temperature)
         sock.sendto(packet, ("localhost", SEND_PORT))
         time.sleep(CADENCE_SECONDS)
 
 
-RTD_VALUE_ERROR = -999
 def measure_rtd(channel: VALID_CHANNELS) -> tuple[bool, int]:
     """Measure the RTD temperature at the specified channel [1,9].
     Returned value is in units Celsius.

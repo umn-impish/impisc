@@ -97,7 +97,6 @@ def main():
             if not missing:
                 field = generators[i][0]
                 setattr(packet, field, data)
-                logging.log_debug(f"{field}: {missing}, {data}")
             packet.missing_fields |= int(missing) << i
         sock.sendto(packet, ("localhost", send_port))
         time.sleep(cadence_seconds)
