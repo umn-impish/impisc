@@ -126,7 +126,7 @@ def measure_negative_voltage(chan_id: str) -> tuple[bool, int]:
         # don't do more calculations
         return missing, value
 
-    scales = {"-SIPM": 0.8, "-BUBBA": 0.99992850511}
+    scales = {"-SIPM": 4 / 5, "-BUBBA": 1 / 1.0725}
     return missing, int(value * scales[chan_id])
 
 
