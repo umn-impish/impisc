@@ -46,7 +46,7 @@ def measure_rtd(channel: VALID_CHANNELS) -> tuple[bool, int]:
         if temperature != RTD_VALUE_ERROR:
             return False, temperature
     except ValueError as e:
-        logging.log_error(f"Could not read RTD on channel {channel}\n{e}")
+        logging.log_debug(f"Could not read RTD on channel {channel}\n{e}")
     return True, RTDPacket.NULL_RTD_VALUE
 
 
