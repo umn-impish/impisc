@@ -1,11 +1,21 @@
 #!/bin/bash
 sudo apt update
-sudo apt install -y networkd-dispatcher stress-ng libgpiod-dev cmake build-essential
+sudo apt install -y networkd-dispatcher stress-ng libgpiod-dev cmake build-essential python3-dev
 
-if [[ -e "$HOME/.rustup" ]]; then
+# Rust installation: put cargo/rustup on the data disk,
+# because the OS disk is tiny
+export CARGO_HOME="/data/cargo"
+export RUSTUP_HOME="/data/rustup"
+
+if [[ -e $RUSTUP_HOME ]]; then
     rustup update
 else
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 fi
 
-source ~/.bashrc
+if grep -q "CARGO_HOME" "$HOME/.bashrc"; then
+    echo "nothing to add to bashrc"
+else
+    echo "export CARGO_HOME='/data/cargo'" >> "$HOME/.bashrc"
+    echo "export RUSTUP_HOME='/data/rustup'" >> "$HOME/.bashrc"
+fi

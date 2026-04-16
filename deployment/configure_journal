@@ -5,7 +5,8 @@
 # and link it to the one in /data/journal.
 # We don't want the OS disk to have any writes to it once we are done with deployment.
 
-sudo systemctl disable systemd-journald
+# Disable the Pi volatile default (???)
+sudo rm /usr/lib/systemd/journald.conf.d/40-rpi-volatile-storage.conf
 
 mkdir -p /data/journal
 # Anyone can read/write/view contents
