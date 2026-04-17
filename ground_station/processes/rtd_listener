@@ -33,7 +33,7 @@ def insert_packet(
     cols: dict[str, int] = {
         "unix_timestamp": packet.timestamp,
         "gs_unix_timestamp": int(time.time()),
-        **{f[0]: getattr(packet, f[0]) for f in packet._fields_}
+        **{f[0]: getattr(packet, f[0]) for f in packet._fields_},
     }
     cols.pop("timestamp")  # timestamp from packet...
     fmt = "%s, " * (len(cols) - 1) + "%s"
@@ -57,9 +57,7 @@ def insert_packet(
 
 def main() -> Never:
     monitor.listener(
-        port=LISTEN_PORT,
-        PacketClass=packets.RTDPacket,
-        insert_func=insert_packet
+        port=LISTEN_PORT, PacketClass=packets.RTDPacket, insert_func=insert_packet
     )
 
 
