@@ -44,11 +44,10 @@ def set_voltage(voltage: float):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-v", type=float, help="desired bias voltage, in volts", required=True
+        "voltage", type=float, help="desired bias voltage, in volts"
     )
     arg = parser.parse_args()
-    voltage = arg.v
-    set_voltage(voltage)
+    set_voltage(arg.voltage)
 
 
 if __name__ == "__main__":
