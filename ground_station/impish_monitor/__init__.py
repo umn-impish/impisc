@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 DB_NAME = "impish"
 HEALTH_TABLE_NAME = "health"
+RTD_TABLE_NAME = "rtds"
 QUICKLOOK_TABLE_NAME = "quicklook"
 COMMAND_TABLE_NAME = "commands"
 ADDR = ("", 12004)
@@ -133,6 +134,18 @@ def _health_columns() -> OrderedDict[str, str]:
     )
 
 
+def _rtd_columns() -> OrderedDict[str, str]:
+    """RTD column names mapped to their data type."""
+    fields: list[str] = [f[0] for f in packets.RTDPacket._fields_]
+    fields.remove("timestamp")
+    return OrderedDict[str, str](
+        [
+            ("unix_timestamp", "INTEGER UNSIGNED PRIMARY KEY"),
+            ("gs_unix_timestamp", "INTEGER UNSIGNED"),
+            *list((f, "TINYINT") for f in fields),
+        ]
+    )
+
 def _quicklook_columns() -> OrderedDict[str, str]:
     """The quicklook column names mapped to their data type."""
     fields: list[str] = [f[0] for f in packets.QuicklookPacket._fields_]
@@ -174,5 +187,6 @@ def _command_columns() -> OrderedDict[str, str]:
 
 
 HEALTH_COLUMNS: OrderedDict[str, str] = _health_columns()
+RTD_COLUMNS: OrderedDict[str, str] = _rtd_columns()
 QUICKLOOK_COLUMNS: OrderedDict[str, str] = _quicklook_columns()
 COMMAND_COLUMNS: OrderedDict[str, str] = _command_columns()

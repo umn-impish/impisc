@@ -1,0 +1,65 @@
+#!/python-venv/bin/python
+"""
+Listens for RTD packets from IMPISH.
+The received packets are put into a MySQL database to be read
+and displayed by Grafana.
+
+Uses an assumed packet structure for now until a QL packet is added to impisc.
+"""
+
+import os
+import time
+
+from typing import Never
+
+from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.errors import IntegrityError
+from mysql.connector.pooling import PooledMySQLConnection
+
+from impisc import logging, packets
+
+import impish_monitor as monitor
+
+
+LISTEN_PORT = int(os.environ["LOCAL_RTD_FWD_PORT"])
+
+
+def insert_packet(
+    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.RTDPacket
+):
+    """Insert the health packet into the database."""
+    logging.log_debug(str(packet.timestamp))
+    # Don't insert the DAQBOX frame number into the database (don't care)
+    cols: dict[str, int] = {
+        "unix_timestamp": packet.timestamp,
+        "gs_unix_timestamp": int(time.time()),
+        **{f[0]: getattr(packet, f[0]) for f in packet._fields_},
+    }
+    cols.pop("timestamp")  # timestamp from packet...
+    fmt = "%s, " * (len(cols) - 1) + "%s"
+    header = f"INSERT INTO {monitor.RTD_TABLE_NAME}"
+
+    # Save the keys to ensure they remain ordered the same as the values
+    keys = list(cols.keys())
+    sql = f"{header} ({', '.join(keys)}) VALUES ({fmt})"
+    val = tuple(cols[k] for k in keys)
+    logging.log_info(f"Executing: {header}")
+    logging.log_debug(f"sql: {sql}\nval: {val}")
+    cursor = db.cursor()
+    try:
+        _ = cursor.execute(sql, val)
+    except IntegrityError as e:
+        # Ignore duplicate key
+        logging.log_warning(f"Ignoring integrity error: {e}")
+        return
+    _ = db.commit()
+
+
+def main() -> Never:
+    monitor.listener(
+        port=LISTEN_PORT, PacketClass=packets.RTDPacket, insert_func=insert_packet
+    )
+
+
+if __name__ == "__main__":
+    main()

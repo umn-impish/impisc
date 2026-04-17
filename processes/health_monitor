@@ -1,13 +1,14 @@
 #!/python-venv/bin/python
 
 
-from collections import defaultdict
 import ctypes
 import os
 import socket
 import subprocess
 import threading
 import time
+
+from collections import defaultdict
 from functools import partial
 from typing import Any, Callable, Literal, TypeAlias
 
@@ -25,11 +26,14 @@ cadence_seconds = int(os.getenv("HEALTH_CADENCE"))
 generator_type: TypeAlias = Callable[[], tuple[bool, Any]]
 
 
+# We need to lock the i2c voltage reading so we don't
+# end up with garbage values.
+voltage_lock = threading.Lock()
 MAX11617_CHANNELS: dict[str, Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]] = {
     "-SIPM": 0,
     "-BUBBA": 1,
-    "+CREMAT": 2,
-    "-CREMAT": 3,
+    "+CREMAT": NotImplemented,
+    "-CREMAT": NotImplemented,
     "+SIPM": 4,
     "DAQBOX": 5,
     "+BUBBA": 6,
@@ -51,27 +55,24 @@ TIMEOUTS.update(
 
 def main():
     generators: list[tuple[str, generator_type]] = [
-        ("cm4_volts", measure_pi_voltage),
-        ("heater_volts", measure_heater_volts),
-        ("daqbox_volts", measure_daqbox_volts),
-        ("sipm_preamp_pos_volts", measure_preamp_pos),
-        ("sipm_preamp_neg_volts", measure_preamp_neg),
-        ("bubba_input_pos_volts", measure_bubba_pos_input),
-        ("bubba_input_neg_volts", measure_bubba_neg_input),
+        ("cm4_volts", lambda: measure_power_line(MAX11617_CHANNELS["CM4"])),
+        ("heater_volts", lambda: measure_power_line(MAX11617_CHANNELS["HEATER"])),
+        ("daqbox_volts", lambda: measure_power_line(MAX11617_CHANNELS["DAQBOX"])),
+        (
+            "sipm_preamp_pos_volts",
+            lambda: measure_power_line(MAX11617_CHANNELS["+SIPM"]),
+        ),
+        ("sipm_preamp_neg_volts", lambda: measure_negative_voltage("-SIPM")),
+        (
+            "bubba_input_pos_volts",
+            lambda: measure_power_line(MAX11617_CHANNELS["+BUBBA"]),
+        ),
+        ("bubba_input_neg_volts", lambda: measure_negative_voltage("-BUBBA")),
         ("bubba_output_volts", measure_bubba_output),
         ("bubba_wiper", measure_bubba_wiper),
         ("power_line_statuses", measure_toggle_byte),
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
-        ("temperature_rtd1", partial(measure_rtd, 1)),
-        ("temperature_rtd2", partial(measure_rtd, 2)),
-        ("temperature_rtd3", partial(measure_rtd, 3)),
-        ("temperature_rtd4", partial(measure_rtd, 4)),
-        ("temperature_rtd5", partial(measure_rtd, 5)),
-        ("temperature_rtd6", partial(measure_rtd, 6)),
-        ("temperature_rtd7", partial(measure_rtd, 7)),
-        ("temperature_rtd8", partial(measure_rtd, 8)),
-        ("temperature_rtd9", partial(measure_rtd, 9)),
         ("cpu_temperature", measure_cpu_temp),
         ("cpu0_usage", partial(measure_cpu_usage, 0)),
         ("cpu1_usage", partial(measure_cpu_usage, 1)),
@@ -90,7 +91,7 @@ def main():
     while True:
         packet = HealthPacket()
         threads: dict[str, threading.Thread] = {}
-        results = [(True, None)] * len(generators)
+        results: list[tuple[bool, Any]] = [(True, None)] * len(generators)
         for i, (field, func) in enumerate[tuple[str, generator_type]](generators):
             thread: threading.Thread = threading.Thread(
                 target=measure, args=(func, results, i), name=f"measure_{field}"
@@ -115,51 +116,31 @@ def measure(func: generator_type, results: list[tuple[bool, Any]], index: int) -
     results[index] = func()
 
 
+def measure_negative_voltage(chan_id: str) -> tuple[bool, int]:
+    """We need to scale the negative voltages by an ad-hoc factor due to
+    resistive inverting op amp gain. So, do that here before returning the 'true' value
+    of the voltage measurement."""
+    missing, value = measure_power_line(MAX11617_CHANNELS[chan_id])
+    if missing:
+        # Bad things happened during the measurement;
+        # don't do more calculations
+        return missing, value
+
+    scales = {"-SIPM": 4 / 5, "-BUBBA": 1 / 1.0725}
+    return missing, int(value * scales[chan_id])
+
+
 def measure_power_line(channel: Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]) -> tuple[bool, int]:
-    """Measure the voltage (in centivolts) on the specified channel on the MAX11617."""
-    try:
-        MAX11617: max11617.MAX11617 = max11617.MAX11617(1, 0x35)
-        MAX11617.reference = "internal"
-        MAX11617.scan = 3
-        return False, int(MAX11617.read_conversion(which=channel) * 100)
-    except Exception as e:
-        logging.log_warning(f"Could not read channel {channel} from MAX11617.\n{e}")
-    return True, -1  # TODO: change null value to something else; we're using uint8
-
-
-def measure_pi_voltage() -> tuple[bool, int]:
-    """Measure the voltage (cV) powering the CM4."""
-    return measure_power_line(MAX11617_CHANNELS["CM4"])
-
-
-def measure_heater_volts() -> tuple[bool, int]:
-    """Measure the heater voltage."""
-    return measure_power_line(MAX11617_CHANNELS["HEATER"])
-
-
-def measure_daqbox_volts() -> tuple[bool, int]:
-    """Measure the DAQBOX voltage."""
-    return measure_power_line(MAX11617_CHANNELS["DAQBOX"])
-
-
-def measure_preamp_pos() -> tuple[bool, int]:
-    """Measure the positive voltage (cV) powering the SiPM boards."""
-    return measure_power_line(MAX11617_CHANNELS["+SIPM"])
-
-
-def measure_preamp_neg() -> tuple[bool, int]:
-    """Measure the negative voltage (cV) powering the SiPM boards."""
-    return measure_power_line(MAX11617_CHANNELS["-SIPM"])
-
-
-def measure_bubba_pos_input() -> tuple[bool, int]:
-    """Measure the positive voltage (cV) powering the bias board."""
-    return measure_power_line(MAX11617_CHANNELS["+BUBBA"])
-
-
-def measure_bubba_neg_input() -> tuple[bool, int]:
-    """Measure the negative voltage (cV) powering the bias board."""
-    return measure_power_line(MAX11617_CHANNELS["-BUBBA"])
+    with voltage_lock:
+        """Measure the voltage (in centivolts) on the specified channel on the MAX11617."""
+        try:
+            MAX11617: max11617.MAX11617 = max11617.MAX11617(1, 0x35)
+            MAX11617.reference = "internal"
+            MAX11617.scan = 3
+            return False, int(MAX11617.read_conversion(which=channel) * 100)
+        except Exception as e:
+            logging.log_warning(f"Could not read channel {channel} from MAX11617.\n{e}")
+    return True, -1
 
 
 def measure_bubba_output() -> tuple[bool, int]:
@@ -173,7 +154,7 @@ def measure_bubba_output() -> tuple[bool, int]:
         # Ignore noise when powered off
         if conversion < 0 and conversion > -0.1:
             conversion = 0
-        return False, int(conversion * 155 / 5 * 1000)  # mV
+        return False, int(conversion * 150 / 4.869 * 1000)  # mV
     except Exception as e:
         logging.log_warning(f"Could not read bias voltage.\n{type(e)} --> {e.args}")
     return True, -1
@@ -181,21 +162,19 @@ def measure_bubba_output() -> tuple[bool, int]:
 
 def measure_toggle_byte() -> tuple[bool, int]:
     """Measure the byte indicating the status of all the GPIO toggles."""
+    bad = (True, -1)
     try:
         res = subprocess.run(["power_status"], shell=True, capture_output=True)
         if res.stderr:
             logging.log_error(
                 "Problem reading power toggle status byte: {res.stderr.decode('utf-8')}."
             )
-            return True, -1
+            return bad
         status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
         return False, status_byte
     except Exception as e:
         logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
-    return True, 0
-
-
-wiper_issues = 0
+    return bad
 
 
 def measure_bubba_wiper() -> tuple[bool, int]:
@@ -207,11 +186,10 @@ def measure_bubba_wiper() -> tuple[bool, int]:
         value = ISL22317.wiper
         ISL22317.awake = initial_status
         return False, value
-    except IOError as e:
-        global wiper_issues
-        if wiper_issues % 100 == 0:
-            logging.log_warning(f"Cannot contact ISL22317; is it on?\n{e}")
-        wiper_issues += 1
+    except IOError:
+        # If Bubba is off, we will get an error,
+        # so just ignore it
+        pass
     return True, -1
 
 
@@ -223,7 +201,6 @@ def disk_usage(partition: str) -> int:
     )
     if res.stderr:
         raise ValueError(f"Error running command: {res.stderr.decode('utf-8')}")
-    # 10 MiB chunks
     return int(res.stdout.decode("utf-8").split("\n")[1].strip())
 
 
@@ -236,7 +213,6 @@ def measure_os_disk_usage() -> tuple[bool, int]:
     except Exception as e:
         logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
 
-    # Failed to get disk usage; indicate missing
     return True, -1
 
 
@@ -247,16 +223,7 @@ def measure_data_disk_usage() -> tuple[bool, int]:
     except Exception as e:
         logging.log_error(f"Problem getting disk usage: {type(e)} --> {e.args}")
 
-    # Failed to get disk usage; indicate missing
     return True, -1
-
-
-def measure_rtd(num: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9]) -> tuple[bool, int]:
-    """Measure the RTD temperature at the specified channel [1,9].
-    Returned value is in units Celsius.
-    TODO: fill this in once we merge the SPI branch.
-    """
-    return True, -128 + num
 
 
 def measure_cpu_temp() -> tuple[bool, int]:

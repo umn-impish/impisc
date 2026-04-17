@@ -15,6 +15,7 @@ HEADER_SIZE = sizeof(packets.PacketHeader)
 SORT_PORT = int(os.environ["SORT_PORT"])
 PACKET_PORTS = {
     packets.HealthPacket: int(os.environ["LOCAL_HEALTH_FWD_PORT"]),
+    packets.RTDPacket: int(os.environ["LOCAL_RTD_FWD_PORT"]),
     packets.QuicklookPacket: int(os.environ["LOCAL_QUICKLOOK_FWD_PORT"]),
     packets.CommandResponsePacket: int(os.environ["LOCAL_COMMAND_FWD_PORT"]),
 }
