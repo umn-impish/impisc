@@ -8,6 +8,7 @@ parsed into stdout and stderr.
 """
 
 import argparse
+import os
 import textwrap
 
 from collections import OrderedDict
@@ -127,10 +128,8 @@ class Response:
                     continue
 
                 ascii_lines = [
-                    s.ljust(self.line_chars)
-                    for s in textwrap.wrap(
-                        packet[k].decode("utf-8"), self.line_chars
-                    )
+                    s.ljust(self.line_chars, ".")
+                    for s in textwrap.wrap(packet[k].decode("utf-8"), self.line_chars)
                 ]
                 hex_lines = [a.encode("utf-8").hex(" ", 1) for a in ascii_lines]
                 print(f"\t[{num:>06}]", end="")
@@ -140,15 +139,15 @@ class Response:
                     print(f"{prefix}{a}\t|{h}|")
 
 
-def query(
-    id_: int | None = None,
-    cmd_count: int | None = None,
-    total_packets: int | None = None,
-) -> Response:
+def query(id_: int | None = None) -> Response:
     """Query the database. Format stdout, stderr, and unparsed as bytes.
     If id_ is not specified, it will grab the most recent command.
     If id_ is specified, cmd_count and total_packets must also be specified.
     """
+
+    def map_response(res: list) -> dict[str, int | bytes]:
+        return {c: r for (c, r) in zip(COMMAND_COLUMNS.keys(), res)}
+
     db = connect()
     cursor = db.cursor()
     if id_ is None:
@@ -160,16 +159,19 @@ def query(
         )
         _ = cursor.execute(sql)
         result = cursor.fetchall()
-        mapped = {c: r for c, r in zip(COMMAND_COLUMNS, result[0])}
-        id_, cmd_count, total_packets = (
-            mapped["id"],
-            mapped["command_counter"],
-            mapped["total_packets_in_response"],
-        )
+        mapped = map_response(result[0])
+        id_ = mapped["id"]
+
+    # Get the info we want to focus on
+    sql = f"SELECT * FROM {COMMAND_TABLE_NAME} WHERE id = {id_};"
+    _ = cursor.execute(sql)
+    res = map_response(cursor.fetchall()[0])
+    total_packets = int(res["total_packets_in_response"])
+
     sql = (
         f"SELECT * FROM {COMMAND_TABLE_NAME} "
         + f"WHERE total_packets_in_response = {total_packets} "
-        + f"AND command_counter = {cmd_count} "
+        + f"AND command_counter = {res['command_counter']} "
         + f"AND id >= {id_} AND id <= {id_ + (total_packets * 2) - 1}"
     )
     _ = cursor.execute(sql)
@@ -180,29 +182,29 @@ def query(
         raise ValueError(f"no results from query {sql}")
     packets: dict[int, int | bytes] = {}
     for res in result:
-        mapped = {c: r for c, r in zip(COMMAND_COLUMNS, res)}
+        mapped = map_response(res)
         for k in ["stdout", "stderr", "unparsed"]:
             mapped[k] = mapped[k].strip(b"\x00") if mapped[k] else b""
         packets[mapped["response_sequence"]] = mapped
 
-    return Response(packets, expected_num=total_packets)
+    return Response(
+        packets,
+        expected_num=total_packets,
+        # Divide the number of cols by 6 for printing hex so it fits
+        line_chars=os.get_terminal_size().columns // 6
+    )
 
 
 def main():
     parser = argparse.ArgumentParser()
     _ = parser.add_argument("-i", type=int, required=False, help="unique row ID")
-    _ = parser.add_argument("-c", type=int, required=False, help="command counter")
-    _ = parser.add_argument(
-        "-t", type=int, required=False, help="total packets in sequence"
-    )
     _ = parser.add_argument(
         "-p",
         action="store_true",
         help="print each packet separately and parse into hex",
     )
     args = parser.parse_args()
-    id_, cmd_count, total_packets = args.i, args.c, args.t
-    response = query(id_, cmd_count, total_packets)
+    response = query(args.i)
     response.print()
     if args.p:
         print("packets:")
