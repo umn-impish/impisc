@@ -123,21 +123,21 @@ class Response:
         print("\t[seqnum]")
         for num, packet in self.ordered.items():
             for k in ["stdout", "stderr", "unparsed"]:
-                if packet[k]:
-                    ascii_lines = [
-                        s.ljust(self.line_chars)
-                        for s in textwrap.wrap(
-                            packet[k].decode("utf-8"), self.line_chars
-                        )
-                    ]
-                    hex_lines = [a.encode("utf-8").hex(" ", 1) for a in ascii_lines]
-                    print(f"\t[{num:>06}]", end="")
-                    for i, (a, h) in enumerate(zip(ascii_lines, hex_lines)):
-                        if i == 0:
-                            prefix = "\t"
-                        else:
-                            prefix = "\t\t\t"
-                        print(f"{prefix}{a}\t|{h}|")
+                if not packet[k]:
+                    continue
+
+                ascii_lines = [
+                    s.ljust(self.line_chars)
+                    for s in textwrap.wrap(
+                        packet[k].decode("utf-8"), self.line_chars
+                    )
+                ]
+                hex_lines = [a.encode("utf-8").hex(" ", 1) for a in ascii_lines]
+                print(f"\t[{num:>06}]", end="")
+
+                for i, (a, h) in enumerate(zip(ascii_lines, hex_lines)):
+                    prefix = "\t" * (1 if i == 0 else 3)
+                    print(f"{prefix}{a}\t|{h}|")
 
 
 def query(
@@ -189,7 +189,6 @@ def query(
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     _ = parser.add_argument("-i", type=int, required=False, help="unique row ID")
     _ = parser.add_argument("-c", type=int, required=False, help="command counter")
