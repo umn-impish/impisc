@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from RPi import GPIO
 
 from .device import SPIDevice, Register, twos_complement_to_int
-from impisc import logging
 
 GPIO.setmode(GPIO.BCM)
 
@@ -183,7 +182,9 @@ class LTC2983(SPIDevice):
         status = data[0]
         if status != 1:
             self.soft_reset()
-            raise ValueError(f"Conversion error; performing soft reset\n\tstatus: {status}\n\tdata: {data[0]:<08b}")
+            raise ValueError(
+                f"Conversion error; performing soft reset\n\tstatus: {status}\n\tdata: {data[0]:<08b}"
+            )
         temperature = twos_complement_to_int(f"{unpacked:0b}".zfill(24)) / 1024
 
         return temperature
@@ -251,23 +252,23 @@ class LTC2983(SPIDevice):
         three_readings: bool,
         perform_averaging: bool,
         current_values: int,
-        ideality_factor: int
+        ideality_factor: int,
     ):
-        '''Add a diode channel configured for cold junction measurements for
+        """Add a diode channel configured for cold junction measurements for
         thermocouple corrections.
 
         current_values must be 0, 1, 2, or 3
 
         TODO: implement ideality_factor
-        '''
+        """
         config = 0b11100 << 27
         config += single_ended << 26
         config += three_readings << 25
         config += perform_averaging << 24
-        config += (current_values << 22)
-        config += (0b0100000000000000000000)  # TODO: default value for now
+        config += current_values << 22
+        config += 0b0100000000000000000000  # TODO: default value for now
         data = list(config.to_bytes(4))
-        channel = Channel(channel, 'diode', config)
+        channel = Channel(channel, "diode", config)
         self._add_channel(channel)
         self.write(channel.config_register.name, data)
 
@@ -338,71 +339,3 @@ class LTC2983(SPIDevice):
         config += resistance - (resistance % 1) << 10  # Remove decimal part
         chan = Channel(channel, "sense", config)
         self._add_channel(chan)
-
-    def _debug_print_channel(self, channel: int):
-        """Print all properties of the channel, intended for debug."""
-
-        def print_data(data: Iterable):
-            hex_data = [f"0x{d:03X}" for d in data]
-            unpacked = struct.unpack(">I", bytes(data))[0]
-            print(f"\tint list: {data}\t\thex list: {hex_data}")
-            print(f"\tunpacked int: {unpacked:<20}\tunpacked binary: {unpacked:032b}")
-
-        config_raw = self.read(self.channels[channel].config_register.name)
-        conv_raw = self.read(self.channels[channel].conversion_register.name)
-        print(f"CHANNEL {channel} DEBUG")
-        print("=" * 120)
-        print("CONFIG:")
-        print_data(config_raw)
-        print()
-        print("CONVERSION:")
-        print_data(conv_raw)
-        print("=" * 120)
-        print()
-
-    def _debug_print_register(self, register: str):
-        """Print all properties of the register, intended for debug."""
-
-        def print_data(data: Iterable):
-            hex_data = [f"0x{d:03X}" for d in data]
-            unpacked = struct.unpack(">B", bytes(data))[0]
-            print(f"\tint list: {data}\t\thex list: {hex_data}")
-            print(f"\tunpacked int: {unpacked:<20}\tunpacked binary: {unpacked:08b}")
-
-        reg_raw = self.read(register)
-        print(f"CHANNEL {register} DEBUG")
-        print("=" * 120)
-        print_data(reg_raw)
-        print("=" * 120)
-        print()
-
-
-def ltc_test():
-    device = LTC2983(0, 0, reset_pin=25, interrupt_pin=24)
-    while True:
-        data = device.read("command")
-        print("ret:", data)
-        device._configure_channel(2, "T", 5, False)
-        print("addr:", hex(device.registers["CH2_config"].address))
-        time.sleep(0.4)
-        data = device.read("command")
-        print("command:", data)
-        data = device.read("CH2_config")
-        print("CH2_config:", data)
-        time.sleep(1)
-        for _ in range(0, 10):
-            print("initiating conversion")
-            device.start_conversion(2)
-            time.sleep(1)
-            print("CH2 conversion:", device.read_conversion(2))
-            # device.start_conversion(3)
-            time.sleep(1)
-            print("CH5 conversion:", device.read_conversion(5))
-            time.sleep(1)
-            data = device.read("command")
-            print("command:", data)
-            # time.sleep(0.002)
-            time.sleep(0.1)
-        # for i in range(1, 21, 2):
-        #     device._configure_channel(i, 'T', i+1, True)
-        break
