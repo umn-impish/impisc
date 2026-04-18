@@ -37,5 +37,7 @@ sudo chmod -R 0777 /data
 # See https://man7.org/linux/man-pages/man5/fstab.5.html for info on fstab entry
 # See https://man7.org/linux/man-pages/man8/mount.8.html for info on mount options
 # in column 4
-echome="$partuuid   /data   ext4    defaults,noatime,auto,rw 0 2"
+echome="PARTUUID=\"$partuuid\"   /data   ext4    defaults,noatime,auto,rw 0 2"
 echo $echome | sudo tee -a /etc/fstab > /dev/null
+
+sudo mount /dev/mmcblk1p1 /data
