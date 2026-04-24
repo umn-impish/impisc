@@ -13,6 +13,7 @@ from impisc.packets import PacketHeader
 
 
 TELE_PORT = int(os.environ["HEADER_STAMPER_PORT"])
+FWD_IP = os.getenv("ENDPOINT_IP")
 FWD_PORT = int(os.environ["ENDPOINT_PORT"])
 SEQUENCE_IDS = {
     "total": 0,
@@ -69,9 +70,9 @@ def main():
         if recv_port in PACKET_PORTS and len(data) != 0:
             header = make_header(recv_port, len(data))
             full_packet: bytes = bytes(header) + data
-            num_sent = sock.sendto(full_packet, ("", FWD_PORT))
+            num_sent = sock.sendto(full_packet, (FWD_IP, FWD_PORT))
             logging.log_debug(
-                f"Sent {num_sent} out of {len(full_packet)} bytes to data forwarder (port {FWD_PORT})"
+                f"Sent {num_sent} out of {len(full_packet)} bytes to data endpoint ({FWD_IP}:{FWD_PORT})"
             )
             if num_sent != len(full_packet):
                 logging.log_warning("Byte loss when sending previous packet")
