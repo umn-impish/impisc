@@ -112,7 +112,7 @@ fn main() {
         accumulated = (accumulated + 1) % spectra_per_packet;
         if accumulated == 0 {
             // Enough space for timestamp plus summed bins
-            let mut packet: Vec<u8> = Vec::with_capacity(TIME_INFO_SZ + NUM_CHAN * num_bins);
+            let mut packet: Vec<u8> = Vec::with_capacity(TIME_INFO_SZ + NUM_CHAN * num_bins * 4);
             // The first 5 bytes are the most recent timestamp
             // and DAQBOX frame number
             packet.extend(&buf[..TIME_INFO_SZ]);
