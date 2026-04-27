@@ -9,7 +9,7 @@ from typing import Literal, Never
 
 from impisc import logging
 from impisc.packets import RTDPacket
-from impisc.spi.devices import LTC2983
+from impisc.spi.devices import ltc2983
 
 
 VALID_CHANNELS = Literal[2, 4, 6, 8, 10, 12, 14, 16, 18]
@@ -38,7 +38,7 @@ def measure_rtd(channel: VALID_CHANNELS) -> tuple[bool, int]:
     """Measure the RTD temperature at the specified channel [1,9].
     Returned value is in units Celsius.
     """
-    device = LTC2983.LTC2983(0, 0, 20, 21)
+    device = ltc2983.LTC2983(0, 0, 20, 21)
     device.add_rtd_channel(channel, "PT-500", 20, 100, "european")
     device.add_sense_resistor(20, 5100)
     try:
