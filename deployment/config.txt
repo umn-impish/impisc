@@ -1,7 +1,8 @@
 [all]
 
-# We don't need Bluetooth
+# We don't need Bluetooth or WiFi
 dtoverlay=disable-bt
+dtoverlay=disable-wifi
 
 # GPIO pins we use for toggles
 gpio=4=op,dl
@@ -30,7 +31,7 @@ dtoverlay=sdio,bus_width=4
 dtoverlay=i2c0,pins_0_1
 disable_poe_fan=1
 
-# ??
+# Don't let the Pi try to read EEPROM from GPIO 0 and 1
 force_eeprom_read=0
 
 # Automatically load initramfs files, if found
