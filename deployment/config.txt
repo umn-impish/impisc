@@ -4,6 +4,15 @@
 dtoverlay=disable-bt
 dtoverlay=disable-wifi
 
+# Turn off the power, status, and ethernet LEDs:
+# we don't want them leaking any light into the instrument box.
+dtparam=pwr_led_trigger=none
+dtparam=act_led_trigger=none
+
+# From the README: state 4 means disable on CM4
+dtparam=eth_led0=4
+dtparam=eth_led1=4
+
 # GPIO pins we use for toggles
 gpio=4=op,dl
 gpio=5=op,dl
