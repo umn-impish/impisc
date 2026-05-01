@@ -1,0 +1,20 @@
+#!/bin/bash
+# Return 1 if service is running, 0 if not, - if service does not exist
+
+if [ "$#" -ne 1 ]; then
+    echo "error: exactly one argument required" >&2
+    echo "usage: $0 <systemd-service-name>" >&2
+    exit 1
+fi
+
+arg=$1
+# remove ".service" if present, then add it
+service="${arg%".service"}.service"
+
+# print -1 if the service doesn't exist
+if [ ! -f /etc/systemd/system/$service ]; then
+    echo -n -
+    exit
+fi
+sudo systemctl is-active --quiet $service && echo -n 1 || echo -n 0 
+

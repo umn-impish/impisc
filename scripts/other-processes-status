@@ -1,0 +1,18 @@
+#!/bin/bash
+# Prints the status bits for the other services
+
+# Explicitly define this so we know the exact order
+# (as opposed to using `ls` or `find`)
+declare -a services=(
+    "command-executor.service"
+    "command-router.service"
+    "nominal-science.service"
+    "quicklook.service"
+    "science-quicklook.service"
+    "science-rebinner.service"
+    "science-redirector.service"
+)
+for service in "${services[@]}"; do
+  ./service-status $service
+done
+

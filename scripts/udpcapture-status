@@ -1,0 +1,16 @@
+#!/bin/bash
+# Prints the status bits for the `udpcapture` services
+
+# Explicitly define this so we know the exact order
+# (as opposed to using `ls` or `find`)
+declare -a services=(
+    "debug-spectrum-udpcapture.service"
+    "debug-waveform-udpcapture.service"
+    "health-udpcapture.service"
+    "quicklook-udpcapture.service"
+    "science-udpcapture.service"
+)
+for service in "${services[@]}"; do
+  ./service-status $service
+done
+

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Print the number of times the system has booting, according to journald logs.
+
+num=$(sudo journalctl --list-boots | wc -l)
+echo -n $(($num-1)) 
+
