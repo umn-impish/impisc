@@ -70,7 +70,7 @@ fn main() {
         .expect("Need to be able to bind UDP listen socket");
 
     let rebin_edges: Option<Vec<u16>>;
-    if args.len() > 4 {
+    if args.len() > 4 && args[4].len() > 0 {
         rebin_edges = Some(parse_rebin_edges(&args[4]));
     } else {
         rebin_edges = None;
