@@ -18,7 +18,7 @@ from impisc import logging, packets
 import impish_monitor as monitor
 
 
-LISTEN_PORT = int(os.environ["LOCAL_COMMAND_FWD_PORT"])
+LISTEN_PORT = int(os.environ["LOCAL_CMDRESP_FWD_PORT"])
 
 
 def generate_hash(packet_bytes: bytes, bytes_in_hash: int = 8) -> bytes:
@@ -27,7 +27,8 @@ def generate_hash(packet_bytes: bytes, bytes_in_hash: int = 8) -> bytes:
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.CommandResponsePacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract,
+    packet: packets.CommandResponsePacket,
 ):
     """Insert the command response packet into the database."""
     cols = unpack_it(packet)
@@ -55,11 +56,15 @@ def parse_payload(packet: packets.CommandResponsePacket) -> dict[str, str | int 
     status code, command, stdout, stderr based a predefined delimiter
     (command-executor; in Rust).
     """
-    parsed: list[bytes] = bytes(packet.payload).split(packets.CommandResponsePacket.DELIMITER)
+    parsed: list[bytes] = bytes(packet.payload).split(
+        packets.CommandResponsePacket.DELIMITER
+    )
     mapped: dict[str, str | int | None] = {}
     if len(parsed) != 4:
         mapped["unparsed"] = (parsed.pop()).decode("utf-8")
-    for (f, v) in zip(packets.CommandResponsePacket.PAYLOAD_FIELDS[: len(parsed)], parsed):
+    for f, v in zip(
+        packets.CommandResponsePacket.PAYLOAD_FIELDS[: len(parsed)], parsed
+    ):
         mapped[f] = (v.decode("utf-8")).strip("\x00")
     if not mapped["status_code"]:
         mapped["status_code"] = 0
@@ -78,8 +83,7 @@ def unpack_it(packet: packets.CommandResponsePacket) -> dict[str, str | int | No
     }
     _ = cols.pop("id")  # this is auto incremented by the database
     cols["hash"] = int.from_bytes(
-        generate_hash(bytes(packet), bytes_in_hash=8),
-        signed=False
+        generate_hash(bytes(packet), bytes_in_hash=8), signed=False
     )
     cols["unix_timestamp"] = packet.timestamp
     cols["command_counter"] = packet.command_counter
@@ -98,7 +102,7 @@ def main() -> Never:
     monitor.listener(
         port=LISTEN_PORT,
         PacketClass=packets.CommandResponsePacket,
-        insert_func=insert_packet
+        insert_func=insert_packet,
     )
 
 
