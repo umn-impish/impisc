@@ -3,6 +3,6 @@
 lifetime=30
 
 source /data/config/variables.env
-udpcapture --port $SCIENCE_UDPCAP_PORT --base-filename '/data/science/rebinned_science' \
+udpcapture --port $SCIENCE_UDPCAP_PORT --base-filename '/data/science/science' \
     --file-lifetime $lifetime\
     --post-process-cmd 'bzip2 $out_file'
