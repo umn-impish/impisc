@@ -23,7 +23,7 @@ class Forwarder:
     def packetize(self, command: str) -> bytes:
         """Format the command string into bytes."""
         cmd_bytes = command.encode("utf-8")
-        return struct.pack(f"<I{len(cmd_bytes)}s", len(cmd_bytes), cmd_bytes)
+        return struct.pack(f"<{len(cmd_bytes)}s", cmd_bytes)
 
     def forward(self, command: str):
         """Forward the command string to IMPISH."""
