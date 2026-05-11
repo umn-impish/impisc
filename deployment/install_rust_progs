@@ -8,13 +8,14 @@ done
 # For cargo
 source ~/.bashrc
 rustup update
-cd ../rust
+pushd ../rust
 cargo build --release
 execs=$(find ./target/release -maxdepth 1 -perm -111 -type f)
 
 sudo cp --preserve=mode $execs /usr/local/bin
 
 # Restart the services we stopped
+popd
 sudo systemctl daemon-reload
 for serv in $(cat services_to_enable.txt); do
     sudo systemctl restart $serv
