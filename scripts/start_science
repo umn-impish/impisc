@@ -1,11 +1,21 @@
 #!/bin/bash
 
-power_on_science
+source /data/config/variables.env
+
+turn_me_on="1 2 3 4 daqbox bias"
+for ch in $turn_me_on; do
+    toggle_power $ch on
+done
+
 # Wait for power to stabilize
-sleep 20
-set_science_bias
+sleep 5
+set_bias $SCIENCE_BIAS_VOLTAGE
 
 setup_daqbox_network enp1s0
 # Wait for network to come up
 sleep 10
+
+# Recalibrate the baseline before science begins
+recalibrate_daqbox
+
 sudo systemctl start nominal-science.service

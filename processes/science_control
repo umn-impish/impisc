@@ -47,12 +47,8 @@ def init_daqbox(config_file: str) -> dba.DaqBoxInterface:
     config = dba.DaqBoxConfig.from_file(config_file)
     # Always use spectrum mode for science data
     config.acquisition_mode = "spectrum"
-
     iface = dba.DaqBoxInterface()
     iface.send(config.to_packet(), expect_handshake=True)
-    iface.recalibrate_baseline()
-    # Wait 10s after recalibrating the baseline
-    time.sleep(10)
     return iface
 
 
@@ -63,12 +59,15 @@ def main():
     # Start up a UDP socket for forwarding data
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     await_pps()
-
-    destination: tuple[str, int] = ("localhost", int(args.destination_port))
+    # Save the timestamp immediately after the PPS tick:
+    # we will increment it in the loop based on the number of packets
+    # received.
     timestamp = int(time.time())
+
     daqbox.send(dba.START, expect_handshake=True)
     # Set the daqbox receive socket to block for data
     daqbox.sock.setblocking(True)
+    destination: tuple[str, int] = ("localhost", int(args.destination_port))
 
     # Loop forever, forwarding spectrum packets and timestamps
     packet_counter = 0
