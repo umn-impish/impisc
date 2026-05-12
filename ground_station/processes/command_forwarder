@@ -1,0 +1,106 @@
+#!/python-venv/bin/python
+"""
+Listens for commands submitted through Grafana and forwards them to IMPISH.
+"""
+
+import argparse
+import json
+import socket
+import struct
+
+from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+from impisc import logging
+
+
+@dataclass
+class Forwarder:
+    my_port: int
+    forward_ip: str
+    forward_port: int
+
+    def packetize(self, command: str) -> bytes:
+        """Format the command string into bytes."""
+        cmd_bytes = command.encode("utf-8")
+        return struct.pack(f"<{len(cmd_bytes)}s", cmd_bytes)
+
+    def forward(self, command: str):
+        """Forward the command string to IMPISH."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(("", self.my_port))
+        logging.log_info(
+            f"Sending command {command} to {self.forward_ip}:{self.forward_port}"
+        )
+        _ = sock.sendto(self.packetize(command), (self.forward_ip, self.forward_port))
+
+
+class Server(HTTPServer):
+    def __init__(self, address, request_handler, forwarder: Forwarder):
+        super().__init__(address, request_handler)
+        self.forwarder: Forwarder = forwarder
+
+
+class RequestHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers["Content-Length"])
+        data: bytes = self.rfile.read(content_length)
+        decoded: dict[str, str] = json.loads(data.decode("utf-8"))
+        logging.log_info(f"Received command data: {decoded}")
+        self.send_response(200)
+        self.end_headers()
+        _ = self.wfile.write(b"POST received")
+        self.server.forwarder.forward(decoded["command"])
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+
+def main() -> None:
+
+    args = parse_args()
+    forwarder = Forwarder(args.bind_port, args.impish_ip, args.impish_port)
+    server = Server(("0.0.0.0", args.http_port), RequestHandler, forwarder)
+    server.serve_forever()
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse and return the commands."""
+    parser = argparse.ArgumentParser(
+        description="Forward commands from Grafana to IMPISH"
+    )
+    _ = parser.add_argument(
+        "-t",
+        "--http_port",
+        help="Port to receive commands on",
+        type=int,
+        required=True,
+    )
+    _ = parser.add_argument(
+        "-b",
+        "--bind_port",
+        help="UDP port to bind to",
+        type=int,
+        required=True,
+    )
+    _ = parser.add_argument(
+        "-i",
+        "--impish_ip",
+        help="IMPISH's IP",
+        type=str,
+    )
+    _ = parser.add_argument(
+        "-p",
+        "--impish_port",
+        help="The port IMPISH is listening for commands on",
+        type=int,
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    main()

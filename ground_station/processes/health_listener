@@ -79,9 +79,7 @@ def insert_packet(
 
 def main() -> Never:
     monitor.listener(
-        port=LISTEN_PORT,
-        PacketClass=packets.HealthPacket,
-        insert_func=insert_packet
+        port=LISTEN_PORT, PacketClass=packets.HealthPacket, insert_func=insert_packet
     )
 
 
