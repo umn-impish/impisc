@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import os
 import socket
+import subprocess
 
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Callable, Never
@@ -122,6 +123,18 @@ def _health_columns() -> OrderedDict[str, str]:
         "power_heater",
         "power_daqbox",
     ]
+    res = subprocess.run(
+        '/bin/bash -c "source udpcapture_status > /dev/null && echo -n "$\{services[@]\}""',
+        shell=True,
+        capture_output=True
+    )
+    udpcapture_names = res.stdout.decode("utf-8").replace("-", "_").replace(".service", "_service").split(" ")
+    res = subprocess.run(
+        '/bin/bash -c "source other_service_status > /dev/null && echo -n "$\{services[@]\}""',
+        shell=True,
+        capture_output=True
+    )
+    other_service_names = res.stdout.decode("utf-8").replace("-", "_").replace(".service", "_service").split(" ")
     return OrderedDict[str, str](
         [
             ("unix_timestamp", "INTEGER PRIMARY KEY"),
@@ -130,6 +143,8 @@ def _health_columns() -> OrderedDict[str, str]:
             *list((f"missing_{f}", "BIT(1)") for f in fields),
             ("missing_unix_timestamp", "BIT(1)"),
             *list((f, "BIT(1)") for f in power_names),
+            *list((f, "BIT(1)") for f in udpcapture_names),
+            *list((f, "BIT(1)") for f in other_service_names),
         ]
     )
 
