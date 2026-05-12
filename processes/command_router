@@ -68,8 +68,7 @@ class CommandStepper:
             - can modify blocking state of `sock`
             - executes commands (affects rest of system)
         """
-        cmd_bytes: bytes = self.sock.recv(GONDOLA_MTU)
-        command: str = cmd_bytes.decode("utf-8")
+        command: str = self.sock.recv(GONDOLA_MTU).decode("utf-8")
         response: packets.CommandResponsePacket | None = None
         match (command, self.locked):
             case (x, _) if x in SPECIAL_COMMANDS:
@@ -85,14 +84,14 @@ class CommandStepper:
             case (x, _) if x in SAFE_COMMANDS:
                 logging.log_info(f"Received safe command {command}")
                 self.exec(command)
-            case ("unlock", True):
+            case ("unlock", _):
                 self.unlock()
                 stdout = "Unsafe commanding now unlocked"
                 response = packets.CommandResponsePacket.from_parts(
                     ret_code=0, command=command, stdout=stdout, stderr=""
                 )
                 logging.log_warning(stdout)
-            case ("lock", False):
+            case ("lock", _):
                 self.lock()
                 stdout = "Unsafe commanding now locked"
                 response = packets.CommandResponsePacket.from_parts(
@@ -144,10 +143,9 @@ def execute_command(cmd: str, port: int):
     command.
     """
     logging.log_critical(f'Sending command "{cmd}" to executor on {port}')
-    len_sent: int = socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
+    socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
         bytes(cmd, encoding="utf-8"), ("localhost", port)
     )
-    logging.log_debug(f"Sent {len_sent} out of {len(cmd)} bytes")
 
 
 def send_response(
