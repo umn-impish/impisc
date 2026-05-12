@@ -32,7 +32,12 @@ def delete_table(table_name: str):
 
 
 def main():
-    for table in [HEALTH_TABLE_NAME, RTD_TABLE_NAME, QUICKLOOK_TABLE_NAME, COMMAND_TABLE_NAME]:
+    for table in [
+        HEALTH_TABLE_NAME,
+        RTD_TABLE_NAME,
+        QUICKLOOK_TABLE_NAME,
+        COMMAND_TABLE_NAME,
+    ]:
         if input(f"CONFIRM TABLE RESET ({DB_NAME}/{table}) [-y|-Y]: ").lower() == "-y":
             print(f"Resetting {table} table")
             delete_table(table)

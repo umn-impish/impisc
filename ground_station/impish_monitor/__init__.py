@@ -126,15 +126,25 @@ def _health_columns() -> OrderedDict[str, str]:
     res = subprocess.run(
         '/bin/bash -c "source udpcapture_status > /dev/null && echo -n "$\{services[@]\}""',
         shell=True,
-        capture_output=True
+        capture_output=True,
     )
-    udpcapture_names = res.stdout.decode("utf-8").replace("-", "_").replace(".service", "_service").split(" ")
+    udpcapture_names = (
+        res.stdout.decode("utf-8")
+        .replace("-", "_")
+        .replace(".service", "_service")
+        .split(" ")
+    )
     res = subprocess.run(
         '/bin/bash -c "source other_service_status > /dev/null && echo -n "$\{services[@]\}""',
         shell=True,
-        capture_output=True
+        capture_output=True,
     )
-    other_service_names = res.stdout.decode("utf-8").replace("-", "_").replace(".service", "_service").split(" ")
+    other_service_names = (
+        res.stdout.decode("utf-8")
+        .replace("-", "_")
+        .replace(".service", "_service")
+        .split(" ")
+    )
     return OrderedDict[str, str](
         [
             ("unix_timestamp", "INTEGER PRIMARY KEY"),
@@ -160,6 +170,7 @@ def _rtd_columns() -> OrderedDict[str, str]:
             *list((f, "TINYINT") for f in fields),
         ]
     )
+
 
 def _quicklook_columns() -> OrderedDict[str, str]:
     """The quicklook column names mapped to their data type."""

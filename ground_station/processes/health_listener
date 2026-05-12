@@ -54,19 +54,19 @@ def unpack_udpcapture_byte(byte: int) -> dict[str, int]:
     bools: dict[str, int] = {
         c: int((byte >> i) & 1) for i, c in enumerate(reversed(udp_cols))
     }
-    logging.log_critical(f"{bools}")
     return bools
 
 
 def unpack_other_service_byte(byte: int) -> dict[str, int]:
     """Map the other services status bits."""
     other_service_cols: list[str] = [
-        c for c in monitor.HEALTH_COLUMNS.keys() if c.endswith("_service") and "udpcapture" not in c
+        c
+        for c in monitor.HEALTH_COLUMNS.keys()
+        if c.endswith("_service") and "udpcapture" not in c
     ]
     bools: dict[str, int] = {
         c: int((byte >> i) & 1) for i, c in enumerate(reversed(other_service_cols))
     }
-    logging.log_critical(f"{bools}")
     return bools
 
 
@@ -82,7 +82,10 @@ def insert_packet(
     cols.pop("timestamp")  # remove `timestamp` field...
     cols = {**cols, **unpack_power_byte(getattr(packet, "power_line_statuses"))}
     cols = {**cols, **unpack_udpcapture_byte(getattr(packet, "udpcapture_status"))}
-    cols = {**cols, **unpack_other_service_byte(getattr(packet, "other_service_status"))}
+    cols = {
+        **cols,
+        **unpack_other_service_byte(getattr(packet, "other_service_status")),
+    }
     cols = {**cols, **unpack_missing_bytes(getattr(packet, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"
 
@@ -105,9 +108,7 @@ def insert_packet(
 
 def main() -> Never:
     monitor.listener(
-        port=LISTEN_PORT,
-        PacketClass=packets.HealthPacket,
-        insert_func=insert_packet
+        port=LISTEN_PORT, PacketClass=packets.HealthPacket, insert_func=insert_packet
     )
 
 
