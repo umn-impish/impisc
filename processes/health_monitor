@@ -80,6 +80,8 @@ def main():
         ("cpu3_usage", partial(measure_cpu_usage, 3)),
         ("ram_usage", measure_ram_usage),
         ("swap_usage", measure_swap_usage),
+        ("udpcapture_status", udpcapture_byte),
+        ("other_service_status", other_service_byte),
         #                  Lol
         ("timestamp", lambda: (False, int(time.time()))),
         ("extra", fill_extra),
@@ -266,6 +268,38 @@ def measure_swap_usage() -> tuple[bool, int]:
     except Exception as e:
         logging.log_error(f"Problem getting SWAP usage: {type(e)} --> {e.args}")
         return True, -1
+
+
+def udpcapture_byte() -> tuple[bool, int]:
+    bad = (True, -1)
+    try:
+        res = subprocess.run(["udpcapture_status"], shell=True, capture_output=True)
+        if res.stderr:
+            logging.log_error(
+                "Problem reading udpcapture status byte: {res.stderr.decode('utf-8')}."
+            )
+            return bad
+        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
+        return False, status_byte
+    except Exception as e:
+        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
+    return bad
+
+
+def other_service_byte() -> tuple[bool, int]:
+    bad = (True, -1)
+    try:
+        res = subprocess.run(["other_service_status"], shell=True, capture_output=True)
+        if res.stderr:
+            logging.log_error(
+                "Problem reading other services byte: {res.stderr.decode('utf-8')}."
+            )
+            return bad
+        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
+        return False, status_byte
+    except Exception as e:
+        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
+    return bad
 
 
 def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:
