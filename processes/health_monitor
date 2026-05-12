@@ -154,7 +154,9 @@ def measure_bubba_output() -> tuple[bool, int]:
         # Ignore noise when powered off
         if conversion < 0 and conversion > -0.1:
             conversion = 0
-        return False, int(conversion * 150 / 4.869 * 1000)  # mV
+        PI_RESISTOR = 4.87
+        BUBBA_RESISTOR = 150
+        return False, int(conversion * (PI_RESISTOR + BUBBA_RESISTOR) / PI_RESISTOR * 1000)  # mV
     except Exception as e:
         logging.log_warning(f"Could not read bias voltage.\n{type(e)} --> {e.args}")
     return True, -1
