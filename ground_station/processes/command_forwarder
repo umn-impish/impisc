@@ -27,21 +27,21 @@ class Forwarder:
 
     def forward(self, command: str):
         """Forward the command string to IMPISH."""
-        sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(("", self.my_port))
-        logging.log_info(f"Sending command {command} to {self.forward_ip}:{self.forward_port}")
+        logging.log_info(
+            f"Sending command {command} to {self.forward_ip}:{self.forward_port}"
+        )
         _ = sock.sendto(self.packetize(command), (self.forward_ip, self.forward_port))
 
 
 class Server(HTTPServer):
-
     def __init__(self, address, request_handler, forwarder: Forwarder):
         super().__init__(address, request_handler)
         self.forwarder: Forwarder = forwarder
 
 
 class RequestHandler(BaseHTTPRequestHandler):
-    
     def do_POST(self):
         content_length = int(self.headers["Content-Length"])
         data: bytes = self.rfile.read(content_length)
@@ -63,16 +63,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 def main() -> None:
 
     args = parse_args()
-    forwarder = Forwarder(
-        args.bind_port,
-        args.impish_ip,
-        args.impish_port
-    )
-    server = Server(
-        ("0.0.0.0", args.http_port),
-        RequestHandler,
-        forwarder
-    )
+    forwarder = Forwarder(args.bind_port, args.impish_ip, args.impish_port)
+    server = Server(("0.0.0.0", args.http_port), RequestHandler, forwarder)
     server.serve_forever()
 
 

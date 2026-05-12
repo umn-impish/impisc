@@ -55,9 +55,7 @@ def insert_packet(
 
 def main() -> Never:
     monitor.listener(
-        port=LISTEN_PORT,
-        PacketClass=packets.QuicklookPacket,
-        insert_func=insert_packet
+        port=LISTEN_PORT, PacketClass=packets.QuicklookPacket, insert_func=insert_packet
     )
 
 
