@@ -4,6 +4,7 @@
 # for running programs on the system.
 
 sudo apt install -y python3-venv
+sudo apt install -y python3-dev
 
 pushd /
 sudo rm -rf python-venv
