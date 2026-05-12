@@ -8,6 +8,7 @@ declare -a services=(
     "debug-waveform-udpcapture.service"
     "health-udpcapture.service"
     "quicklook-udpcapture.service"
+    "rtd-udpcapture.service"
     "science-udpcapture.service"
 )
 for service in "${services[@]}"; do
