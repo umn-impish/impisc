@@ -17,4 +17,3 @@ if [ ! -f /etc/systemd/system/$service ]; then
     exit
 fi
 sudo systemctl is-active --quiet $service && echo -n 1 || echo -n 0 
-

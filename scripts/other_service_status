@@ -14,5 +14,5 @@ declare -a services=(
 )
 echo -n 00
 for service in "${services[@]}"; do
-  ./service-status $service
+    service-status $service
 done
