@@ -2,4 +2,4 @@
 
 source /home/impish/grafana.env
 source /python-venv/bin/activate
-python -m "impish_monitor.reset_database"
+python -m "impish_monitor.reset_table"

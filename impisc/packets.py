@@ -54,6 +54,8 @@ class HealthPacket(ctypes.LittleEndianStructure):
         ("cpu3_usage", ctypes.c_uint16),
         ("ram_usage", ctypes.c_uint16),
         ("swap_usage", ctypes.c_uint16),
+        ("udpcapture_status", ctypes.c_uint8),
+        ("other_service_status", ctypes.c_uint8),
         ("timestamp", ctypes.c_uint32),
         # Padding on the end of the health packet:
         # remove bytes from this as needed

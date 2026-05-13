@@ -46,6 +46,30 @@ def unpack_missing_bytes(mbytes: int) -> dict[str, int]:
     return bools
 
 
+def unpack_udpcapture_byte(byte: int) -> dict[str, int]:
+    """Map the udpcapture status bits."""
+    udp_cols: list[str] = [
+        c for c in monitor.HEALTH_COLUMNS.keys() if c.endswith("udpcapture_service")
+    ]
+    bools: dict[str, int] = {
+        c: int((byte >> i) & 1) for i, c in enumerate(reversed(udp_cols))
+    }
+    return bools
+
+
+def unpack_other_service_byte(byte: int) -> dict[str, int]:
+    """Map the other services status bits."""
+    other_service_cols: list[str] = [
+        c
+        for c in monitor.HEALTH_COLUMNS.keys()
+        if c.endswith("_service") and "udpcapture" not in c
+    ]
+    bools: dict[str, int] = {
+        c: int((byte >> i) & 1) for i, c in enumerate(reversed(other_service_cols))
+    }
+    return bools
+
+
 def insert_packet(
     db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.HealthPacket
 ):
@@ -57,6 +81,11 @@ def insert_packet(
     }
     cols.pop("timestamp")  # remove `timestamp` field...
     cols = {**cols, **unpack_power_byte(getattr(packet, "power_line_statuses"))}
+    cols = {**cols, **unpack_udpcapture_byte(getattr(packet, "udpcapture_status"))}
+    cols = {
+        **cols,
+        **unpack_other_service_byte(getattr(packet, "other_service_status")),
+    }
     cols = {**cols, **unpack_missing_bytes(getattr(packet, "missing_fields"))}
     fmt = "%s, " * (len(cols) - 1) + "%s"
 

@@ -4,3 +4,6 @@ scripts=$(ls ../scripts)
 for s in $scripts; do
     sudo cp "../scripts/$s" "/usr/local/bin/$s"
 done
+sudo cp "../../scripts/service_status" "/usr/local/bin"
+sudo cp "../../scripts/udpcapture_status" "/usr/local/bin"
+sudo cp "../../scripts/other_service_status" "/usr/local/bin"

@@ -1,0 +1,41 @@
+#!/bin/bash
+# Prints the number of times the service has started.
+
+function usage {
+    echo "usage: $0 -u service-name [-sb]"
+    echo "  -u service-name   name of the systemd service"
+    echo "  -s                filter by time; passed to journalctl"
+    echo "  -b                filter by current boot"
+    echo "  -h                display help"
+    exit 1
+}
+
+if [ -z "$1" ]; then
+    echo "error: first argument required"
+    usage
+fi
+
+while getopts "u:s:bh" opt; do
+  case "${opt}" in
+    u)
+        service=$OPTARG
+        ;;
+    s)
+        since="--since -$OPTARG"
+        ;;
+    b)
+        bflag="-b"  # Show from specific boot; defaults to current
+        ;;
+    h)
+        usage
+        ;;
+    \?)
+        usage
+        ;;
+  esac
+done
+
+# remove ".service" if present, then add it
+service="${service%".service"}.service"
+sudo systemctl list-unit-files $service &>/dev/null && sudo journalctl -u $service $since $bflag | grep Started | wc -l | tr -d '\n' || echo "no service: '$service'"
+
