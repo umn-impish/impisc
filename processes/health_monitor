@@ -70,7 +70,7 @@ def main():
         ("bubba_input_neg_volts", lambda: measure_negative_voltage("-BUBBA")),
         ("bubba_output_volts", measure_bubba_output),
         ("bubba_wiper", measure_bubba_wiper),
-        ("power_line_statuses", measure_toggle_byte),
+        ("power_line_statuses", read_toggle_byte),
         ("os_disk_usage", measure_os_disk_usage),
         ("data_disk_usage", measure_data_disk_usage),
         ("cpu_temperature", measure_cpu_temp),
@@ -80,8 +80,8 @@ def main():
         ("cpu3_usage", partial(measure_cpu_usage, 3)),
         ("ram_usage", measure_ram_usage),
         ("swap_usage", measure_swap_usage),
-        ("udpcapture_status", udpcapture_byte),
-        ("other_service_status", other_service_byte),
+        ("udpcapture_status", read_udpcapture_byte),
+        ("other_service_status", read_other_service_byte),
         #                  Lol
         ("timestamp", lambda: (False, int(time.time()))),
         ("extra", fill_extra),
@@ -158,27 +158,12 @@ def measure_bubba_output() -> tuple[bool, int]:
             conversion = 0
         PI_RESISTOR = 4.87
         BUBBA_RESISTOR = 150
-        return False, int(conversion * (PI_RESISTOR + BUBBA_RESISTOR) / PI_RESISTOR * 1000)  # mV
+        return False, int(
+            conversion * (PI_RESISTOR + BUBBA_RESISTOR) / PI_RESISTOR * 1000
+        )  # mV
     except Exception as e:
         logging.log_warning(f"Could not read bias voltage.\n{type(e)} --> {e.args}")
     return True, -1
-
-
-def measure_toggle_byte() -> tuple[bool, int]:
-    """Measure the byte indicating the status of all the GPIO toggles."""
-    bad = (True, -1)
-    try:
-        res = subprocess.run(["power_status"], shell=True, capture_output=True)
-        if res.stderr:
-            logging.log_error(
-                "Problem reading power toggle status byte: {res.stderr.decode('utf-8')}."
-            )
-            return bad
-        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
-        return False, status_byte
-    except Exception as e:
-        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
-    return bad
 
 
 def measure_bubba_wiper() -> tuple[bool, int]:
@@ -261,45 +246,42 @@ def measure_ram_usage() -> tuple[bool, int]:
 
 
 def measure_swap_usage() -> tuple[bool, int]:
-    """Returns SWAP usage in centi-percent."""
+    """Returns swap usage in centi-percent."""
     try:
         swap = psutil.swap_memory()
         return False, int(swap.percent * 100)
     except Exception as e:
-        logging.log_error(f"Problem getting SWAP usage: {type(e)} --> {e.args}")
+        logging.log_error(f"Problem getting swap usage: {type(e)} --> {e.args}")
         return True, -1
 
 
-def udpcapture_byte() -> tuple[bool, int]:
+def read_shell_byte(prog: str, error_prefix: str) -> tuple[bool, int]:
+    """Capture a byte output from shell stdout and parse it into an integer"""
     bad = (True, -1)
     try:
-        res = subprocess.run(["udpcapture_status"], shell=True, capture_output=True)
+        res = subprocess.run([prog], shell=True, capture_output=True)
         if res.stderr:
-            logging.log_error(
-                "Problem reading udpcapture status byte: {res.stderr.decode('utf-8')}."
-            )
+            logging.log_error(f"{error_prefix}: {res.stderr.decode('utf-8')}.")
             return bad
-        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
-        return False, status_byte
+        ret = int(res.stdout.decode("utf-8").strip(), base=2)
+        return False, ret
     except Exception as e:
-        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
+        logging.log_error(f"{error_prefix}: {type(e)} --> {e.args}")
     return bad
 
 
-def other_service_byte() -> tuple[bool, int]:
-    bad = (True, -1)
-    try:
-        res = subprocess.run(["other_service_status"], shell=True, capture_output=True)
-        if res.stderr:
-            logging.log_error(
-                "Problem reading other services byte: {res.stderr.decode('utf-8')}."
-            )
-            return bad
-        status_byte = int(res.stdout.decode("utf-8").strip(), base=2)
-        return False, status_byte
-    except Exception as e:
-        logging.log_error(f"Problem reading toggle statuses: {type(e)} --> {e.args}")
-    return bad
+def read_toggle_byte() -> tuple[bool, int]:
+    return read_shell_byte("power_status", "Problem reading toggle statuses")
+
+
+def read_other_service_byte() -> tuple[bool, int]:
+    return read_shell_byte("other_service_status", "Problem reading other service byte")
+
+
+def read_udpcapture_byte() -> tuple[bool, int]:
+    return read_shell_byte(
+        "udpcapture_status", "Problem reading udpcapture status byte"
+    )
 
 
 def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:
