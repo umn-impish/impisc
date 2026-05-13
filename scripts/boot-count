@@ -3,4 +3,3 @@
 
 num=$(sudo journalctl --list-boots | wc -l)
 echo -n $(($num-1)) 
-
