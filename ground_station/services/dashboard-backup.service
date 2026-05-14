@@ -4,7 +4,7 @@ After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
+Type=oneshot
 WorkingDirectory=/home/impish/
 EnvironmentFile=/usr/local/bin/grafana.env
 ExecStart=download_dashboards

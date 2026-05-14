@@ -21,3 +21,16 @@ for s in $services; do
     sudo systemctl enable "$s"
     sudo systemctl restart "$s"
 done
+
+# Install all .timer files and enable them
+timers=$(find ../services/ -maxdepth 1 -type f -name "*.timer" -printf "%f  ")
+for t in $timers; do
+    echo $t
+    sudo cp "../services/$t" "/etc/systemd/system"
+done
+
+sudo systemctl daemon-reload
+for t in $timers; do
+    sudo systemctl enable "$t"
+    sudo systemctl restart "$t"
+done

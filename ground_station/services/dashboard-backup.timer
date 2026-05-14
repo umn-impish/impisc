@@ -1,0 +1,9 @@
+[Unit]
+Description=Timer for periodically running the Grafana JSON download
+
+[Timer]
+OnUnitActiveSec=1h
+OnBootSec=5s
+
+[Install]
+WantedBy=timers.target
