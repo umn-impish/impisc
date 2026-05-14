@@ -7,12 +7,13 @@
 declare -a services=(
     "command-executor.service"
     "command-router.service"
+    "heater-controller.service"
     "nominal-science.service"
     "quicklook.service"
     "science-rebinner.service"
     "science-redirector.service"
 )
-echo -n 00
+echo -n 0
 for service in "${services[@]}"; do
     service_status $service
 done
