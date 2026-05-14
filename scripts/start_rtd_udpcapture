@@ -2,5 +2,7 @@
 
 source /data/config/variables.env
 udpcapture --port $RTD_UDPCAP_PORT --base-filename '/data/health/impish_rtds' \
-	--file-lifetime 300 --forward-addrs $RTD_ENDPOINT\
+	--file-lifetime 300\
+	--forward-addrs "127.0.0.1:$HEADER_STAMPER_PORT"\
+	--forward-addrs "127.0.0.1:$HEATER_CONTROLLER_PORT"\
 	--post-process-cmd 'xz $out_file'
