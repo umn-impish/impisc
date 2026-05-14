@@ -6,6 +6,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 WorkingDirectory=/home/impish/
+EnvironmentFile=/usr/local/bin/grafana.env
 ExecStart=download_dashboards
 StandardOutput=journal
 StandardError=journal

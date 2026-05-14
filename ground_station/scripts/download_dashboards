@@ -1,0 +1,8 @@
+#!/bin/bash
+
+gcx login local \
+  --server http://localhost:3000 \
+  --token $GRAFANA_API_TOKEN \
+  --yes
+gcx dashboards list
+gcx resources pull dashboards --path ~/dashboards_json
