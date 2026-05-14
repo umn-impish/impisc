@@ -19,3 +19,10 @@ sudo apt install grafana
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now grafana-server
+
+# install gcx (cli control)
+sudo apt install -y curl
+curl -fsSL https://raw.githubusercontent.com/grafana/gcx/main/scripts/install.sh | sh
+
+echo 'export PATH="/home/impish/.local/bin:$PATH"' >> ~/.bashrc
+. ~/.bashrc
