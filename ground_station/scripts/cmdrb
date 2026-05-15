@@ -27,6 +27,23 @@ def print_bold(s: str) -> None:
     print(f"\033[1m{s}\033[0m")
 
 
+def get_line_chars() -> int:
+    """Determine the number of characters to print per line.
+    File descriptors 0 through 2 (inclusive) are checked and
+    the first valid value is used. This is to accommodate
+    redirection of the output (e.g. with `less`).
+    """
+    line_chars = 80  # Arbitrary default
+    for fileno in range(0, 3): 
+        try:
+            line_chars = os.get_terminal_size(fileno)[0]
+            break
+        except OSError:
+            continue
+    # Divide the number of cols by 6 for printing hex so it fits
+    return line_chars // 6
+
+
 @dataclass
 class Response:
     packets: dict[int, int | bytes]
@@ -190,8 +207,7 @@ def query(id_: int | None = None) -> Response:
     return Response(
         packets,
         expected_num=total_packets,
-        # Divide the number of cols by 6 for printing hex so it fits
-        line_chars=os.get_terminal_size().columns // 6
+        line_chars=get_line_chars()
     )
 
 
