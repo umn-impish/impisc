@@ -20,9 +20,6 @@ from impish_monitor import connect, COMMAND_TABLE_NAME, COMMAND_COLUMNS
 from impisc.packets import CommandResponsePacket
 
 
-FILL: bytes = (b"[" + b"*" * 20 + b"]\n") * 1
-
-
 def print_bold(s: str) -> None:
     print(f"\033[1m{s}\033[0m")
 
@@ -44,12 +41,19 @@ def get_line_chars() -> int:
     return line_chars // 6
 
 
+INSERT = "MISSING PACKET"
+WIDTH = get_line_chars() - 2
+NUM_BEFORE = (WIDTH-len(INSERT)) // 2
+NUM_AFTER = WIDTH - NUM_BEFORE - len(INSERT)
+FILL: bytes = b"[" + b"*" * (NUM_BEFORE) + bytes(INSERT, "utf-8") + b"*" * NUM_AFTER + b"]"
+
+
 @dataclass
 class Response:
     packets: dict[int, int | bytes]
     expected_num: int
     line_chars: int = 40
-    fill_missing: bool = False
+    fill_missing: bool = True
 
     @property
     def ordered(self) -> OrderedDict[int, int | bytes]:
@@ -57,7 +61,9 @@ class Response:
         ordered = OrderedDict(sorted(self.packets.items(), key=lambda item: item[0]))
         if self.fill_missing:
             for m in self.missing_seqnums:
-                ordered[m] = {k: FILL for k in ["stdout", "stderr", "unparsed"]}
+                ordered[m] = {k: FILL for k in ["unparsed"]}
+                ordered[m]["stdout"] = b""
+                ordered[m]["stderr"] = b""
         return ordered
 
     @property
@@ -88,17 +94,24 @@ class Response:
     def stdout(self) -> str:
         """Returns the full standard output from the packets."""
         stdout: str = ""
-        for packet in self.ordered.values():
-            stdout += packet["stdout"].decode("utf-8")
+        if not self.parse_unparsed()[2]:
+            for packet in self.ordered.values():
+                stdout += packet["stdout"].decode("utf-8")
         return stdout + self.parse_unparsed()[0]
 
     @property
     def stderr(self) -> str:
         """Returns the full standard error from the packets."""
         stderr: str = ""
-        for packet in self.ordered.values():
-            stderr += packet["stderr"].decode("utf-8")
+        if not self.parse_unparsed()[2]:
+            for packet in self.ordered.values():
+                stderr += packet["stderr"].decode("utf-8")
         return stderr + self.parse_unparsed()[1]
+
+    @property
+    def unparseable(self) -> str:
+        """Returns everything that can't be parsed."""
+        return self.parse_unparsed()[2]
 
     def combine(self, which: Literal["stdout", "stderr", "unparsed"]) -> bytes:
         """Combines 'which' from of the packets into one bytes object."""
@@ -119,36 +132,43 @@ class Response:
             split: list[bytes] = unparsed.split(CommandResponsePacket.DELIMITER)
             match len(split):
                 case 1:
-                    stdout = split[0].decode("utf-8")
+                    unparsed = split[0].decode("utf-8")
                 case 2:
                     stdout, stderr = [s.decode("utf-8") for s in split]
-        return stdout, stderr
+                    unparsed = ""
+        else:
+            unparsed = unparsed.decode("utf-8")
+        
+        return stdout, stderr, unparsed
 
     def print(self):
         """Nicely prints everything."""
-        self.fill_missing = False
+        # self.fill_missing = False
         stdout: str = "\t" + self.stdout.replace("\n", "\n\t")
         stderr: str = "\t" + self.stderr.replace("\n", "\n\t")
-        print(
-            f"command timestamp: [{self.timestamp}]\ncommand:\n\t{self.command}\n\nstdout:\n{stdout}\n\nstderr:\n{stderr}"
-        )
+        msg: str = f"command timestamp: [{self.timestamp}]\ncommand:\n\t{self.command}"
+        msg += f"\n\nstdout:\n{stdout}\n\nstderr:\n{stderr}\n"
+        unparseable: str = self.unparseable.replace("\n", "\n\t")
+        if unparseable:
+            msg += f"\nunparseable:\n\t{unparseable}\n"
+        print(msg)
 
     def print_packets(self):
         """Prints each packet individually.
         TODO: try to redo this better lol
         """
-        self.fill_missing = True
+        # self.fill_missing = True
         print("\t[seqnum]")
         for num, packet in self.ordered.items():
             for k in ["stdout", "stderr", "unparsed"]:
                 if not packet[k]:
                     continue
 
-                ascii_lines = [
-                    s.ljust(self.line_chars, ".")
-                    for s in textwrap.wrap(packet[k].decode("utf-8"), self.line_chars)
-                ]
+                string = packet[k].decode("utf-8")
+                ascii_lines = [string[i:i+self.line_chars] for i in range(0, len(string), self.line_chars)]
                 hex_lines = [a.encode("utf-8").hex(" ", 1) for a in ascii_lines]
+                ascii_lines[-1] = ascii_lines[-1].ljust(self.line_chars, ".")
+                ascii_lines = [a.replace("\n", ".").replace("\t", ".") for a in ascii_lines]
                 print(f"\t[{num:>06}]", end="")
 
                 for i, (a, h) in enumerate(zip(ascii_lines, hex_lines)):
@@ -193,8 +213,6 @@ def query(id_: int | None = None) -> Response:
     )
     _ = cursor.execute(sql)
     result = cursor.fetchall()
-    print(f"sql query: {sql}\n")
-    print(f"ID: {id_:<12}\ttotal packets: {total_packets:<8}")
     if not result:
         raise ValueError(f"no results from query {sql}")
     packets: dict[int, int | bytes] = {}
@@ -203,6 +221,8 @@ def query(id_: int | None = None) -> Response:
         for k in ["stdout", "stderr", "unparsed"]:
             mapped[k] = mapped[k].strip(b"\x00") if mapped[k] else b""
         packets[mapped["response_sequence"]] = mapped
+    print(f"sql query: {sql}\n")
+    print(f"ID: {id_:<12}\tpackets received: {len(packets)}/{total_packets:<8}")
 
     return Response(packets, expected_num=total_packets, line_chars=get_line_chars())
 
