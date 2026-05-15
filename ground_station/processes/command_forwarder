@@ -4,8 +4,6 @@ Listens for commands submitted through Grafana and forwards them to IMPISH.
 """
 
 import argparse
-import json
-import os
 import socket
 import struct
 
@@ -14,10 +12,6 @@ from dataclasses import dataclass
 from flask import Flask, request
 from flask_cors import CORS
 from impisc import logging
-
-
-app = Flask(__name__)
-CORS(app)
 
 
 @dataclass
@@ -75,15 +69,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-args = parse_args()
-forwarder = Forwarder(args.bind_port, args.impish_ip, args.impish_port)
-
-
-@app.post('/receive')
-def receive():
-    forwarder.forward(request.get_json()["command"])
-    return "command received"
-
-
 if __name__ == "__main__":
+    app = Flask(__name__)
+    CORS(app)
+
+    args = parse_args()
+    forwarder = Forwarder(args.bind_port, args.impish_ip, args.impish_port)
+
+    @app.post("/receive")
+    def receive():
+        forwarder.forward(request.get_json()["command"])
+        return "command received"
+
     app.run("0.0.0.0", port=args.http_port)
