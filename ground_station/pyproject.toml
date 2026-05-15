@@ -13,7 +13,8 @@ name = "impish_monitor"
 dependencies = [
     "mysql-connector-python",
     "flask",
-    "flask_cors"
+    "flask_cors",
+    "waitress"
 ]
 
 [project.optional-dependencies]

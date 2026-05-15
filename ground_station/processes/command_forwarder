@@ -81,4 +81,5 @@ if __name__ == "__main__":
         forwarder.forward(request.get_json()["command"])
         return "command received"
 
-    app.run("0.0.0.0", port=args.http_port)
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=args.http_port)
