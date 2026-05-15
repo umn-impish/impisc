@@ -8,6 +8,7 @@ Type=simple
 WorkingDirectory=/usr/local/bin
 EnvironmentFile=/data/config/variables.env
 ExecStart=heater_controller
+ExecStopPost=toggle_power heater off
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure
