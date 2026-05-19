@@ -17,6 +17,8 @@ sudo apt update
 sudo apt modernize-sources -y
 sudo apt install grafana
 
+sudo cp grafana-server.service /usr/lib/systemd/system/
+
 sudo systemctl daemon-reload
 sudo systemctl enable --now grafana-server
 
@@ -33,3 +35,7 @@ gcx config set contexts.default.grafana.auth-method token
 gcx config set contexts.default.grafana.token $GRAFANA_API_TOKEN
 
 push_dashboards
+
+# configure mysql datasource
+sudo cp impish.yaml /etc/grafana/provisioning/datasources
+sudo systemctl restart grafana-server.service
