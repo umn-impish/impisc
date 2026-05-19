@@ -4,15 +4,20 @@
 Just recalibrate the DAQBOX baseline
 """
 
-import os
-import socket
 import sys
 import time
 
 from impisc.et_daqbox import daq_box_api as dbapi
 from impisc import logging
 
+cfg_file = "/data/config/daqbox_config.json"
+if len(sys.argv) > 1:
+    cfg_file = sys.argv[1]
+
+cfg = dbapi.DaqBoxConfig.from_file(cfg_file)
 iface = dbapi.DaqBoxInterface()
+iface.send(cfg.to_packet())
+
 logging.log_warning("recalibrate baseline (wait)")
 iface.recalibrate_baseline()
 time.sleep(10)
