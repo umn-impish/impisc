@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import os
 import socket
+import subprocess
 
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Callable, Never
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 
 DB_NAME = "impish"
 HEALTH_TABLE_NAME = "health"
+RTD_TABLE_NAME = "rtds"
 QUICKLOOK_TABLE_NAME = "quicklook"
 COMMAND_TABLE_NAME = "commands"
 ADDR = ("", 12004)
@@ -121,6 +123,28 @@ def _health_columns() -> OrderedDict[str, str]:
         "power_heater",
         "power_daqbox",
     ]
+    res = subprocess.run(
+        '/bin/bash -c "source udpcapture_status > /dev/null && echo -n "$\{services[@]\}""',
+        shell=True,
+        capture_output=True,
+    )
+    udpcapture_names = (
+        res.stdout.decode("utf-8")
+        .replace("-", "_")
+        .replace(".service", "_service")
+        .split(" ")
+    )
+    res = subprocess.run(
+        '/bin/bash -c "source other_service_status > /dev/null && echo -n "$\{services[@]\}""',
+        shell=True,
+        capture_output=True,
+    )
+    other_service_names = (
+        res.stdout.decode("utf-8")
+        .replace("-", "_")
+        .replace(".service", "_service")
+        .split(" ")
+    )
     return OrderedDict[str, str](
         [
             ("unix_timestamp", "INTEGER PRIMARY KEY"),
@@ -129,6 +153,21 @@ def _health_columns() -> OrderedDict[str, str]:
             *list((f"missing_{f}", "BIT(1)") for f in fields),
             ("missing_unix_timestamp", "BIT(1)"),
             *list((f, "BIT(1)") for f in power_names),
+            *list((f, "BIT(1)") for f in udpcapture_names),
+            *list((f, "BIT(1)") for f in other_service_names),
+        ]
+    )
+
+
+def _rtd_columns() -> OrderedDict[str, str]:
+    """RTD column names mapped to their data type."""
+    fields: list[str] = [f[0] for f in packets.RTDPacket._fields_]
+    fields.remove("timestamp")
+    return OrderedDict[str, str](
+        [
+            ("unix_timestamp", "INTEGER UNSIGNED PRIMARY KEY"),
+            ("gs_unix_timestamp", "INTEGER UNSIGNED"),
+            *list((f, "TINYINT") for f in fields),
         ]
     )
 
@@ -174,5 +213,6 @@ def _command_columns() -> OrderedDict[str, str]:
 
 
 HEALTH_COLUMNS: OrderedDict[str, str] = _health_columns()
+RTD_COLUMNS: OrderedDict[str, str] = _rtd_columns()
 QUICKLOOK_COLUMNS: OrderedDict[str, str] = _quicklook_columns()
 COMMAND_COLUMNS: OrderedDict[str, str] = _command_columns()

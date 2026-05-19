@@ -13,18 +13,19 @@ from impisc.packets import PacketHeader
 
 
 TELE_PORT = int(os.environ["HEADER_STAMPER_PORT"])
-SS_FWD_PORT = int(os.environ["ENDPOINT_PORT"])
+FWD_IP = os.getenv("ENDPOINT_IP")
+FWD_PORT = int(os.environ["ENDPOINT_PORT"])
 SEQUENCE_IDS = {
     "total": 0,
     packets.HealthPacket: 0,
+    packets.RTDPacket: 0,
     packets.QuicklookPacket: 0,
     packets.CommandResponsePacket: 0,
 }
 PACKET_PORTS = {
     int(os.environ["LOCAL_HEALTH_FWD_PORT"]): packets.HealthPacket,
-    int(
-        os.environ["QUICKLOOK_UDPCAP_PORT"]
-    ): packets.QuicklookPacket,  # TODO: confirm this port number for quicklook
+    int(os.environ["RTD_UDPCAP_PORT"]): packets.RTDPacket,
+    int(os.environ["QUICKLOOK_UDPCAP_PORT"]): packets.QuicklookPacket,
     int(os.environ["COMMAND_ROUTER_PORT"]): packets.CommandResponsePacket,
     int(os.environ["COMMAND_EXECUTOR_PORT"]): packets.CommandResponsePacket,
 }
@@ -69,9 +70,9 @@ def main():
         if recv_port in PACKET_PORTS and len(data) != 0:
             header = make_header(recv_port, len(data))
             full_packet: bytes = bytes(header) + data
-            num_sent = sock.sendto(full_packet, ("", SS_FWD_PORT))
+            num_sent = sock.sendto(full_packet, (FWD_IP, FWD_PORT))
             logging.log_debug(
-                f"Sent {num_sent} out of {len(full_packet)} bytes to StarSpec forwarder (port {SS_FWD_PORT})"
+                f"Sent {num_sent} out of {len(full_packet)} bytes to data endpoint ({FWD_IP}:{FWD_PORT})"
             )
             if num_sent != len(full_packet):
                 logging.log_warning("Byte loss when sending previous packet")

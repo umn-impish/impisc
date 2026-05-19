@@ -1,7 +1,17 @@
 [all]
 
-# We don't need Bluetooth
+# We don't need Bluetooth or WiFi
 dtoverlay=disable-bt
+dtoverlay=disable-wifi
+
+# Turn off the power, status, and ethernet LEDs:
+# we don't want them leaking any light into the instrument box.
+dtparam=pwr_led_trigger=none
+dtparam=act_led_trigger=none
+
+# From the README: state 4 means disable on CM4
+dtparam=eth_led0=4
+dtparam=eth_led1=4
 
 # GPIO pins we use for toggles
 gpio=4=op,dl
@@ -30,7 +40,7 @@ dtoverlay=sdio,bus_width=4
 dtoverlay=i2c0,pins_0_1
 disable_poe_fan=1
 
-# ??
+# Don't let the Pi try to read EEPROM from GPIO 0 and 1
 force_eeprom_read=0
 
 # Automatically load initramfs files, if found

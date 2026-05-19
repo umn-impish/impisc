@@ -1,0 +1,16 @@
+[Unit]
+Description=Receive RTD packets, save them to files, and forward them elsewhere.
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=start_rtd_udpcapture
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

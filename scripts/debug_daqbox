@@ -21,20 +21,26 @@ cfg = dbapi.DaqBoxConfig.from_file(ACTIVE_CONFIG)
 cfg.acquisition_mode = mode
 
 iface = dbapi.DaqBoxInterface()
-iface.send(cfg.to_packet())
+iface.send(dbapi.STOP, expect_handshake=False)
+iface.send(cfg.to_packet(), expect_handshake=False)
 
-iface.send(dbapi.START)
-# Block so that we don't time out before packets start coming in
-iface.sock.setblocking(True)
-# Clear some of the spectra, because they could be bad
+iface.send(dbapi.START, expect_handshake=False)
+# Clear some of the data, because they could be bad
 iface.flush(max_iterations=32)
 
-# Acquire and forward spectra
+# Block so that we don't time out before packets start coming in
+iface.sock.setblocking(True)
+
+# Acquire and forward data
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 dest = ("localhost", int(os.getenv(f"DEBUG_{mode.upper()}_PORT")))
 for i in range(num_packets):
-    spectra = iface.recv()
-    sock.sendto(spectra, dest)
+    try:
+        data = iface.recv()
+        sock.sendto(data, dest)
+    except BlockingIOError:
+        logging.log_warning("no packets available yet")
+        time.sleep(0.1)
 
 iface.sock.setblocking(False)
 iface.send(dbapi.STOP, expect_handshake=False)

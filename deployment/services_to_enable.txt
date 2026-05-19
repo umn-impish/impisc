@@ -8,8 +8,9 @@ header-stamper.service
 health-udpcapture.service
 quicklook.service
 quicklook-udpcapture.service
+rtd-monitor.service
+rtd-udpcapture.service
 science-rebinner.service
 science-redirector.service
 science-udpcapture.service
-starspec-forwarder.service
 system-health.service

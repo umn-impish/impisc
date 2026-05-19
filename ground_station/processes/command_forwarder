@@ -1,0 +1,85 @@
+#!/python-venv/bin/python
+"""
+Listens for commands submitted through Grafana and forwards them to IMPISH.
+"""
+
+import argparse
+import socket
+import struct
+
+from dataclasses import dataclass
+
+from flask import Flask, request
+from flask_cors import CORS
+from impisc import logging
+
+
+@dataclass
+class Forwarder:
+    my_port: int
+    forward_ip: str
+    forward_port: int
+
+    def packetize(self, command: str) -> bytes:
+        """Format the command string into bytes."""
+        cmd_bytes = command.encode("utf-8")
+        return struct.pack(f"<{len(cmd_bytes)}s", cmd_bytes)
+
+    def forward(self, command: str):
+        """Forward the command string to IMPISH."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(("", self.my_port))
+        logging.log_info(
+            f"Sending command {command} to {self.forward_ip}:{self.forward_port}"
+        )
+        _ = sock.sendto(self.packetize(command), (self.forward_ip, self.forward_port))
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse and return the commands."""
+    parser = argparse.ArgumentParser(
+        description="Forward commands from Grafana to IMPISH"
+    )
+    _ = parser.add_argument(
+        "-t",
+        "--http_port",
+        help="Port to receive commands on",
+        type=int,
+        required=True,
+    )
+    _ = parser.add_argument(
+        "-b",
+        "--bind_port",
+        help="UDP port to bind to",
+        type=int,
+        required=True,
+    )
+    _ = parser.add_argument(
+        "-i",
+        "--impish_ip",
+        help="IMPISH's IP",
+        type=str,
+    )
+    _ = parser.add_argument(
+        "-p",
+        "--impish_port",
+        help="The port IMPISH is listening for commands on",
+        type=int,
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    app = Flask(__name__)
+    CORS(app)
+
+    args = parse_args()
+    forwarder = Forwarder(args.bind_port, args.impish_ip, args.impish_port)
+
+    @app.post("/receive")
+    def receive():
+        forwarder.forward(request.get_json()["command"])
+        return "command received"
+
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=args.http_port)

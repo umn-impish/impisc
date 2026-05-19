@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Clean up anything we installed that we no longer need.
+
+# Assumes that `impisc` was cloned into $HOME
+cd $HOME
+rm -rf impisc
+
+# Remove programs we have used to build others
+sudo apt purge cmake build-essential -y
+sudo apt update
+sudo apt autoremove -y
+sudo apt full-upgrade -y
+
+# Remove rustup and cargo from environment files
+rustup self uninstall -y
+rm -rf .rustup
+rm -rf .cargo

@@ -3,7 +3,7 @@
 # Configure a virtual environment
 # for running programs on the system.
 
-sudo apt install -y python3-venv
+sudo apt install -y python3-venv python3-dev build-essential
 
 pushd /
 sudo rm -rf python-venv

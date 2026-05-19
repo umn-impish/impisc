@@ -1,0 +1,20 @@
+[Unit]
+Description=Forward commands from Grafana to IMPISH
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=command_forwarder -t ${COMMAND_HTTP_PORT} -b ${COMMAND_FWD_PORT} -i ${ENDPOINT_IP} -p ${COMMAND_ROUTER_PORT}
+EnvironmentFile=/usr/local/bin/variables.env
+EnvironmentFile=/usr/local/bin/gs-variables.env
+EnvironmentFile=/usr/local/bin/grafana.env
+EnvironmentFile=/usr/local/bin/cmd-endpoint-ip.env
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target

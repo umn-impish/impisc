@@ -45,6 +45,7 @@ impl OutputWrapper {
         const GROUP_SEP: u8 = 0x1D;
 
         let mut response = Vec::new();
+        response.reserve(4 + self.cmd.len() + self.stdout.len() + self.stderr.len());
         response.push(self.status_code as u8);
         response.push(GROUP_SEP);
         response.extend(self.cmd.iter());
@@ -139,7 +140,8 @@ fn reply_with(res: &OutputWrapper, sock: &UdpSocket, num_cmds_received: &u8, sen
         // Put the total number of packets we'll get
         send_bytes.extend(total_packets.to_le_bytes());
 
-        sock.send_to(&send_bytes, &send_to_me).expect("failed to send UDP response");
+        sock.send_to(&send_bytes, &send_to_me)
+            .expect("failed to send UDP response");
         // Delay a short while to not overwhelm the network stack
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
