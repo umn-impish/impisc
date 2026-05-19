@@ -1,0 +1,9 @@
+#!/bin/bash
+# Push dashboards within specified directory to grafana
+# ~/dashboards_json/dashboards.v2.dashboard.grafana.app
+
+dashboards=$(ls $1)
+for db in $dashboards; do
+  echo $1/$db
+  gcx resources push --path $1/$db
+done
