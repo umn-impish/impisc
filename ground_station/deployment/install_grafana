@@ -21,7 +21,7 @@ sudo cp grafana-server.service /usr/lib/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable grafana-server.service
 
-./create_grafana_token
+./configure_grafana
 source /usr/local/bin/gcx_token.env
 
 sudo /usr/sbin/grafana cli plugins install volkovlabs-form-panel
