@@ -6,10 +6,10 @@ sudo grafana cli admin reset-admin-password ${PASS}
 
 id=$(curl -X POST -H "Content-Type: application/json" \
   -d '{"name":"gcx", "role":"Admin"}' \
-  http://impish:${PASS}@localhost:3000/api/serviceaccounts | jq -r .id)
+  http://admin:${PASS}@localhost:3000/api/serviceaccounts | jq -r .id)
 key=$(curl -X POST -H "Content-Type: application/json" \
   -d '{"name":"gcx"}' \
-  http://impish:${PASS}@localhost:3000/api/serviceaccounts/${id}/tokens | jq -r .key)
+  http://admin:${PASS}@localhost:3000/api/serviceaccounts/${id}/tokens | jq -r .key)
 if [[ "$key" == "null" ]]; then
     echo "Token already exists for gcx account; doing nothing"
     exit 0
