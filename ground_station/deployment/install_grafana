@@ -3,7 +3,6 @@
 sudo apt-get update -y
 sudo apt-get upgrade -y
 
-
 # Grafana base
 # https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/
 sudo apt install -y apt-transport-https wget
@@ -17,5 +16,30 @@ sudo apt update
 sudo apt modernize-sources -y
 sudo apt install grafana
 
+sudo cp grafana-server.service /usr/lib/systemd/system/
+
 sudo systemctl daemon-reload
-sudo systemctl enable --now grafana-server
+sudo systemctl enable grafana-server.service
+
+./configure_grafana
+source /usr/local/bin/gcx_token.env
+
+sudo /usr/sbin/grafana cli plugins install volkovlabs-form-panel
+
+# install and configure gcx (cli control)
+sudo apt install -y curl
+curl -fsSL https://raw.githubusercontent.com/grafana/gcx/main/scripts/install.sh | sh
+
+echo 'export PATH="/home/impish/.local/bin:$PATH"' >> ~/.bashrc
+. ~/.bashrc
+
+gcx config set contexts.default.grafana.server http://localhost:3000
+gcx config set contexts.default.grafana.org-id 1
+gcx config set contexts.default.grafana.auth-method token
+gcx config set contexts.default.grafana.token $GRAFANA_API_TOKEN
+
+push_dashboards ~/dashboards_json/dashboards.v2.dashboard.grafana.app
+
+# configure mysql datasource
+sudo cp impish.yaml /etc/grafana/provisioning/datasources
+sudo systemctl restart grafana-server.service

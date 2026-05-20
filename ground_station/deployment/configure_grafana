@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Can't change username :/
+source /usr/local/bin/grafana.env
+sudo grafana cli admin reset-admin-password ${PASS}
+
+id=$(curl -X POST -H "Content-Type: application/json" \
+  -d '{"name":"gcx", "role":"Admin"}' \
+  http://admin:${PASS}@localhost:3000/api/serviceaccounts | jq -r .id)
+key=$(curl -X POST -H "Content-Type: application/json" \
+  -d '{"name":"gcx"}' \
+  http://admin:${PASS}@localhost:3000/api/serviceaccounts/${id}/tokens | jq -r .key)
+if [[ "$key" == "null" ]]; then
+    echo "Token already exists for gcx account; doing nothing"
+    exit 0
+fi
+sudo rm /usr/local/bin/gcx_token.env > /dev/null 2>&1
+echo "gcx token (SAVE THIS!): ${key}"
+echo "GRAFANA_API_TOKEN=\"${key}\"" | sudo tee -a /usr/local/bin/gcx_token.env > /dev/null
