@@ -26,15 +26,14 @@ def main() -> Never:
     sock.bind(("", MY_PORT))
     CHANNELS: list[VALID_CHANNELS] = [2, 4, 6, 8, 10, 12, 14, 16, 18]
     pct_device = pct2075.PCT2075(1, 0x49)
+    pct_device.awake = True
     while True:
         packet = TemperaturePacket()
         packet.timestamp = int(time.time())
         for i, channel in enumerate(CHANNELS):
             _, temperature = measure_rtd(channel)
             setattr(packet, f"temperature{i}", temperature)
-        pct_device.awake = True
         packet.fc_board_temperature = int(pct_device.read_temperature() * 10)
-        pct_device.awake = False
         sock.sendto(packet, ("localhost", SEND_PORT))
         time.sleep(CADENCE_SECONDS)
 
