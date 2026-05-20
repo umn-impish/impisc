@@ -3,7 +3,6 @@
 sudo apt-get update -y
 sudo apt-get upgrade -y
 
-
 # Grafana base
 # https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/
 sudo apt install -y apt-transport-https wget
@@ -20,9 +19,14 @@ sudo apt install grafana
 sudo cp grafana-server.service /usr/lib/systemd/system/
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now grafana-server
+sudo systemctl enable grafana-server.service
 
-# install gcx (cli control)
+./create_grafana_token
+source /usr/local/bin/gcx_token.env
+
+sudo /usr/sbin/grafana cli plugins install volkovlabs-form-panel
+
+# install and configure gcx (cli control)
 sudo apt install -y curl
 curl -fsSL https://raw.githubusercontent.com/grafana/gcx/main/scripts/install.sh | sh
 
