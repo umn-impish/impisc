@@ -15,12 +15,6 @@ class HealthPacket(ctypes.LittleEndianStructure):
     we should make a GitHub release.
     """
 
-    # Reserved bytes for additional data
-    EXTRA_BYTES = 64
-
-    # Impossibly low temperature
-    NULL_RTD_VALUE = -127
-
     # Do not include padding bytes
     _pack_ = 1
 
@@ -57,34 +51,32 @@ class HealthPacket(ctypes.LittleEndianStructure):
         ("udpcapture_status", ctypes.c_uint8),
         ("other_service_status", ctypes.c_uint8),
         ("timestamp", ctypes.c_uint32),
-        # Padding on the end of the health packet:
-        # remove bytes from this as needed
-        # to add packet fields after flight starts.
-        ("extra", EXTRA_BYTES * ctypes.c_uint8),
         # Missing fields: one bit per field missing, in order
         ("missing_fields", ctypes.c_uint16),
     ]
 
 
-class RTDPacket(ctypes.LittleEndianStructure):
+class TemperaturePacket(ctypes.LittleEndianStructure):
 
-    # Impossibly low temperature
-    NULL_RTD_VALUE = -127
+    # Impossibly low temperature (deciCelsius)
+    NULL_RTD_VALUE = -1270
 
     _pack_ = 1
-    # Temperatures from RTDs; measured in Celsius to integer precision
-    # Rename once we assign them locations within the payload?
+    # Temperatures from RTDs and the PCT2075 on the computer board
+    # Temperatures measured in deciCelsius
+    # TODO: Rename once we assign them locations within the payload?
     _fields_ = [
         ("timestamp", ctypes.c_uint32),
-        ("temperature0", ctypes.c_int8),
-        ("temperature1", ctypes.c_int8),
-        ("temperature2", ctypes.c_int8),
-        ("temperature3", ctypes.c_int8),
-        ("temperature4", ctypes.c_int8),
-        ("temperature5", ctypes.c_int8),
-        ("temperature6", ctypes.c_int8),
-        ("temperature7", ctypes.c_int8),
-        ("temperature8", ctypes.c_int8)
+        ("temperature0", ctypes.c_int16),
+        ("temperature1", ctypes.c_int16),
+        ("temperature2", ctypes.c_int16),
+        ("temperature3", ctypes.c_int16),
+        ("temperature4", ctypes.c_int16),
+        ("temperature5", ctypes.c_int16),
+        ("temperature6", ctypes.c_int16),
+        ("temperature7", ctypes.c_int16),
+        ("temperature8", ctypes.c_int16),
+        ("fc_board_temperature", ctypes.c_int16)
     ]
 
     def __init__(self):
@@ -167,7 +159,7 @@ Packet: TypeAlias = (
     type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
 )
 # Define a unique ID for each packet type; their index in their ID value
-PACKET_IDS: list[Packet] = [HealthPacket, RTDPacket, QuicklookPacket, CommandResponsePacket]
+PACKET_IDS: list[Packet] = [HealthPacket, TemperaturePacket, QuicklookPacket, CommandResponsePacket]
 
 
 def split(data: bytes) -> tuple[PacketHeader, Packet]:

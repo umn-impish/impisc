@@ -1,7 +1,6 @@
 #!/python-venv/bin/python
 
 
-import ctypes
 import os
 import socket
 import subprocess
@@ -84,7 +83,6 @@ def main():
         ("other_service_status", read_other_service_byte),
         #                  Lol
         ("timestamp", lambda: (False, int(time.time()))),
-        ("extra", fill_extra),
     ]
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -282,10 +280,6 @@ def read_udpcapture_byte() -> tuple[bool, int]:
     return read_shell_byte(
         "udpcapture_status", "Problem reading udpcapture status byte"
     )
-
-
-def fill_extra() -> tuple[bool, ctypes.Array[ctypes.c_uint8]]:
-    return False, (ctypes.c_uint8 * HealthPacket.EXTRA_BYTES)()
 
 
 if __name__ == "__main__":

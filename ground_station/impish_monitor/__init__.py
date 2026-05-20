@@ -161,7 +161,7 @@ def _health_columns() -> OrderedDict[str, str]:
 
 def _rtd_columns() -> OrderedDict[str, str]:
     """RTD column names mapped to their data type."""
-    fields: list[str] = [f[0] for f in packets.RTDPacket._fields_]
+    fields: list[str] = [f[0] for f in packets.TemperaturePacket._fields_]
     fields.remove("timestamp")
     return OrderedDict[str, str](
         [

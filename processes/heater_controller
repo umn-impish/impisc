@@ -12,7 +12,7 @@ import socket
 from typing import Literal
 
 from impisc import logging
-from impisc.packets import RTDPacket
+from impisc.packets import TemperaturePacket
 
 
 INSTRUMENT_HEATER_RTD_CHANNEL: int = 4
@@ -45,20 +45,20 @@ def main():
     logging.log_debug(f"Instrument channel: {INSTRUMENT_HEATER_RTD_CHANNEL}\nElectronics channel: {ELECTRONICS_HEATER_RTD_CHANNEL}")
     logging.log_debug(f"Heater trigger temperature {HEATER_TRIGGER_TEMPERATURE} C with hysteresis {HEATER_HYSTERESIS} C")
     while True:
-        data: bytes = sock.recv(ctypes.sizeof(RTDPacket))
-        packet: RTDPacket = RTDPacket.from_buffer_copy(data)
+        data: bytes = sock.recv(ctypes.sizeof(TemperaturePacket))
+        packet: TemperaturePacket = TemperaturePacket.from_buffer_copy(data)
         instrument_temperature: float = getattr(packet, f"temperature{INSTRUMENT_HEATER_RTD_CHANNEL}")
         electronics_temperature: float = getattr(packet, f"temperature{ELECTRONICS_HEATER_RTD_CHANNEL}")
         temps_to_compare: list[float] = []
         for temp in [instrument_temperature, electronics_temperature]:
-            if temp != RTDPacket.NULL_RTD_VALUE:
+            if temp != TemperaturePacket.NULL_RTD_VALUE:
                 temps_to_compare.append(temp)
         if heater_on:
-            if max(temps_to_compare) > HEATER_TRIGGER_TEMPERATURE + HEATER_HYSTERESIS:
+            if (max(temps_to_compare) / 10) > HEATER_TRIGGER_TEMPERATURE + HEATER_HYSTERESIS:
                 set_heater_state("off")
                 heater_on = False
         else:
-            if min(temps_to_compare) < HEATER_TRIGGER_TEMPERATURE:
+            if (min(temps_to_compare) / 10) < HEATER_TRIGGER_TEMPERATURE:
                 set_heater_state("on")
                 heater_on = True
 
