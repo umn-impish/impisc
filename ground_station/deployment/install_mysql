@@ -1,6 +1,11 @@
 #!/bin/bash
 # Install and configure the MySQL server and database
 
+if [ ! -f /usr/local/bin/grafana.env ]; then
+    echo "/usr/local/bin/grafana.env not found! Exitting from install_mysql; add the file then rerun this script and those following."
+    exit 1
+fi
+
 source /usr/local/bin/grafana.env
 sudo apt install mariadb-server
 sudo systemctl start mysql
