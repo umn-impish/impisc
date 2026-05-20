@@ -1,5 +1,6 @@
 #!/bin/bash
 
+source /usr/local/bin/gcx_token.env
 gcx login default \
   --server http://localhost:3000 \
   --token $GRAFANA_API_TOKEN \
