@@ -72,7 +72,7 @@ def create_health_table():
     add_table_cols(HEALTH_TABLE_NAME, HEALTH_COLUMNS)
 
 
-def create_rtd_table():
+def create_temperature_table():
     add_table_cols(TEMPERATURE_TABLE_NAME, TEMPERATURE_COLUMNS)
 
 
@@ -91,7 +91,7 @@ def create_command_table():
 def main():
     create_db()
     create_health_table()
-    create_rtd_table()
+    create_temperature_table()
     create_quicklook_table()
     create_command_table()
 
