@@ -3,10 +3,6 @@
 # Delete Pi packages/services we don't need,
 # like video/audio and Bluetooth
 
-# Update packages
-sudo apt update
-sudo apt full-upgrade -y
-
 # Avahi: network device config. Useless
 sudo systemctl stop avahi-daemon
 sudo systemctl disable avahi-daemon
@@ -34,11 +30,23 @@ sudo apt purge -y \
     avahi-daemon bluez bluez-tools blueman\
     firmware-atheros firmware-brcm80211 firmware-libertas firmware-mediatek firmware-realtek\
     network-manager wpasupplicant
-sudo apt autoremove -y
-sudo apt autoclean -y
 
 # Disable auto updates
 sudo systemctl disable apt-daily.timer
 sudo systemctl disable apt-daily-upgrade.timer
 sudo systemctl mask apt-daily.service
 sudo systemctl mask apt-daily-upgrade.service
+
+# Completely remoev "cloud-init"
+sudo apt purge cloud-init
+sudo rm -rf /etc/cloud
+sudo rm -rf /var/lib/cloud
+
+# Autoremove at the very end
+sudo apt autoremove -y
+sudo apt autoclean -y
+
+
+# Update packages
+sudo apt update
+sudo apt full-upgrade -y

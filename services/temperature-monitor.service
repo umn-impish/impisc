@@ -1,5 +1,5 @@
 [Unit]
-Description=Sample the RTDs from the LTC2983 and forward them to udpcapture.
+Description=Sample the temperature and forward them to udpcapture.
 After=network.target
 StartLimitIntervalSec=0
 
@@ -7,7 +7,7 @@ StartLimitIntervalSec=0
 Type=simple
 WorkingDirectory=/usr/local/bin
 EnvironmentFile=/data/config/variables.env
-ExecStart=rtd_monitor
+ExecStart=temperature_monitor
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

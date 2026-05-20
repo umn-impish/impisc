@@ -1,6 +1,6 @@
 #!/python-venv/bin/python
 """
-Listens for RTD packets from IMPISH.
+Listens for temperature packets from IMPISH.
 The received packets are put into a MySQL database to be read
 and displayed by Grafana.
 
@@ -21,11 +21,11 @@ from impisc import logging, packets
 import impish_monitor as monitor
 
 
-LISTEN_PORT = int(os.environ["LOCAL_RTD_FWD_PORT"])
+LISTEN_PORT = int(os.environ["LOCAL_TEMPERATURE_FWD_PORT"])
 
 
 def insert_packet(
-    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.RTDPacket
+    db: PooledMySQLConnection | MySQLConnectionAbstract, packet: packets.TemperaturePacket
 ):
     """Insert the health packet into the database."""
     logging.log_debug(str(packet.timestamp))
@@ -37,7 +37,7 @@ def insert_packet(
     }
     cols.pop("timestamp")  # timestamp from packet...
     fmt = "%s, " * (len(cols) - 1) + "%s"
-    header = f"INSERT INTO {monitor.RTD_TABLE_NAME}"
+    header = f"INSERT INTO {monitor.TEMPERATURE_TABLE_NAME}"
 
     # Save the keys to ensure they remain ordered the same as the values
     keys = list(cols.keys())
@@ -57,7 +57,7 @@ def insert_packet(
 
 def main() -> Never:
     monitor.listener(
-        port=LISTEN_PORT, PacketClass=packets.RTDPacket, insert_func=insert_packet
+        port=LISTEN_PORT, PacketClass=packets.TemperaturePacket, insert_func=insert_packet
     )
 
 
