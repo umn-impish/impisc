@@ -24,7 +24,7 @@ SEQUENCE_IDS = {
 }
 PACKET_PORTS = {
     int(os.environ["LOCAL_HEALTH_FWD_PORT"]): packets.HealthPacket,
-    int(os.environ["RTD_UDPCAP_PORT"]): packets.TemperaturePacket,
+    int(os.environ["TEMPERATURE_UDPCAP_PORT"]): packets.TemperaturePacket,
     int(os.environ["QUICKLOOK_UDPCAP_PORT"]): packets.QuicklookPacket,
     int(os.environ["COMMAND_ROUTER_PORT"]): packets.CommandResponsePacket,
     int(os.environ["COMMAND_EXECUTOR_PORT"]): packets.CommandResponsePacket,

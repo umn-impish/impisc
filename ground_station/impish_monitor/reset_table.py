@@ -7,12 +7,12 @@ from . import (
     HEALTH_TABLE_NAME,
     QUICKLOOK_TABLE_NAME,
     COMMAND_TABLE_NAME,
-    RTD_TABLE_NAME,
+    TEMPERATURE_TABLE_NAME,
     connect,
 )
 from .initialize_database import (
     create_health_table,
-    create_rtd_table,
+    create_temperature_table,
     create_quicklook_table,
     create_command_table,
 )
@@ -20,7 +20,7 @@ from .initialize_database import (
 
 CREATE = {
     HEALTH_TABLE_NAME: create_health_table,
-    RTD_TABLE_NAME: create_rtd_table,
+    TEMPERATURE_TABLE_NAME: create_temperature_table,
     QUICKLOOK_TABLE_NAME: create_quicklook_table,
     COMMAND_TABLE_NAME: create_command_table,
 }
@@ -34,7 +34,7 @@ def delete_table(table_name: str):
 def main():
     for table in [
         HEALTH_TABLE_NAME,
-        RTD_TABLE_NAME,
+        TEMPERATURE_TABLE_NAME,
         QUICKLOOK_TABLE_NAME,
         COMMAND_TABLE_NAME,
     ]:

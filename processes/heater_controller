@@ -34,7 +34,7 @@ def set_heater_state(state: Literal["on", "off"]):
 
 
 def main():
-    """Infinitely loop, receiving RTD packets and comparing the RTDs
+    """Infinitely loop, receiving temperature packets and comparing the RTDs
     attached to the heaters against the trigger temperature.
     """
     set_heater_state("off")

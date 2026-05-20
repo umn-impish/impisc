@@ -82,8 +82,8 @@ class TemperaturePacket(ctypes.LittleEndianStructure):
     def __init__(self):
         super().__init__()
         # Don't want these to default to zero since that's a valid value...
-        for channel in range(1, 10):
-            setattr(self, f"temperature_rtd{channel}", self.NULL_RTD_VALUE)
+        for channel in range(0, 9):
+            setattr(self, f"temperature{channel}", self.NULL_RTD_VALUE)
 
 
 class PacketHeader(ctypes.LittleEndianStructure):

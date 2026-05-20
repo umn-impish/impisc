@@ -9,8 +9,8 @@ declare -a services=(
     "debug-waveform-udpcapture.service"
     "health-udpcapture.service"
     "quicklook-udpcapture.service"
-    "rtd-udpcapture.service"
     "science-udpcapture.service"
+    "temperature-udpcapture.service"
 )
 echo -n 00
 for service in "${services[@]}"; do

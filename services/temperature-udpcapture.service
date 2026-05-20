@@ -1,11 +1,11 @@
 [Unit]
-Description=Receive RTD packets, save them to files, and forward them elsewhere.
+Description=Receive temperature packets, save them to files, and forward them elsewhere.
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=start_rtd_udpcapture
+ExecStart=start_temperature_udpcapture
 StandardOutput=inherit
 StandardError=journal
 Restart=on-failure

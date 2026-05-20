@@ -1,7 +1,7 @@
 #!/bin/bash
 
 source /data/config/variables.env
-udpcapture --port $RTD_UDPCAP_PORT --base-filename '/data/health/impish_rtds' \
+udpcapture --port $TEMPERATURE_UDPCAP_PORT --base-filename '/data/health/impish_temperatures' \
 	--file-lifetime 300\
 	--forward-addrs "127.0.0.1:$HEADER_STAMPER_PORT"\
 	--forward-addrs "127.0.0.1:$HEATER_CONTROLLER_PORT"\

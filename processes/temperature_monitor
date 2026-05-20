@@ -14,10 +14,10 @@ from impisc.spi.devices import ltc2983
 
 
 VALID_CHANNELS = Literal[2, 4, 6, 8, 10, 12, 14, 16, 18]
-MY_PORT = int(os.getenv("RTD_MONITOR_PORT"))
-SEND_PORT = int(os.getenv("RTD_UDPCAP_PORT"))
-CADENCE_SECONDS = int(os.getenv("RTD_CADENCE"))
-RTD_VALUE_ERROR = -999
+MY_PORT = int(os.getenv("TEMPERATURE_MONITOR_PORT"))
+SEND_PORT = int(os.getenv("TEMPERATURE_UDPCAP_PORT"))
+CADENCE_SECONDS = int(os.getenv("TEMPERATURE_CADENCE"))
+RTD_VALUE_ERROR = -9990  # deciCelsius
 
 
 def main() -> Never:
