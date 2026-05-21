@@ -7,7 +7,7 @@ Just recalibrate the DAQBOX baseline
 import sys
 import time
 
-from impisc.et_daqbox import daq_box_api as dbapi
+from impisc.etdaqbox import daqbox_api as dbapi
 from impisc import logging
 
 cfg_file = "/data/config/daqbox_config.json"

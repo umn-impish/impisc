@@ -5,7 +5,7 @@ import socket
 import sys
 import time
 
-from impisc.et_daqbox import daq_box_api as dbapi
+from impisc.daqbox import daqbox_api as dbapi
 from impisc import logging
 
 mode = sys.argv[1]
