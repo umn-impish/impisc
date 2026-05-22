@@ -9,7 +9,6 @@ Will try a few times and fail if it doesn't work.
 An error is logged if it does not work, and the exit code is set to an error.
 """
 
-import os
 import statistics
 import sys
 import time
@@ -19,35 +18,29 @@ from impisc import logging
 
 
 def main():
-    iface = setup_daqbox()
-
     RECALIBRATION_ATTEMPTS = 5
     ALLOWED_BASELINE_VARIATION = 3
     for attempt in range(RECALIBRATION_ATTEMPTS):
-        logging.log_warning(f"attempt {1 + attempt} to recalibrate baseline (wait)")
+        iface = setup_daqbox()
+
+        logging.log_info(f"attempt {1 + attempt} to recalibrate baseline (wait)")
         iface.recalibrate_baseline()
         time.sleep(10)
 
         baseline = sample_baseline(iface, num_waveforms=10)
         baseline_good = abs(baseline["mean"]) < ALLOWED_BASELINE_VARIATION
         if baseline_good:
+            logging.log_info(
+                f"baseline was good: {baseline['mean']:.2f} +- {baseline['std']:.2f}"
+            )
             sys.exit(0)
-        else:
-            logging.log_error(f"Baseline recalibration failed (median = {baseline})")
 
-        power_daqbox("off")
-        time.sleep(2)
-        power_daqbox("on")
+        logging.log_error(f"Baseline recalibration failed ({baseline})")
+        iface.sock.close()
+        del iface
 
-    logging.log_critical(f"DAQBOX recalibration failed after {RECALIBRATION_ATTEMPTS}")
+    logging.log_critical(f"DAQBOX recalibration failed after {RECALIBRATION_ATTEMPTS} attempts")
     sys.exit(1)
-
-
-def power_daqbox(state: str) -> None:
-    """Change the power state of the DAQBOX to on or off"""
-    if state not in ("on", "off"):
-        raise ValueError(f"Only power on/off, not {state}")
-    os.system(f"toggle_power daqbox {state}")
 
 
 def sample_baseline(
@@ -76,7 +69,7 @@ def sample_baseline(
     medians = list()
     for _ in range(num_waveforms):
         wf_data = iface.recv()
-        wf = dbapi.parse_waveform_packet(wf_data)["dat"]
+        wf = dbapi.parse_waveform_packet(wf_data)["data"]
         medians.append(statistics.median(wf[quiet_slice]))
 
     # The median values should be basically the same,
@@ -103,6 +96,7 @@ def setup_daqbox() -> dbapi.DaqBoxInterface:
     iface.flush(max_iterations=1024)
 
     iface.send(cfg.to_packet())
+    return iface
 
 
 if __name__ == "__main__":
