@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 packages = [
     'scripts',
     'impisc',
-    'impisc.et_daqbox',
+    'impisc.daqbox',
     'impisc.i2c',
     'impisc.i2c.devices',
     'impisc.spi',
