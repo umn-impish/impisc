@@ -18,6 +18,8 @@ INSTRUMENT_HEATER_RTD_CHANNEL: int = 4
 ELECTRONICS_HEATER_RTD_CHANNEL: int = 4
 HEATER_TRIGGER_TEMPERATURE: int = int(os.getenv("HEATER_TRIGGER_TEMPERATURE"))
 HEATER_HYSTERESIS: int = int(os.getenv("HEATER_HYSTERESIS"))
+TURN_ON_TEMP = HEATER_TRIGGER_TEMPERATURE
+TURN_OFF_TEMP = HEATER_TRIGGER_TEMPERATURE + HEATER_HYSTERESIS
 MY_PORT: int = int(os.getenv("HEATER_CONTROLLER_PORT"))
 
 
@@ -38,6 +40,7 @@ def main():
     """
     set_heater_state("off")
     heater_on: bool = False
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("localhost", MY_PORT))
     logging.log_debug(f"Binding to port {MY_PORT}")
@@ -50,26 +53,21 @@ def main():
     while True:
         data: bytes = sock.recv(ctypes.sizeof(TemperaturePacket))
         packet: TemperaturePacket = TemperaturePacket.from_buffer_copy(data)
-        instrument_temperature: float = getattr(
-            packet, f"temperature{INSTRUMENT_HEATER_RTD_CHANNEL}"
-        )
-        electronics_temperature: float = getattr(
-            packet, f"temperature{ELECTRONICS_HEATER_RTD_CHANNEL}"
-        )
-        temps_to_compare: list[float] = []
-        for temp in [instrument_temperature, electronics_temperature]:
-            if temp != TemperaturePacket.NULL_RTD_VALUE:
-                temps_to_compare.append(temp)
-        if heater_on:
-            if (
-                max(temps_to_compare) / 10
-            ) > HEATER_TRIGGER_TEMPERATURE + HEATER_HYSTERESIS:
-                set_heater_state("off")
-                heater_on = False
-        else:
-            if (min(temps_to_compare) / 10) < HEATER_TRIGGER_TEMPERATURE:
-                set_heater_state("on")
-                heater_on = True
+
+        # TODO update once we assign the fields better names
+        temps_to_compare: list[float] = [
+            # Convert from decidegC to degC
+            t / 10
+            for t in [packet.temperature3, packet.temperature4]
+            if t != TemperaturePacket.NULL_RTD_VALUE
+        ]
+
+        if heater_on and (max(temps_to_compare) > TURN_OFF_TEMP):
+            set_heater_state("off")
+            heater_on = False
+        elif not heater_on and (min(temps_to_compare) < TURN_ON_TEMP):
+            set_heater_state("on")
+            heater_on = True
 
 
 if __name__ == "__main__":
