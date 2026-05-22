@@ -128,7 +128,7 @@ class DaqBoxInterface:
 
     def recalibrate_baseline(self):
         self.send(START_BASELINE_CALIBRATION)
-        sleep(0.1)
+        sleep(0.5)
         return self.send(END_BASELINE_CALIBRATION)
 
 
