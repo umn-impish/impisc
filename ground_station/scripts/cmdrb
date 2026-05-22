@@ -9,7 +9,6 @@ parsed into stdout and stderr.
 
 import argparse
 import os
-import textwrap
 
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -43,9 +42,11 @@ def get_line_chars() -> int:
 
 INSERT = "MISSING PACKET"
 WIDTH = get_line_chars() - 2
-NUM_BEFORE = (WIDTH-len(INSERT)) // 2
+NUM_BEFORE = (WIDTH - len(INSERT)) // 2
 NUM_AFTER = WIDTH - NUM_BEFORE - len(INSERT)
-FILL: bytes = b"[" + b"*" * (NUM_BEFORE) + bytes(INSERT, "utf-8") + b"*" * NUM_AFTER + b"]"
+FILL: bytes = (
+    b"[" + b"*" * (NUM_BEFORE) + bytes(INSERT, "utf-8") + b"*" * NUM_AFTER + b"]"
+)
 
 
 @dataclass
@@ -138,7 +139,7 @@ class Response:
                     unparsed = ""
         else:
             unparsed = unparsed.decode("utf-8")
-        
+
         return stdout, stderr, unparsed
 
     def print(self):
@@ -165,10 +166,15 @@ class Response:
                     continue
 
                 string = packet[k].decode("utf-8")
-                ascii_lines = [string[i:i+self.line_chars] for i in range(0, len(string), self.line_chars)]
+                ascii_lines = [
+                    string[i : i + self.line_chars]
+                    for i in range(0, len(string), self.line_chars)
+                ]
                 hex_lines = [a.encode("utf-8").hex(" ", 1) for a in ascii_lines]
                 ascii_lines[-1] = ascii_lines[-1].ljust(self.line_chars, ".")
-                ascii_lines = [a.replace("\n", ".").replace("\t", ".") for a in ascii_lines]
+                ascii_lines = [
+                    a.replace("\n", ".").replace("\t", ".") for a in ascii_lines
+                ]
                 print(f"\t[{num:>06}]", end="")
 
                 for i, (a, h) in enumerate(zip(ascii_lines, hex_lines)):
