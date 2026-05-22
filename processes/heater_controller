@@ -4,7 +4,6 @@ Basic heater control based on a low temperature threshold and hysteresis.
 All temperatures in units of degrees Celsius.
 """
 
-
 import ctypes
 import os
 import socket
@@ -42,19 +41,29 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("localhost", MY_PORT))
     logging.log_debug(f"Binding to port {MY_PORT}")
-    logging.log_debug(f"Instrument channel: {INSTRUMENT_HEATER_RTD_CHANNEL}\nElectronics channel: {ELECTRONICS_HEATER_RTD_CHANNEL}")
-    logging.log_debug(f"Heater trigger temperature {HEATER_TRIGGER_TEMPERATURE} C with hysteresis {HEATER_HYSTERESIS} C")
+    logging.log_debug(
+        f"Instrument channel: {INSTRUMENT_HEATER_RTD_CHANNEL}\nElectronics channel: {ELECTRONICS_HEATER_RTD_CHANNEL}"
+    )
+    logging.log_debug(
+        f"Heater trigger temperature {HEATER_TRIGGER_TEMPERATURE} C with hysteresis {HEATER_HYSTERESIS} C"
+    )
     while True:
         data: bytes = sock.recv(ctypes.sizeof(TemperaturePacket))
         packet: TemperaturePacket = TemperaturePacket.from_buffer_copy(data)
-        instrument_temperature: float = getattr(packet, f"temperature{INSTRUMENT_HEATER_RTD_CHANNEL}")
-        electronics_temperature: float = getattr(packet, f"temperature{ELECTRONICS_HEATER_RTD_CHANNEL}")
+        instrument_temperature: float = getattr(
+            packet, f"temperature{INSTRUMENT_HEATER_RTD_CHANNEL}"
+        )
+        electronics_temperature: float = getattr(
+            packet, f"temperature{ELECTRONICS_HEATER_RTD_CHANNEL}"
+        )
         temps_to_compare: list[float] = []
         for temp in [instrument_temperature, electronics_temperature]:
             if temp != TemperaturePacket.NULL_RTD_VALUE:
                 temps_to_compare.append(temp)
         if heater_on:
-            if (max(temps_to_compare) / 10) > HEATER_TRIGGER_TEMPERATURE + HEATER_HYSTERESIS:
+            if (
+                max(temps_to_compare) / 10
+            ) > HEATER_TRIGGER_TEMPERATURE + HEATER_HYSTERESIS:
                 set_heater_state("off")
                 heater_on = False
         else:
