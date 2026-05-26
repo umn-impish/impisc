@@ -4,7 +4,7 @@ import ctypes
 import time
 import socket
 import subprocess
-from impisc.et_daqbox import daq_box_api as dba
+from impisc.daqbox import daqbox_api as dba
 
 
 # DAQBOX framerate

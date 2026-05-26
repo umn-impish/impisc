@@ -3,7 +3,6 @@ import time
 
 from typing import TypeAlias
 
-
 class HealthPacket(ctypes.LittleEndianStructure):
     """
     The IMPISH health packet

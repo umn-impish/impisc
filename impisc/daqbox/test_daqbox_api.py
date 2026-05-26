@@ -1,4 +1,4 @@
-from impisc.et_daqbox import daq_box_api as dbapi
+from impisc.daqbox import daqbox_api as dbapi
 import tempfile
 import pathlib
 import pytest
