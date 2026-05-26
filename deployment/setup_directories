@@ -5,3 +5,6 @@ for d in $direcs; do
     sudo mkdir -p /data/$d
     sudo chmod 777 /data/$d
 done
+
+# Needed for proper permissions
+sudo chown -R root /data/journal

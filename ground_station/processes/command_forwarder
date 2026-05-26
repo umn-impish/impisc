@@ -4,13 +4,13 @@ Listens for commands submitted through Grafana and forwards them to IMPISH.
 """
 
 import argparse
-import json
 import socket
 import struct
 
 from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from flask import Flask, request
+from flask_cors import CORS
 from impisc import logging
 
 
@@ -33,39 +33,6 @@ class Forwarder:
             f"Sending command {command} to {self.forward_ip}:{self.forward_port}"
         )
         _ = sock.sendto(self.packetize(command), (self.forward_ip, self.forward_port))
-
-
-class Server(HTTPServer):
-    def __init__(self, address, request_handler, forwarder: Forwarder):
-        super().__init__(address, request_handler)
-        self.forwarder: Forwarder = forwarder
-
-
-class RequestHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers["Content-Length"])
-        data: bytes = self.rfile.read(content_length)
-        decoded: dict[str, str] = json.loads(data.decode("utf-8"))
-        logging.log_info(f"Received command data: {decoded}")
-        self.send_response(200)
-        self.end_headers()
-        _ = self.wfile.write(b"POST received")
-        self.server.forwarder.forward(decoded["command"])
-
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-
-
-def main() -> None:
-
-    args = parse_args()
-    forwarder = Forwarder(args.bind_port, args.impish_ip, args.impish_port)
-    server = Server(("0.0.0.0", args.http_port), RequestHandler, forwarder)
-    server.serve_forever()
 
 
 def parse_args() -> argparse.Namespace:
@@ -103,4 +70,16 @@ def parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    main()
+    app = Flask(__name__)
+    CORS(app)
+
+    args = parse_args()
+    forwarder = Forwarder(args.bind_port, args.impish_ip, args.impish_port)
+
+    @app.post("/receive")
+    def receive():
+        forwarder.forward(request.get_json()["command"])
+        return "command received"
+
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=args.http_port)

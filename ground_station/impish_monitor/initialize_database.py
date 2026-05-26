@@ -11,8 +11,8 @@ from . import (
     DB_NAME,
     HEALTH_TABLE_NAME,
     HEALTH_COLUMNS,
-    RTD_TABLE_NAME,
-    RTD_COLUMNS,
+    TEMPERATURE_TABLE_NAME,
+    TEMPERATURE_COLUMNS,
     QUICKLOOK_TABLE_NAME,
     QUICKLOOK_COLUMNS,
     COMMAND_TABLE_NAME,
@@ -72,8 +72,8 @@ def create_health_table():
     add_table_cols(HEALTH_TABLE_NAME, HEALTH_COLUMNS)
 
 
-def create_rtd_table():
-    add_table_cols(RTD_TABLE_NAME, RTD_COLUMNS)
+def create_temperature_table():
+    add_table_cols(TEMPERATURE_TABLE_NAME, TEMPERATURE_COLUMNS)
 
 
 def create_quicklook_table():
@@ -91,7 +91,7 @@ def create_command_table():
 def main():
     create_db()
     create_health_table()
-    create_rtd_table()
+    create_temperature_table()
     create_quicklook_table()
     create_command_table()
 

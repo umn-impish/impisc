@@ -17,5 +17,10 @@ sleep 10
 
 # Recalibrate the baseline before science begins
 recalibrate_daqbox
+if [ $? -ne 0 ]; then
+    stop_science
+    echo "<2> Failed to recalibrate DAQBOX after several attempts" >&2
+    exit 1
+fi
 
 sudo systemctl start nominal-science.service

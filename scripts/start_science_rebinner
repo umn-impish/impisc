@@ -1,6 +1,5 @@
 #!/bin/bash
 
 # Don't rebin anything
-bins=""
 source /data/config/variables.env
-daqbox-rebinner $SCIENCE_REBINNER_PORT $SCIENCE_UDPCAP_PORT 1 "$bins"
+daqbox-rebinner $SCIENCE_REBINNER_PORT $SCIENCE_UDPCAP_PORT 1 "$SCIENCE_REBIN_BINS"

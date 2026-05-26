@@ -1,18 +1,103 @@
 #!/python-venv/bin/python
 
 """
-Just recalibrate the DAQBOX baseline
+Recalibrate the DAQBOX baseline and verify that it's good.
+If it isn't good (there is a large DC offset from zero),
+turn it off/on and try again.
+
+Will try a few times and fail if it doesn't work.
+An error is logged if it does not work, and the exit code is set to an error.
 """
 
-import os
-import socket
+import statistics
 import sys
 import time
 
-from impisc.et_daqbox import daq_box_api as dbapi
+from impisc.daqbox import daqbox_api as dbapi
 from impisc import logging
 
-iface = dbapi.DaqBoxInterface()
-logging.log_warning("recalibrate baseline (wait)")
-iface.recalibrate_baseline()
-time.sleep(10)
+
+def main():
+    RECALIBRATION_ATTEMPTS = 5
+    ALLOWED_BASELINE_VARIATION = 3
+    for attempt in range(RECALIBRATION_ATTEMPTS):
+        iface = setup_daqbox()
+
+        logging.log_info(f"attempt {1 + attempt} to recalibrate baseline (wait)")
+        iface.recalibrate_baseline()
+        time.sleep(10)
+
+        baseline = sample_baseline(iface, num_waveforms=10)
+        baseline_good = abs(baseline["mean"]) < ALLOWED_BASELINE_VARIATION
+        if baseline_good:
+            logging.log_info(
+                f"baseline was good: {baseline['mean']:.2f} +- {baseline['std']:.2f}"
+            )
+            sys.exit(0)
+
+        logging.log_error(f"Baseline recalibration failed ({baseline})")
+        iface.sock.close()
+        del iface
+
+    logging.log_critical(f"DAQBOX recalibration failed after {RECALIBRATION_ATTEMPTS} attempts")
+    sys.exit(1)
+
+
+def sample_baseline(
+    iface: dbapi.DaqBoxInterface, num_waveforms: int
+) -> dict[str, float]:
+    """
+    Acquire N waveforms from the DAQBOX and, from those,
+    compute the baseline computed for the channels.
+    The baseline is computed from the median of a (hopefully) quiet interval,
+    once per waveform acquired.
+    The mean and stddev of the are N waveforms are returned.
+    """
+    cfg = load_config()
+    cfg.acquisition_mode = "waveform"
+    iface.send(dbapi.STOP, expect_handshake=False)
+    # Clear old packets
+    iface.flush(max_iterations=1024)
+
+    iface.send(cfg.to_packet())
+    iface.send(dbapi.START)
+    iface.sock.setblocking(True)
+
+    # The period right after a pulse is usually quiet,
+    # at least at low count rates.
+    quiet_slice = slice(250, 300)
+    medians = list()
+    for _ in range(num_waveforms):
+        wf_data = iface.recv()
+        wf = dbapi.parse_waveform_packet(wf_data)["data"]
+        medians.append(statistics.median(wf[quiet_slice]))
+
+    # The median values should be basically the same,
+    # but take an average just for the hell of it
+    return {"mean": statistics.mean(medians), "std": statistics.stdev(medians)}
+
+
+def load_config() -> dbapi.DaqBoxConfig:
+    cfg_file = "/data/config/daqbox_config.json"
+    if len(sys.argv) > 1:
+        cfg_file = sys.argv[1]
+
+    return dbapi.DaqBoxConfig.from_file(cfg_file)
+
+
+def setup_daqbox() -> dbapi.DaqBoxInterface:
+    cfg = load_config()
+    iface = dbapi.DaqBoxInterface()
+
+    # Could be taking data.
+    # Stop the acquisition,
+    # drop the packets, and get ready for recalibration
+    iface.send(dbapi.STOP, expect_handshake=False)
+    iface.flush(max_iterations=1024)
+
+    iface.send(cfg.to_packet())
+    return iface
+
+
+if __name__ == "__main__":
+    main()

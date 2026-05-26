@@ -1,0 +1,6 @@
+#!/bin/bash
+
+env_file="/usr/local/bin/grafana.env"
+if ! grep -q "$env_file" "$HOME/.bashrc"; then
+    echo "source $env_file" >> "$HOME/.bashrc"
+fi
