@@ -13,7 +13,9 @@ sudo chmod 644 /etc/apt/keyrings/grafana.asc
 echo "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
 
 sudo apt update
-sudo apt modernize-sources -y
+if [ ! -f "/etc/apt/sources.list.d/grafana.sources" ]; then
+    sudo apt modernize-sources -y
+fi
 sudo apt install grafana
 
 sudo cp grafana-server.service /usr/lib/systemd/system/
