@@ -8,7 +8,7 @@ for s in $processes; do
 done
 
 # Install all .service files and enable them
-services=$(find ../services/ -maxdepth 1 -type f -name "*.service" -printf "%f  ")
+services="../services/*.service"
 for s in $services; do
     echo $s
     sudo cp "../services/$s" "/etc/systemd/system"
@@ -23,7 +23,7 @@ for s in $services; do
 done
 
 # Install all .timer files and enable them
-timers=$(find ../services/ -maxdepth 1 -type f -name "*.timer" -printf "%f  ")
+timers="../services/*.timer"
 for t in $timers; do
     echo $t
     sudo cp "../services/$t" "/etc/systemd/system"
