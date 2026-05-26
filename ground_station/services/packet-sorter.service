@@ -11,7 +11,7 @@ StandardOutput=journal
 StandardError=journal
 Restart=on-failure
 RestartSec=5
-User=impish
+User=grimpish
 
 [Install]
 WantedBy=multi-user.target
