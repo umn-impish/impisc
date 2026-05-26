@@ -4,14 +4,13 @@ After=network.target
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
-WorkingDirectory=/home/impish/
+Type=oneshot
 ExecStart=download_dashboards
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure
 RestartSec=5
-User=impish
+User=grimpish
 
 [Install]
 WantedBy=multi-user.target

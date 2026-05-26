@@ -2,22 +2,37 @@
 # Install systemd services and associated process programs
 
 # Install all processes
-processes=$(ls ../processes)
-for s in $processes; do
-    sudo cp "../processes/$s" "/usr/local/bin"
+processes="../processes/*"
+for p in $processes; do
+    echo $p
+    sudo cp $p "/usr/local/bin/"
 done
 
 # Install all .service files and enable them
-services=$(find ../services/ -maxdepth 1 -type f -name "*.service" -printf "%f  ")
+services="../services/*.service"
 for s in $services; do
     echo $s
-    sudo cp "../services/$s" "/etc/systemd/system"
+    sudo cp $s "/etc/systemd/system"
 done
 sudo cp "../services/gs-variables.env" "/usr/local/bin"
 sudo cp "../../services/variables.env" "/usr/local/bin"
 
 sudo systemctl daemon-reload
 for s in $services; do
+    s=$(basename $s)
     sudo systemctl enable "$s"
     sudo systemctl restart "$s"
+done
+
+# Install all .timer files and enable them
+timers="../services/*.timer"
+for t in $timers; do
+    sudo cp $t "/etc/systemd/system"
+done
+
+sudo systemctl daemon-reload
+for t in $timers; do
+    t=$(basename $t)
+    sudo systemctl enable "$t"
+    sudo systemctl restart "$t"
 done
