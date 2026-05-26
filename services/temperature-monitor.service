@@ -1,5 +1,5 @@
 [Unit]
-Description=Sample the temperature and forward them to udpcapture.
+Description=Sample the temperature sensors and forward the samples to udpcapture
 After=network.target
 StartLimitIntervalSec=0
 
