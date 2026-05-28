@@ -12,6 +12,7 @@ quicklook-udpcapture.service
 science-rebinner.service
 science-redirector.service
 science-udpcapture.service
+ssh-vpn.service
 system-health.service
 temperature-monitor.service
 temperature-udpcapture.service

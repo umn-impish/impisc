@@ -1,0 +1,14 @@
+[Unit]
+Description=Persistent SSH VPN configuration
+After=ssh-vpn.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=ip addr add 10.0.0.2 peer 10.0.0.1/30 dev tun0
+ExecStart=ip link set tun0 up
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
