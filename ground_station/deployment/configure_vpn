@@ -1,0 +1,7 @@
+#!/bin/bash
+
+sudo apt install networkd-dispatcher
+sudo systemctl enable --now networkd-dispatcher.service
+sudo mkdir -p /etc/networkd-dispatcher/off.d
+sudo cp tun0-trigger.sh /etc/networkd-dispatcher/off.d
+/etc/networkd-dispatcher/off.d/tun0-trigger.sh
