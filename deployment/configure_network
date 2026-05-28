@@ -5,6 +5,9 @@ sudo systemctl disable NetworkManager
 sudo systemctl enable systemd-networkd
 sudo systemctl start systemd-networkd
 
+# Allow tunnel for SSH VPN
+sudo sed -i 's/#PermitTunnel no/PermitTunnel yes/g' /etc/ssh/sshd_config
+
 # Use the "predictable" net names instead of eth0, eth1, etc.
 # Requires a reboot
 sudo raspi-config nonint do_net_names 0
