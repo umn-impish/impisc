@@ -1,8 +1,10 @@
 #!/bin/bash -l
 # Do the -l option so the path gets updated from .bashrc
+# Use gcx to pull the dashboard JSON files from Grafana.
+# The API token used is automatically generated during
+# the ground station deployment.
 
 source /usr/local/bin/gcx_token.env
-
 gcx login default \
   --server http://localhost:3000 \
   --token $GRAFANA_API_TOKEN \
