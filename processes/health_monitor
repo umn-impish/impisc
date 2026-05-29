@@ -1,5 +1,10 @@
 #!/python-venv/bin/python
-
+"""
+Probe and collate various health data for the entire system,
+including but not limited to: temperatures, CPU usage, RAM
+usage, voltages, etc. This data is collected in parallel
+and then forwarded to the header stamper.
+"""
 
 import os
 import socket
