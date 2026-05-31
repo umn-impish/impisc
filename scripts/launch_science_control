@@ -1,4 +1,4 @@
 #!/bin/bash
 
 source /data/config/variables.env
-science_control -p $RAW_SCIENCE_RECV_PORT -c "/data/config/daqbox_config.json"
+science_control -p $RAW_SCIENCE_RECV_PORT -c "/data/config/daqbox_config.json" -t $SCIENCE_TIME_BETWEEN_WAVEFORMS -w $DEBUG_WAVEFORM_PORT
