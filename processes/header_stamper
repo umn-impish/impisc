@@ -41,7 +41,7 @@ def make_header(recv_port: int, packet_size: int) -> packets.PacketHeader:
     header.packet_number = SEQUENCE_IDS["total"]
     header.sequence_number = SEQUENCE_IDS[PacketClass]
     header.packet_size = packet_size
-    logging.log_info(
+    logging.log_debug(
         f"Packet type {PacketClass}\nID: {header.id}  NUM: {header.packet_number}  "
         + f"SEQ: {header.sequence_number:>6}  SIZE: {header.packet_size:>5}"
     )
