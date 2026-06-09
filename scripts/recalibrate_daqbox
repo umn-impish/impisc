@@ -65,7 +65,7 @@ def sample_baseline(
 
     # The period right after a pulse is usually quiet,
     # at least at low count rates.
-    quiet_slice = slice(250, 300)
+    quiet_slice = slice(0, 40)
     medians = list()
     for _ in range(num_waveforms):
         wf_data = iface.recv()
