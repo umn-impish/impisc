@@ -41,6 +41,14 @@ def parse_args() -> argparse.Namespace:
         type=int,
     )
     parser.add_argument(
+        "-n",
+        "--num_wforms",
+        required=False,
+        help="The number of waveforms to acquire during each periodic acquisition",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
         "-w",
         "--waveform_port",
         required=False,
@@ -112,8 +120,9 @@ def main():
 
             # Take a single waveform and save it
             _ = daqbox.send(dba.START, expect_handshake=True)
-            wform = daqbox.recv()
-            sock.sendto(bytes(ctypes.c_uint32(timestamp)) + wform, waveform_destination)
+            for i in range(args.num_wforms):
+                wform = daqbox.recv()
+                sock.sendto(wform, waveform_destination)
 
             # Return to spectrum mode
             _ = daqbox.send(dba.STOP, expect_handshake=False)
@@ -127,6 +136,7 @@ def main():
             _ = daqbox.send(dba.START, expect_handshake=True)
             # Set the daqbox receive socket to block for data
             daqbox.sock.setblocking(True)
+            daqbox.flush(max_iterations=128)
 
         if timestamp_counter == 0:
             # A full second has passed, or we are
