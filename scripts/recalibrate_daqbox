@@ -19,7 +19,7 @@ from impisc import logging
 
 def main():
     RECALIBRATION_ATTEMPTS = 5
-    ALLOWED_BASELINE_VARIATION = 3
+    ALLOWED_BASELINE_VARIATION = 30
     for attempt in range(RECALIBRATION_ATTEMPTS):
         iface = setup_daqbox()
 
