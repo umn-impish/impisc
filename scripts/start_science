@@ -2,9 +2,12 @@
 
 source /data/config/variables.env
 
-turn_me_on="1 2 3 4 daqbox bias"
-for ch in $turn_me_on; do
-    toggle_power $ch on
+
+# Turn on the bias and daqbox and one preamp channel for initial
+# recalibration
+turn_me_on="3 daqbox bias"
+for t in $turn_me_on; do
+    toggle_power $t
 done
 
 # Wait for power to stabilize
@@ -17,10 +20,18 @@ sleep 10
 
 # Recalibrate the baseline before science begins
 recalibrate_daqbox
+
 if [ $? -ne 0 ]; then
     stop_science
     echo "<2> Failed to recalibrate DAQBOX after several attempts" >&2
     exit 1
 fi
+
+# Turn on the rest of the preamplifier channels
+turn_me_on="1 2 4"
+for t in $turn_me_on; do
+    toggle_power $t
+done
+sleep 1
 
 sudo systemctl start nominal-science.service
