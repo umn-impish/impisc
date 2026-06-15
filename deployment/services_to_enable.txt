@@ -7,6 +7,7 @@ gpio-ownership-init.service
 header-stamper.service
 health-udpcapture.service
 heater-controller.service
+packet-encryptor.service
 quicklook.service
 quicklook-udpcapture.service
 science-rebinner.service
