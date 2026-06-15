@@ -1,0 +1,29 @@
+#!/python-venv/bin/python
+
+import base64
+import socket
+import sys
+
+from cryptography.fernet import Fernet
+
+from_port = int(sys.argv[1])
+dest_port = int(sys.argv[2])
+dest_ip = sys.argv[3]
+orig_passphrase = sys.argv[4]
+
+if len(orig_passphrase) < 32:
+    raise ValueError("Packet passphrase needs to have length >= 32.")
+passphrase = base64.urlsafe_b64encode(orig_passphrase[:32].encode("utf-8"))
+crypto_suite = Fernet(passphrase)
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(("", from_port))
+while True:
+    data = sock.recv(2048)
+    
+    # Fernet encryption requires packets of length divisible by 4
+    remainder = len(data) % 4
+    data = data + (remainder * b"\x00")
+
+    encrypted = crypto_suite.encrypt(data)
+    sock.sendto(encrypted, (dest_ip, dest_port))

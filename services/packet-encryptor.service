@@ -1,0 +1,19 @@
+[Unit]
+Description=Accept IMPISH packets, encrypt them with symmetric encryption, and forward them out of the system.
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=/usr/local/bin
+EnvironmentFile=/data/config/variables.env
+EnvironmentFile=/data/config/systemd-secrets.env
+ExecStart=packet-encryptor ${ENDPOINT_PORT} ${UMN_RECV_PORT} ${UMN_RECV_IP} ${IMPISH_PACKET_PASSPHRASE}
+StandardOutput=inherit
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+User=impish
+
+[Install]
+WantedBy=multi-user.target
