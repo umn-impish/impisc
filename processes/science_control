@@ -3,12 +3,28 @@ import argparse
 import ctypes
 import time
 import socket
+import sys
 import subprocess
 from impisc.daqbox import daqbox_api as dba
+from impisc import logging
 
 
 # DAQBOX framerate
 FRAMERATE = 32
+daqbox = None
+
+
+def setup_sigint():
+    """The SIGINT (Ctrl + C) signal is used at an interactive terminal as well as
+    the `timeout` command. Handle it here by telling the DAQBOX to stop data acquisition
+    and close its socket gracefully."""
+    logging.log_info("closing science_control from SIGINT")
+    if daqbox is None:
+        sys.exit(0)
+
+    daqbox.send(dba.STOP, expect_handshake=False)
+    daqbox.sock.close()
+    sys.exit(0)
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,7 +69,12 @@ def init_daqbox(config_file: str) -> dba.DaqBoxInterface:
 
 
 def main():
+    setup_sigint()
     args = parse_args()
+
+    # Specify that we're modifying the global
+    # state so the variable can be accessed elsewhere
+    global daqbox
     daqbox = init_daqbox(args.config_file)
 
     # Start up a UDP socket for forwarding data
