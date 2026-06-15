@@ -1,0 +1,49 @@
+#!/python-venv/bin/python
+
+import base64
+import os
+import socket
+
+from cryptography.fernet import Fernet, InvalidToken
+from impisc import logging, packets
+
+
+def main():
+    passphrase_env = "IMPISH_PACKET_PASSPHRASE"
+    original_phrase = os.getenv(passphrase_env)
+    if original_phrase is None or len(original_phrase) < 32:
+        raise ValueError(
+            f"Packet passphrase ({passphrase_env}) needs to be at least 32 characters"
+        )
+
+    passphrase = base64.urlsafe_b64encode(original_phrase.encode("utf-8")[:32])
+    crypto_suite = Fernet(passphrase)
+
+    dest_port = os.getenv("DUMP_PORT")
+
+    recv_port = int(os.getenv("UMN_RECV_PORT"))
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", recv_port))
+    while True:
+        data, addr = sock.recvfrom(2048)
+
+        try:
+            decrypted = crypto_suite.decrypt(data)
+            # Verify the header/packet construction and discard the result
+            _ = packets.split(decrypted)
+        except InvalidToken:
+            logging.log_warning(f"Received invalid data from {addr}")
+            continue
+        except IndexError:
+            logging.log_warning(f"Invalid header from {addr}")
+            continue
+        except ValueError:
+            logging.log_warning(f"Invalid packet size from {addr}")
+            continue
+
+        # Forward to the udpcapture process running locally
+        sock.sendto(decrypted, ("127.0.0.1", dest_port))
+
+
+if __name__ == "__main__":
+    main()

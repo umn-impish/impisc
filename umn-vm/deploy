@@ -1,3 +1,19 @@
 #!/bin/bash
 
+# Set up system-wide Python venv
+sudo python3 -m venv /python3-venv
+pushd /
+sudo rm -rf python-venv
+sudo mkdir python-venv
+sudo chmod -R 777 python-venv
+python3 -m venv python-venv
+source python-venv/bin/activate
+
+popd
+pip install ..
+
+# Install the verifier program
+sudo cp verifier /usr/local/bin
+
+# Install the systemd service that will run the verifier program
 # TODO
