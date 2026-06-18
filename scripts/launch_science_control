@@ -1,4 +1,12 @@
 #!/bin/bash
 
 source /data/config/variables.env
-science_control -p $RAW_SCIENCE_RECV_PORT -c "/data/config/daqbox_config.json"
+
+# Periodically take waveforms by timing out the science_control process
+while true; do
+    # Max of 10s to get waveforms, then quit that process
+    timeout 10 debug_daqbox_waveform $NUM_PERIODIC_WAVEFORMS
+    # Run the science process for the specified time (timeout), then send it SIGINT
+    timeout $SCIENCE_WAVEFORM_CADENCE science_control -p $RAW_SCIENCE_RECV_PORT -c "/data/config/daqbox_config.json"
+    echo "Timed out science control; taking waveforms"
+done
