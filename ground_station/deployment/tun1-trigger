@@ -1,9 +1,9 @@
 #!/bin/bash
 # Configure the addresses for the SSH VPN on tun1
 # This script should be automatically executed by
-# networkd-dispatcher if tun1 ever goes down.
+# networkd-dispatcher if tun1 ever goes down or
+# the wifi network is established (e.g. during boot).
 
-#!/bin/bash
 IFACE=$1
 EVENT=$2
 
