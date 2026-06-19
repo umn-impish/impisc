@@ -1,0 +1,12 @@
+#!/bin/bash
+# Configure the addresses for the SSH VPN on tun1
+# This script should be automatically executed by
+# networkd-dispatcher if tun1 ever goes down.
+
+#!/bin/bash
+IFACE=$1
+EVENT=$2
+
+if [ ! "$IFACE" = "tun1" ] && [ ! "$IFACE" = "wlp0s20f3" ]; then exit 1; fi
+ip addr add 10.1.0.2 peer 10.1.0.1/30 dev tun1
+ip link set tun1 up
