@@ -4,8 +4,12 @@ source /data/config/variables.env
 
 # Periodically take waveforms by timing out the science_control process
 while true; do
-    # Max of 10s to get waveforms, then quit that process
-    timeout 10 debug_daqbox_waveform $NUM_PERIODIC_WAVEFORMS
+    for channel in {0..3}; do
+        timeout 3 debug_daqbox_waveform $NUM_PERIODIC_WAVEFORMS $channel
+        if [ $? -eq 124 ]; then
+            echo "<4> channel $channel timed out during periodic waveform acquisition" >&2
+        fi
+    done
     # Run the science process for the specified time (timeout), then send it SIGINT
     timeout $SCIENCE_WAVEFORM_CADENCE science_control -p $RAW_SCIENCE_RECV_PORT -c "/data/config/daqbox_config.json"
     echo "Timed out science control; taking waveforms"
