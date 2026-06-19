@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Install all .service files and enable them
+services="../services/*.service"
+for s in $services; do
+    echo copying $s
+    sudo cp $s "/etc/systemd/system"
+done
+
+sudo mkdir -p /data/packets
+sudo mkdir -p /data/config
+sudo cp "../services/lightsail.env" "/data/config/"
+sudo chown impish:impish -R /data/
+
+sudo systemctl daemon-reload
+for s in $services; do
+    s=$(basename $s)
+    sudo systemctl enable "$s"
+    sudo systemctl restart "$s"
+done
