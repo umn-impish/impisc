@@ -10,6 +10,7 @@ done
 sudo mkdir -p /data/packets
 sudo mkdir -p /data/config
 sudo cp "../services/lightsail.env" "/data/config/"
+sudo cp "../../services/variables.env" "/data/config"
 sudo chown impish:impish -R /data/
 
 sudo systemctl daemon-reload

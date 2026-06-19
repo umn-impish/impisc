@@ -4,11 +4,12 @@ After=network-online.target
 
 [Service]
 User=impish
+EnvironmentFile=/data/config/variables.env
 EnvironmentFile=/data/config/lightsail.env
-ExecStart=udpcapture --port ${PACKETS_FROM_IMPISH_PORT} \
+ExecStart=udpcapture --port ${ENDPOINT_PORT} \
     --base-filename '/data/packets/dump' \
     --file-lifetime 30 \
-    --forward-addrs ${GROUNDSTATION_IP}:${PACKETS_TO_GS_PORT} \
+    --forward-addrs ${GROUNDSTATION_IP}:${ENDPOINT_PORT} \
     --post-process-cmd 'bzip2 $out_file'
 Restart=always
 RestartSec=5
