@@ -1,9 +1,8 @@
 #!/bin/bash
+# Execute tun1-trigger when network access is established.
 
 IFACE=$1
 ACTION=$2
-
-# Run your code when the primary interface (e.g., eth0) comes UP
 if [ "$IFACE" = "wlp0s20f3" ] && [ "$ACTION" = "up" ]; then
     etc/NetworkManager/dispatcher.d/tun1-trigger
 fi
