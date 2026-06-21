@@ -5,8 +5,14 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <time.h>
 
 int main(int argc, char *argv[]) {
+    long delay = 0;
+    if (argc > 1) {
+        delay = atol(argv[1]);
+    }
+
     int mem_fd = open("/dev/gpiomem", O_RDWR | O_SYNC);
     if (mem_fd < 0) {
         perror("Can't open /dev/gpiomem");
@@ -30,10 +36,14 @@ int main(int argc, char *argv[]) {
 
     volatile uint32_t *gpio = (volatile uint32_t *)gpio_map;
 
-    constexpr auto BYTE_IDX_SCALE = 4;
+    constexpr uint32_t BYTE_IDX_SCALE = 4;
     constexpr ptrdiff_t GPSET0_OFFSET = 0x1c;
-    // Set the preamplifier channels HIGH simultaneously
-    gpio[GPSET0_OFFSET / BYTE_IDX_SCALE] = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7);
+    struct timespec ts = {.tv_sec = 0, .tv_nsec = delay};
+    constexpr uint32_t gpios[] = {4, 5}; //, 6, 7};
+    for (size_t i = 0; i < ((sizeof gpios) / 4); ++i) {
+	    gpio[GPSET0_OFFSET / BYTE_IDX_SCALE] = (1 << gpios[i]);
+	    nanosleep(&ts, NULL);
+    }
 
     return 0;
 }
