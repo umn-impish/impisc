@@ -10,11 +10,18 @@ network:
     ethernets:
         # Gondola ethernet
         end0:
-            dhcp4: yes
-            dhcp6: yes
+            dhcp4: no
+            dhcp4-overrides:
+                use-dns: false
+                use-routes: false
+                use-ntp: false
+            dhcp6: no
             routes:
                 - to: default
-                  via: 10.42.0.1
+                  via: 192.168.5.1
+                  on-link: true
+            addresses:
+                - 192.168.5.2/24
             nameservers:
                 addresses: [1.1.1.1, 8.8.8.8]
         # Daqbox

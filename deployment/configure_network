@@ -13,4 +13,10 @@ fn="01-impish.yaml"
 sudo cp $fn /etc/netplan/
 cd /etc/netplan
 sudo chmod 600 $fn
+sudo netplan generate
 sudo netplan apply
+
+# For some reason, modifying this by hand helps solve connection issues.
+sudo rm /etc/resolv.conf
+echo 'nameserver 1.1.1.1' | sudo tee -a /etc/resolv.conf
+echo 'nameserver 8.8.8.8' | sudo tee -a /etc/resolv.conf
