@@ -1,0 +1,4 @@
+#!/bin/bash
+exec='preamps-on'
+gcc -std=gnu23 -Ofast -o $exec $exec.c
+strip $exec
