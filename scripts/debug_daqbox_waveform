@@ -2,4 +2,5 @@
 
 source /data/config/variables.env
 export DEBUG_WAVEFORM_PORT
-debug_daqbox waveform $1
+[ $# -eq 1 ] && debug_daqbox waveform $1
+[ $# -eq 2 ] && debug_daqbox waveform $1 $2
