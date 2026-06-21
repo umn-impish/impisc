@@ -1,3 +1,4 @@
+# Uses ssh key that must be manually generayed
 [Unit]
 Description=Persistent SSH VPN
 After=network-online.target
