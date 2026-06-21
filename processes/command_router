@@ -69,6 +69,9 @@ class CommandStepper:
             - executes commands (affects rest of system)
         """
         command: str = self.sock.recv(GONDOLA_MTU).decode("utf-8")
+        if len(command) == 0:
+            logging.log_debug(f"Discarding zero-length packet")
+            return None
         response: packets.CommandResponsePacket | None = None
         match (command, self.locked):
             case (x, _) if x in SPECIAL_COMMANDS:

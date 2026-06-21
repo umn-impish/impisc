@@ -1,0 +1,9 @@
+#!/bin/bash
+
+sudo apt install networkd-dispatcher
+sudo systemctl enable --now networkd-dispatcher.service
+sudo mkdir -p /etc/networkd-dispatcher/off.d
+sudo cp tun1-trigger /etc/networkd-dispatcher/off.d
+sudo sed -i 's/#PermitTunnel no/PermitTunnel yes/g' /etc/ssh/sshd_config
+sudo systemctl daemon-reload
+sudo systemctl restart ssh sshd networkd-dispatcher
