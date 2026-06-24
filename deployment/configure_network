@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Enable systemd-networkd instead of NetworkManager
-sudo systemctl disable NetworkManager
+sudo systemctl disable --now NetworkManager
 sudo systemctl enable systemd-networkd
 sudo systemctl start systemd-networkd
 
@@ -9,14 +9,11 @@ sudo systemctl start systemd-networkd
 # Requires a reboot
 sudo raspi-config nonint do_net_names 0
 
-fn="01-impish.yaml"
-sudo cp $fn /etc/netplan/
-cd /etc/netplan
-sudo chmod 600 $fn
-sudo netplan generate
-sudo netplan apply
-
 # For some reason, modifying this by hand helps solve connection issues.
 sudo rm /etc/resolv.conf
 echo 'nameserver 1.1.1.1' | sudo tee -a /etc/resolv.conf
 echo 'nameserver 8.8.8.8' | sudo tee -a /etc/resolv.conf
+
+# Put these in the config directory in preparation for the configuration service
+sudo cp 01-impish-dhcp.yaml /data/config
+sudo cp 01-impish-static.yaml /data/config

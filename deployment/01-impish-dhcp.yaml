@@ -1,0 +1,29 @@
+# IMPISH netplan
+# NB: run the deployment script to disable NetworkManager and delete
+# its auto-generated config files.
+# The netework deply script also tells the Pi to use predictable names
+# instead of eth0, eth1, etc.
+
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        # Gondola ethernet
+        end0:
+            dhcp4: yes
+            dhcp6: yes
+        # Daqbox
+        enp1s0:
+            dhcp4: no
+            # Keep the networkd from trying to connect
+            # to anything except the DAQBOX
+            dhcp4-overrides:
+                use-routes: no
+                use-domains: no
+                use-ntp: no
+                use-dns: no
+                send-hostname: no
+                use-mtu: no
+            dhcp6: no
+            addresses:
+                - 192.168.0.3/24

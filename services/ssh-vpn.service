@@ -1,8 +1,8 @@
 # Uses ssh key that must be manually generayed
 [Unit]
 Description=Persistent SSH VPN
-After=network-online.target
 StartLimitIntervalSec=0
+After=try-dhcp.service
 
 [Service]
 User=root

@@ -16,3 +16,4 @@ ssh-vpn.service
 system-health.service
 temperature-monitor.service
 temperature-udpcapture.service
+try-dhcp.service
