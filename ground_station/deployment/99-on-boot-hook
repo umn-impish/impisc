@@ -4,5 +4,5 @@
 IFACE=$1
 ACTION=$2
 if [ "$IFACE" = "wlp0s20f3" ] && [ "$ACTION" = "up" ]; then
-    etc/NetworkManager/dispatcher.d/tun1-trigger
+    etc/NetworkManager/dispatcher.d/tun1-trigger tun1 down
 fi

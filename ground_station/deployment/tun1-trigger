@@ -7,6 +7,14 @@
 IFACE=$1
 EVENT=$2
 
-if [ ! "$IFACE" = "tun1" ] && [ ! "$IFACE" = "wlp0s20f3" ]; then exit 1; fi
+if [ ! "$IFACE" = "tun1" ] || [ ! "$EVENT" = "down" ]; then exit 1; fi
 ip addr add 10.1.0.2 peer 10.1.0.1/30 dev tun1
 ip link set tun1 up
+while ! ping -c 1 -W 2 10.1.0.1 > /dev/null 2>&1; do
+    ip addr del 10.1.0.2/30 dev tun1  # had a case where tun was configured but with no IP
+    echo "$IFACE is down... $(date)" >> /var/log/tun1_checker.log
+    ip addr add 10.1.0.2 peer 10.1.0.1/30 dev tun1
+    ip link set tun1 up
+    sleep 1
+done
+echo "$IFACE connection restored $(date)" >> /var/log/tun1_checker.log
