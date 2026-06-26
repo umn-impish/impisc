@@ -1,0 +1,5 @@
+#!/bin/bash
+
+sudo cp tun*-trigger /etc/networkd-dispatcher/off.d/
+sudo systemctl daemon-reload
+sudo systemctl restart networkd-dispatcher

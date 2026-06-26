@@ -1,0 +1,20 @@
+# Uses ssh key that must be manually generayed
+[Unit]
+Description=Persistent SSH VPN
+StartLimitIntervalSec=0
+After=try-dhcp.service
+
+[Service]
+User=root
+EnvironmentFile=/data/config/lightsail-ip.env
+ExecStart=/usr/bin/ssh -w 0:0 $LIGHTSAIL_IP \
+    -o ServerAliveInterval=5 \
+    -o ServerAliveCountMax=3 \
+    -i /root/.ssh/ssh-vpn
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

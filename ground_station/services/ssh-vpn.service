@@ -1,0 +1,19 @@
+[Unit]
+Description=Persistent SSH VPN
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+User=root
+EnvironmentFile=/usr/local/bin/lightsail-ip.env
+ExecStart=/usr/bin/ssh -w 1:1 $LIGHTSAIL_IP \
+    -o ServerAliveInterval=5 \
+    -o ServerAliveCountMax=3 \
+    -i /root/.ssh/ssh-vpn
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+function can_connect() {
+    # Ping once with a 5s timeout to a common server
+    ping -c1 -W5 1.1.1.1 > /dev/null 2>&1
+    echo $?
+}
+
+# The original file names
+static="/data/config/01-impish-static.yaml"
+dhcp="/data/config/01-impish-dhcp.yaml"
+file_names="$static $dhcp"
+
+netplan_dest="/etc/netplan/01-impish.yaml"
+while [ true ]; do
+    for netplan_origin in $file_names; do
+        sudo cp $netplan_origin $netplan_dest
+        sudo chmod 600 $netplan_dest
+        sudo netplan generate
+        sudo netplan apply
+        # Allow the netplan to come up
+        sleep 5
+
+        # Break out of this loop and the while loop
+        [ $(can_connect) -eq 0 ] && break 2
+    done
+done

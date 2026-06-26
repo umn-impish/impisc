@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo apt install -y bzip2 networkd-dispatcher

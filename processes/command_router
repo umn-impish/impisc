@@ -33,6 +33,7 @@ SAFE_COMMANDS: list[str] = (
     [str(p.name) for p in globbed if p.is_file() and os.access(p, os.X_OK)]
     + [
         # other commands we want to define as safe
+        "ls",
     ]
 )
 # Special commands that are executed within this process
@@ -69,8 +70,12 @@ class CommandStepper:
             - executes commands (affects rest of system)
         """
         command: str = self.sock.recv(GONDOLA_MTU).decode("utf-8")
+        if len(command) == 0:
+            logging.log_debug(f"Discarding zero-length packet")
+            return None
+        command_head = command.split()[0]
         response: packets.CommandResponsePacket | None = None
-        match (command, self.locked):
+        match (command_head, self.locked):
             case (x, _) if x in SPECIAL_COMMANDS:
                 logging.log_critical(
                     f"Received special command {command}; executing with sudo"
