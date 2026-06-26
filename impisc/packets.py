@@ -3,6 +3,7 @@ import time
 
 from typing import TypeAlias
 
+
 class HealthPacket(ctypes.LittleEndianStructure):
     """
     The IMPISH health packet
@@ -56,26 +57,24 @@ class HealthPacket(ctypes.LittleEndianStructure):
 
 
 class TemperaturePacket(ctypes.LittleEndianStructure):
-
     # Impossibly low temperature (deciCelsius)
     NULL_RTD_VALUE = -1270
 
     _pack_ = 1
     # Temperatures from RTDs and the PCT2075 on the computer board
     # Temperatures measured in deciCelsius
-    # TODO: Rename once we assign them locations within the payload?
     _fields_ = [
         ("timestamp", ctypes.c_uint32),
-        ("temperature0", ctypes.c_int16),
-        ("temperature1", ctypes.c_int16),
-        ("temperature2", ctypes.c_int16),
-        ("temperature3", ctypes.c_int16),
-        ("temperature4", ctypes.c_int16),
-        ("temperature5", ctypes.c_int16),
-        ("temperature6", ctypes.c_int16),
-        ("temperature7", ctypes.c_int16),
-        ("temperature8", ctypes.c_int16),
-        ("fc_board_temperature", ctypes.c_int16)
+        ("eps_heater", ctypes.c_int16),
+        ("daqbox", ctypes.c_int16),
+        ("cm4_power_module", ctypes.c_int16),
+        ("daqbox_ch1", ctypes.c_int16),
+        ("daqbox_ch2", ctypes.c_int16),
+        ("bubba_amp", ctypes.c_int16),
+        ("daqbox_ch3", ctypes.c_int16),
+        ("instrument_heater", ctypes.c_int16),
+        ("daqbox_ch4", ctypes.c_int16),
+        ("fc_board_temperature", ctypes.c_int16),
     ]
 
     def __init__(self):
@@ -158,7 +157,12 @@ Packet: TypeAlias = (
     type[HealthPacket] | type[QuicklookPacket] | type[CommandResponsePacket]
 )
 # Define a unique ID for each packet type; their index in their ID value
-PACKET_IDS: list[Packet] = [HealthPacket, TemperaturePacket, QuicklookPacket, CommandResponsePacket]
+PACKET_IDS: list[Packet] = [
+    HealthPacket,
+    TemperaturePacket,
+    QuicklookPacket,
+    CommandResponsePacket,
+]
 
 
 def split(data: bytes) -> tuple[PacketHeader, Packet]:

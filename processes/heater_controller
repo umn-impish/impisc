@@ -54,11 +54,10 @@ def main():
         data: bytes = sock.recv(ctypes.sizeof(TemperaturePacket))
         packet: TemperaturePacket = TemperaturePacket.from_buffer_copy(data)
 
-        # TODO update once we assign the fields better names
         temps_to_compare: list[float] = [
             # Convert from decidegC to degC
             t / 10
-            for t in [packet.temperature3, packet.temperature4]
+            for t in [packet.daqbox, packet.fc_board_temperature, packet.bubba_amp]
             if t != TemperaturePacket.NULL_RTD_VALUE
         ]
 
