@@ -25,13 +25,13 @@ def main() -> Never:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("", MY_PORT))
     TEMPERATURE_FIELD_MAP = {
-        i: k for (i, k) in zip(range(2, 20, 2), TemperaturePacket._fields_[1:])
+        i: k[0] for (i, k) in zip(range(2, 20, 2), TemperaturePacket._fields_[1:])
     }
     pct_device = pct2075.PCT2075(bus_number=1, address=0x49)
     pct_device.awake = True
     while True:
         packet = TemperaturePacket()
-        for i, k in TEMPERATURE_FIELD_MAP:
+        for i, k in TEMPERATURE_FIELD_MAP.items():
             _, temperature = measure_rtd(i)
             setattr(packet, k, temperature)
         packet.fc_board_temperature = int(pct_device.read_temperature() * 10)
