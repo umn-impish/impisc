@@ -5,8 +5,15 @@
 # the ground station deployment.
 
 source /usr/local/bin/gcx_token.env
-gcx login default \
+/home/grimpish/.local/bin/gcx login default \
   --server http://localhost:3000 \
   --token $GRAFANA_API_TOKEN \
   --yes
-gcx resources pull dashboards --path $HOME/dashboards_json
+/home/grimpish/.local/bin/gcx resources pull dashboards \
+  --path $HOME/dashboards_json \
+  --config /home/grimpish/.config/gcx/config.yaml
+# attempt to copy to usb
+mkdir -p /mnt/gssecrets-usb/
+mount /dev/sdb1 /mnt/gssecrets-usb/
+cp -r $HOME/dashboards_json /mnt/gssecrets-usb/
+umount /mnt/gssecrets-usb/

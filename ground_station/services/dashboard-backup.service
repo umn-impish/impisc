@@ -1,7 +1,8 @@
 [Unit]
 Description=Download the Grafana dashboard JSON files for backup
 After=network.target
-StartLimitIntervalSec=0
+StartLimitIntervalSec=10
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
@@ -10,7 +11,7 @@ StandardOutput=journal
 StandardError=journal
 Restart=on-failure
 RestartSec=5
-User=grimpish
+User=root
 
 [Install]
 WantedBy=multi-user.target
