@@ -35,14 +35,7 @@ class PCT2075(GenericDevice):
         Accepted range: [-55, +125] deg Celsius.
         The provided value is rounded to the nearest 0.5 degree.
         """
-        value = (value * 2) / 2  # Round to nearest 0.5
-        if (value < -55) or (value > 125):
-            raise ValueError(
-                "Overtemperature threshold must be within "
-                + f"[-55, 125] *C; provided value {value} invalid."
-            )
-        # 9-bit two's complement shifted into 16 bits
-        value = (int(value * 2) & 0x1FF) << 7
+        value = _transform_threshold_temperatures(value, "overtemperature")
         self.write_block_data("tos", value)
 
     @property
@@ -57,14 +50,7 @@ class PCT2075(GenericDevice):
         Accepted range: [-55, +125] deg Celsius.
         The provided value is rounded to the nearest 0.5 degree.
         """
-        value = (value * 2) / 2  # Round to nearest 0.5
-        if (value < -55) or (value > 125):
-            raise ValueError(
-                "Hysteresis temperature must be within "
-                + f"[-55, 125] *C; provided value {value} invalid."
-            )
-        # 9-bit two's complement shifted into 16 bits
-        value = (int(value * 2) & 0x1FF) << 7
+        value = _transform_threshold_temperatures(value, "hysterisis")
         self.write_block_data("thyst", value)
 
     @property
@@ -175,3 +161,16 @@ class PCT2075(GenericDevice):
         """
         value = self.read_block_data("temp") >> 5
         return int_to_twos_complement(value, 11) / 8
+
+
+def _transform_threshold_temperatures(value: float, name: str) -> int:
+    """Validate and transform the threshold temperature into a 16B word,
+    accurate to 0.5 degC."""
+    if not (-55 < value < 125):
+        raise ValueError(
+            f"{name.title()} must be within (-55, 125) C; {value:.2f} is invalid"
+        )
+
+    value = round(value * 2) / 2
+    # 9-bit two's complement shifted into 16 bits
+    return (int(value * 2) & 0x1FF) << 7
