@@ -170,7 +170,5 @@ def _transform_threshold_temperatures(value: float, name: str) -> int:
         raise ValueError(
             f"{name.title()} must be within (-55, 125) C; {value:.2f} is invalid"
         )
-
-    value = round(value * 2) / 2
     # 9-bit two's complement shifted into 16 bits
-    return (int(value * 2) & 0x1FF) << 7
+    return (int(round(value * 2)) & 0x1FF) << 7
