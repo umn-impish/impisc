@@ -3,6 +3,6 @@
 # This script should be automatically executed by
 # networkd-dispatcher if the tun ever goes down.
 
-if [ ! "$IFACE" = "tun1" ]; then exit 1; fi
-ip addr add 10.1.0.1 peer 10.1.0.2/30 dev tun1
+if [ ! "$IFACE" = "tun1" ]; then exit 0; fi
+ip addr replace 10.1.0.1 peer 10.1.0.2/30 dev tun1
 ip link set tun1 up
