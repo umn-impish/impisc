@@ -7,7 +7,7 @@
 IFACE=$1
 EVENT=$2
 
-if [ ! "$IFACE" = "tun1" ] || [ ! "$EVENT" = "down" ]; then exit 1; fi
+if [ ! "$IFACE" = "tun1" ] || [ ! "$EVENT" = "down" ]; then exit 0; fi
 ip addr replace 10.1.0.2 peer 10.1.0.1/30 dev tun1
 ip link set tun1 up
 while ! ping -c 1 -W 2 10.1.0.1 > /dev/null 2>&1; do
